@@ -121,6 +121,75 @@ function ModelPill({
     );
 }
 
+/**
+ * Section heading with hide/show functionality
+ * Shows section name and optional right-side buttons (refresh, add, etc.)
+ */
+function SectionHeading({
+    title,
+    isVisible,
+    onToggleVisibility,
+    rightButton,
+}: {
+    title: string;
+    isVisible: boolean;
+    onToggleVisibility: () => void;
+    rightButton?: React.ReactNode;
+}) {
+    return (
+        <div className="flex items-center justify-between w-full">
+            <span>{title}</span>
+            <div className="flex items-center gap-1">
+                {/* Show right button only when section is visible */}
+                {isVisible && rightButton}
+                {/* Always show hide button when section is visible */}
+                {isVisible && (
+                    <button
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onToggleVisibility();
+                        }}
+                        className="p-1.5 hover:bg-accent text-muted-foreground/50 rounded-md flex items-center gap-1"
+                        title={`Hide ${title} models`}
+                    >
+                        <ChevronUpIcon className="w-3 h-3" />
+                        <span className="text-[10px]">Hide</span>
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+}
+
+/**
+ * Empty state shown when section is collapsed
+ * Shows a button to expand the section
+ */
+function CollapsedSectionState({
+    sectionName,
+    onExpand,
+}: {
+    sectionName: string;
+    onExpand: () => void;
+}) {
+    return (
+        <div className="px-2 mb-4">
+            <Button
+                variant="outline"
+                className="w-full"
+                size="sm"
+                onClick={(e) => {
+                    e.preventDefault();
+                    onExpand();
+                }}
+            >
+                Show {sectionName} models
+            </Button>
+        </div>
+    );
+}
+
 /** A component to render a group of models with a heading */
 function ModelGroup({
     heading,
@@ -307,8 +376,21 @@ export function ManageModelsBox({
     const updateSelectedModelConfigsCompare =
         MessageAPI.useUpdateSelectedModelConfigsCompare();
     const modelConfigs = ModelsAPI.useModelConfigs();
-    const showOpenRouter = AppMetadataAPI.useShowOpenRouter();
-    const setShowOpenRouterMutation = AppMetadataAPI.useSetShowOpenRouter();
+
+    // Get all section visibility state
+    const sectionsVisibility = AppMetadataAPI.useSectionsVisibility();
+    const setSectionVisibility = AppMetadataAPI.useSetSectionVisibility();
+
+    // Helper function to toggle a section
+    const toggleSection = useCallback(
+        (section: string) => {
+            setSectionVisibility.mutate({
+                section,
+                visible: !sectionsVisibility[section],
+            });
+        },
+        [sectionsVisibility, setSectionVisibility],
+    );
 
     const selectedSingleModelConfig = useMemo(() => {
         if (mode.type === "single") {
@@ -486,13 +568,29 @@ export function ManageModelsBox({
             ]),
         ) as Record<(typeof directProviders)[number], ModelConfig[]>;
 
+        const custom = filterBySearch(userModels, searchTerms);
+        const local = filterBySearch(localModels, searchTerms);
+        const openrouter = filterBySearch(openrouterModels, searchTerms);
+
         return {
-            custom: filterBySearch(userModels, searchTerms),
-            local: filterBySearch(localModels, searchTerms),
-            openrouter: filterBySearch(openrouterModels, searchTerms),
+            custom,
+            local,
+            openrouter,
             directByProvider,
         };
     }, [modelConfigs.data, searchQuery]);
+
+    // Check if there are ANY matching models across all sections (for CommandEmpty)
+    const hasAnyMatches = useMemo(() => {
+        return (
+            modelGroups.openrouter.length > 0 ||
+            modelGroups.custom.length > 0 ||
+            modelGroups.local.length > 0 ||
+            Object.values(modelGroups.directByProvider).some(
+                (models) => models.length > 0,
+            )
+        );
+    }, [modelGroups]);
 
     useLayoutEffect(() => {
         if (!listRef.current) return;
@@ -600,44 +698,21 @@ export function ManageModelsBox({
                     />
                 </div>
                 <CommandList ref={listRef}>
-                    <CommandEmpty>No models found</CommandEmpty>
+                    {!hasAnyMatches && (
+                        <CommandEmpty>No models found</CommandEmpty>
+                    )}
 
                     {/* OpenRouter Models - main list */}
-                    {(modelGroups.openrouter.length > 0 ||
-                        searchQuery === "") && (
+                    {modelGroups.openrouter.length > 0 && (
                         <ModelGroup
                             heading={
-                                <div className="flex items-center justify-between w-full">
-                                    <span>OpenRouter</span>
-                                    {showOpenRouter && (
-                                        <button
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                setShowOpenRouterMutation.mutate(
-                                                    false,
-                                                );
-                                            }}
-                                            className="p-1.5 hover:bg-accent text-muted-foreground/50 rounded-md flex items-center gap-1"
-                                            title="Hide OpenRouter models"
-                                        >
-                                            <ChevronUpIcon className="w-3 h-3" />
-                                            <span className="text-[10px]">
-                                                Hide
-                                            </span>
-                                        </button>
-                                    )}
-                                </div>
-                            }
-                            models={modelGroups.openrouter}
-                            checkedModelConfigIds={checkedModelConfigIds}
-                            mode={mode}
-                            onToggleModelConfig={handleToggleModelConfig}
-                            onAddApiKey={handleAddApiKey}
-                            groupId="openrouter"
-                            refreshButton={
-                                showOpenRouter && (
-                                    <div className="flex items-center gap-1">
+                                <SectionHeading
+                                    title="OpenRouter"
+                                    isVisible={sectionsVisibility.openrouter}
+                                    onToggleVisibility={() =>
+                                        toggleSection("openrouter")
+                                    }
+                                    rightButton={
                                         <button
                                             onClick={(e) => {
                                                 e.preventDefault();
@@ -648,12 +723,13 @@ export function ManageModelsBox({
                                             }}
                                             className="p-1.5 hover:bg-accent text-muted-foreground/50 rounded-md flex items-center gap-2"
                                             title="Refresh OpenRouter models"
+                                            disabled={
+                                                spinningProviders.openrouter
+                                            }
                                         >
                                             <RefreshCcwIcon
                                                 className={`w-3 h-3 ${
-                                                    spinningProviders[
-                                                        "openrouter"
-                                                    ]
+                                                    spinningProviders.openrouter
                                                         ? "animate-spin"
                                                         : ""
                                                 }`}
@@ -662,28 +738,27 @@ export function ManageModelsBox({
                                                 Refresh
                                             </span>
                                         </button>
-                                    </div>
-                                )
+                                    }
+                                />
                             }
+                            models={
+                                sectionsVisibility.openrouter
+                                    ? modelGroups.openrouter
+                                    : []
+                            }
+                            checkedModelConfigIds={checkedModelConfigIds}
+                            mode={mode}
+                            onToggleModelConfig={handleToggleModelConfig}
+                            onAddApiKey={handleAddApiKey}
+                            groupId="openrouter"
                             emptyState={
-                                !showOpenRouter ? (
-                                    <div className="px-2 mb-4">
-                                        <Button
-                                            variant="outline"
-                                            className="w-full"
-                                            size="sm"
-                                            onClick={(
-                                                e: React.MouseEvent<HTMLButtonElement>,
-                                            ) => {
-                                                e.preventDefault();
-                                                setShowOpenRouterMutation.mutate(
-                                                    true,
-                                                );
-                                            }}
-                                        >
-                                            Show OpenRouter models
-                                        </Button>
-                                    </div>
+                                !sectionsVisibility.openrouter ? (
+                                    <CollapsedSectionState
+                                        sectionName="OpenRouter"
+                                        onExpand={() =>
+                                            toggleSection("openrouter")
+                                        }
+                                    />
                                 ) : apiKeys && !apiKeys.openrouter ? (
                                     <div className="px-2 mb-4 text-sm text-muted-foreground">
                                         <p className="mb-2">
@@ -712,156 +787,311 @@ export function ManageModelsBox({
                     {/* Direct Provider Models (Anthropic, OpenAI, Google, etc.) */}
                     {modelGroups.directByProvider.anthropic.length > 0 && (
                         <ModelGroup
-                            heading="Anthropic"
-                            models={modelGroups.directByProvider.anthropic}
+                            heading={
+                                <SectionHeading
+                                    title="Anthropic"
+                                    isVisible={sectionsVisibility.anthropic}
+                                    onToggleVisibility={() =>
+                                        toggleSection("anthropic")
+                                    }
+                                />
+                            }
+                            models={
+                                sectionsVisibility.anthropic
+                                    ? modelGroups.directByProvider.anthropic
+                                    : []
+                            }
                             checkedModelConfigIds={checkedModelConfigIds}
                             mode={mode}
                             onToggleModelConfig={handleToggleModelConfig}
                             onAddApiKey={handleAddApiKey}
                             groupId="anthropic"
+                            emptyState={
+                                !sectionsVisibility.anthropic ? (
+                                    <CollapsedSectionState
+                                        sectionName="Anthropic"
+                                        onExpand={() =>
+                                            toggleSection("anthropic")
+                                        }
+                                    />
+                                ) : undefined
+                            }
                         />
                     )}
                     {modelGroups.directByProvider.openai.length > 0 && (
                         <ModelGroup
-                            heading="OpenAI"
-                            models={modelGroups.directByProvider.openai}
+                            heading={
+                                <SectionHeading
+                                    title="OpenAI"
+                                    isVisible={sectionsVisibility.openai}
+                                    onToggleVisibility={() =>
+                                        toggleSection("openai")
+                                    }
+                                />
+                            }
+                            models={
+                                sectionsVisibility.openai
+                                    ? modelGroups.directByProvider.openai
+                                    : []
+                            }
                             checkedModelConfigIds={checkedModelConfigIds}
                             mode={mode}
                             onToggleModelConfig={handleToggleModelConfig}
                             onAddApiKey={handleAddApiKey}
                             groupId="openai"
+                            emptyState={
+                                !sectionsVisibility.openai ? (
+                                    <CollapsedSectionState
+                                        sectionName="OpenAI"
+                                        onExpand={() => toggleSection("openai")}
+                                    />
+                                ) : undefined
+                            }
                         />
                     )}
                     {modelGroups.directByProvider.google.length > 0 && (
                         <ModelGroup
-                            heading="Google"
-                            models={modelGroups.directByProvider.google}
+                            heading={
+                                <SectionHeading
+                                    title="Google"
+                                    isVisible={sectionsVisibility.google}
+                                    onToggleVisibility={() =>
+                                        toggleSection("google")
+                                    }
+                                />
+                            }
+                            models={
+                                sectionsVisibility.google
+                                    ? modelGroups.directByProvider.google
+                                    : []
+                            }
                             checkedModelConfigIds={checkedModelConfigIds}
                             mode={mode}
                             onToggleModelConfig={handleToggleModelConfig}
                             onAddApiKey={handleAddApiKey}
                             groupId="google"
+                            emptyState={
+                                !sectionsVisibility.google ? (
+                                    <CollapsedSectionState
+                                        sectionName="Google"
+                                        onExpand={() => toggleSection("google")}
+                                    />
+                                ) : undefined
+                            }
                         />
                     )}
                     {modelGroups.directByProvider.grok.length > 0 && (
                         <ModelGroup
-                            heading="Grok"
-                            models={modelGroups.directByProvider.grok}
+                            heading={
+                                <SectionHeading
+                                    title="Grok"
+                                    isVisible={sectionsVisibility.grok}
+                                    onToggleVisibility={() =>
+                                        toggleSection("grok")
+                                    }
+                                />
+                            }
+                            models={
+                                sectionsVisibility.grok
+                                    ? modelGroups.directByProvider.grok
+                                    : []
+                            }
                             checkedModelConfigIds={checkedModelConfigIds}
                             mode={mode}
                             onToggleModelConfig={handleToggleModelConfig}
                             onAddApiKey={handleAddApiKey}
                             groupId="grok"
+                            emptyState={
+                                !sectionsVisibility.grok ? (
+                                    <CollapsedSectionState
+                                        sectionName="Grok"
+                                        onExpand={() => toggleSection("grok")}
+                                    />
+                                ) : undefined
+                            }
                         />
                     )}
                     {modelGroups.directByProvider.perplexity.length > 0 && (
                         <ModelGroup
-                            heading="Perplexity"
-                            models={modelGroups.directByProvider.perplexity}
+                            heading={
+                                <SectionHeading
+                                    title="Perplexity"
+                                    isVisible={sectionsVisibility.perplexity}
+                                    onToggleVisibility={() =>
+                                        toggleSection("perplexity")
+                                    }
+                                />
+                            }
+                            models={
+                                sectionsVisibility.perplexity
+                                    ? modelGroups.directByProvider.perplexity
+                                    : []
+                            }
                             checkedModelConfigIds={checkedModelConfigIds}
                             mode={mode}
                             onToggleModelConfig={handleToggleModelConfig}
                             onAddApiKey={handleAddApiKey}
                             groupId="perplexity"
+                            emptyState={
+                                !sectionsVisibility.perplexity ? (
+                                    <CollapsedSectionState
+                                        sectionName="Perplexity"
+                                        onExpand={() =>
+                                            toggleSection("perplexity")
+                                        }
+                                    />
+                                ) : undefined
+                            }
                         />
                     )}
 
                     {/* Custom Models */}
-                    {modelGroups.custom.length > 0 && (
+                    {(modelGroups.custom.length > 0 || !searchQuery) && (
                         <ModelGroup
                             heading={
-                                <div className="flex items-center justify-between w-full">
-                                    <span>Custom</span>
-                                    <button
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            handleAddCustomModel();
-                                        }}
-                                        className="p-1.5 hover:bg-accent text-muted-foreground/50 rounded-md flex items-center gap-1"
-                                        title="Add custom model"
-                                    >
-                                        <PlusIcon className="w-3 h-3" />
-                                        <span className="text-sm">Add</span>
-                                    </button>
-                                </div>
+                                <SectionHeading
+                                    title="Custom"
+                                    isVisible={sectionsVisibility.custom}
+                                    onToggleVisibility={() =>
+                                        toggleSection("custom")
+                                    }
+                                    rightButton={
+                                        <button
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                handleAddCustomModel();
+                                            }}
+                                            className="p-1.5 hover:bg-accent text-muted-foreground/50 rounded-md flex items-center gap-1"
+                                            title="Add custom model"
+                                        >
+                                            <PlusIcon className="w-3 h-3" />
+                                            <span className="text-sm">Add</span>
+                                        </button>
+                                    }
+                                />
                             }
-                            models={modelGroups.custom}
+                            models={
+                                sectionsVisibility.custom
+                                    ? modelGroups.custom
+                                    : []
+                            }
                             checkedModelConfigIds={checkedModelConfigIds}
                             mode={mode}
                             onToggleModelConfig={handleToggleModelConfig}
                             onAddApiKey={handleAddApiKey}
                             groupId="custom"
+                            emptyState={
+                                !sectionsVisibility.custom ? (
+                                    <CollapsedSectionState
+                                        sectionName="Custom"
+                                        onExpand={() => toggleSection("custom")}
+                                    />
+                                ) : undefined
+                            }
                         />
                     )}
 
                     {/* Local Models */}
-                    <ModelGroup
-                        heading="Local"
-                        models={modelGroups.local}
-                        checkedModelConfigIds={checkedModelConfigIds}
-                        mode={mode}
-                        onToggleModelConfig={handleToggleModelConfig}
-                        onAddApiKey={handleAddApiKey}
-                        groupId="local"
-                        refreshButton={
-                            <button
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    void handleRefreshProviders("ollama");
-                                    void handleRefreshProviders("lmstudio");
-                                }}
-                                className="p-1.5 hover:bg-accent text-muted-foreground/50 rounded-md flex items-center gap-2"
-                                title="Refresh local models"
-                            >
-                                <RefreshCcwIcon
-                                    className={`w-3 h-3 ${
-                                        spinningProviders["ollama"] ||
-                                        spinningProviders["lmstudio"]
-                                            ? "animate-spin"
-                                            : ""
-                                    }`}
+                    {(modelGroups.local.length > 0 || !searchQuery) && (
+                        <ModelGroup
+                            heading={
+                                <SectionHeading
+                                    title="Local"
+                                    isVisible={sectionsVisibility.local}
+                                    onToggleVisibility={() =>
+                                        toggleSection("local")
+                                    }
+                                    rightButton={
+                                        <button
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                void handleRefreshProviders(
+                                                    "ollama",
+                                                );
+                                                void handleRefreshProviders(
+                                                    "lmstudio",
+                                                );
+                                            }}
+                                            className="p-1.5 hover:bg-accent text-muted-foreground/50 rounded-md flex items-center gap-2"
+                                            title="Refresh local models"
+                                            disabled={
+                                                spinningProviders.ollama ||
+                                                spinningProviders.lmstudio
+                                            }
+                                        >
+                                            <RefreshCcwIcon
+                                                className={`w-3 h-3 ${
+                                                    spinningProviders.ollama ||
+                                                    spinningProviders.lmstudio
+                                                        ? "animate-spin"
+                                                        : ""
+                                                }`}
+                                            />
+                                            <span className="text-sm">
+                                                Refresh
+                                            </span>
+                                        </button>
+                                    }
                                 />
-                                <span className="text-sm">Refresh</span>
-                            </button>
-                        }
-                        emptyState={
-                            modelGroups.local.length === 0 ? (
-                                <div className="flex flex-col gap-2 px-2">
-                                    <div className="text-sm text-muted-foreground">
-                                        No local models found. To run local
-                                        models, you must have Ollama or LM
-                                        Studio installed.
+                            }
+                            models={
+                                sectionsVisibility.local
+                                    ? modelGroups.local
+                                    : []
+                            }
+                            checkedModelConfigIds={checkedModelConfigIds}
+                            mode={mode}
+                            onToggleModelConfig={handleToggleModelConfig}
+                            onAddApiKey={handleAddApiKey}
+                            groupId="local"
+                            emptyState={
+                                !sectionsVisibility.local ? (
+                                    <CollapsedSectionState
+                                        sectionName="Local"
+                                        onExpand={() => toggleSection("local")}
+                                    />
+                                ) : modelGroups.local.length === 0 ? (
+                                    <div className="flex flex-col gap-2 px-2">
+                                        <div className="text-sm text-muted-foreground">
+                                            No local models found. To run local
+                                            models, you must have Ollama or LM
+                                            Studio installed.
+                                        </div>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={(
+                                                e: React.MouseEvent<HTMLButtonElement>,
+                                            ) => {
+                                                e.preventDefault();
+                                                void handleRefreshProviders(
+                                                    "ollama",
+                                                );
+                                                void handleRefreshProviders(
+                                                    "lmstudio",
+                                                );
+                                            }}
+                                            title="Refresh local models"
+                                        >
+                                            Refresh local models
+                                            <RefreshCcwIcon
+                                                className={`w-3 h-3 ml-2 ${
+                                                    spinningProviders[
+                                                        "ollama"
+                                                    ] ||
+                                                    spinningProviders[
+                                                        "lmstudio"
+                                                    ]
+                                                        ? "animate-spin"
+                                                        : ""
+                                                }`}
+                                            />
+                                        </Button>
                                     </div>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={(
-                                            e: React.MouseEvent<HTMLButtonElement>,
-                                        ) => {
-                                            e.preventDefault();
-                                            void handleRefreshProviders(
-                                                "ollama",
-                                            );
-                                            void handleRefreshProviders(
-                                                "lmstudio",
-                                            );
-                                        }}
-                                        title="Refresh local models"
-                                    >
-                                        Refresh local models
-                                        <RefreshCcwIcon
-                                            className={`w-3 h-3 ml-2 ${
-                                                spinningProviders["ollama"] ||
-                                                spinningProviders["lmstudio"]
-                                                    ? "animate-spin"
-                                                    : ""
-                                            }`}
-                                        />
-                                    </Button>
-                                </div>
-                            ) : undefined
-                        }
-                    />
+                                ) : undefined
+                            }
+                        />
+                    )}
                 </CommandList>
             </CommandDialog>
         </>
