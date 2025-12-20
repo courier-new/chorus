@@ -137,7 +137,7 @@ function SectionHeading({
     rightButton?: React.ReactNode;
 }) {
     return (
-        <div className="flex items-center justify-between w-full min-h-7">
+        <div className="flex items-center justify-between w-full">
             <button
                 onClick={(e) => {
                     e.preventDefault();
