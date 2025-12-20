@@ -27,7 +27,7 @@ import {
     XIcon,
     ArrowBigUpIcon,
     CircleCheckIcon,
-    ChevronUpIcon,
+    ChevronDownIcon,
 } from "lucide-react";
 import { ProviderLogo } from "./ui/provider-logo";
 import {
@@ -122,8 +122,8 @@ function ModelPill({
 }
 
 /**
- * Section heading with hide/show functionality
- * Shows section name and optional right-side buttons (refresh, add, etc.)
+ * Section heading component that acts as an accordion header
+ * Clickable to expand/collapse, with chevron indicator and optional action buttons
  */
 function SectionHeading({
     title,
@@ -137,55 +137,26 @@ function SectionHeading({
     rightButton?: React.ReactNode;
 }) {
     return (
-        <div className="flex items-center justify-between w-full">
-            <span>{title}</span>
+        <div className="flex items-center justify-between w-full min-h-7">
+            <button
+                onClick={(e) => {
+                    e.preventDefault();
+                    onToggleVisibility();
+                }}
+                className="flex items-center gap-1"
+                title={isVisible ? `Collapse ${title}` : `Expand ${title}`}
+            >
+                <span>{title}</span>
+                <ChevronDownIcon
+                    className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                        isVisible ? "" : "-rotate-90"
+                    }`}
+                />
+            </button>
             <div className="flex items-center gap-1">
                 {/* Show right button only when section is visible */}
                 {isVisible && rightButton}
-                {/* Always show hide button when section is visible */}
-                {isVisible && (
-                    <button
-                        onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            onToggleVisibility();
-                        }}
-                        className="p-1.5 hover:bg-accent text-muted-foreground/50 rounded-md flex items-center gap-1"
-                        title={`Hide ${title} models`}
-                    >
-                        <ChevronUpIcon className="w-3 h-3" />
-                        <span className="text-[10px]">Hide</span>
-                    </button>
-                )}
             </div>
-        </div>
-    );
-}
-
-/**
- * Empty state shown when section is collapsed
- * Shows a button to expand the section
- */
-function CollapsedSectionState({
-    sectionName,
-    onExpand,
-}: {
-    sectionName: string;
-    onExpand: () => void;
-}) {
-    return (
-        <div className="px-2 mb-4">
-            <Button
-                variant="outline"
-                className="w-full"
-                size="sm"
-                onClick={(e) => {
-                    e.preventDefault();
-                    onExpand();
-                }}
-            >
-                Show {sectionName} models
-            </Button>
         </div>
     );
 }
@@ -721,20 +692,20 @@ export function ManageModelsBox({
                                                     "openrouter",
                                                 );
                                             }}
-                                            className="p-1.5 hover:bg-accent text-muted-foreground/50 rounded-md flex items-center gap-2"
+                                            className="px-2 py-1 bg-muted hover:bg-accent rounded-md flex items-center gap-1 transition-colors text-muted-foreground"
                                             title="Refresh OpenRouter models"
                                             disabled={
                                                 spinningProviders.openrouter
                                             }
                                         >
                                             <RefreshCcwIcon
-                                                className={`w-3 h-3 ${
+                                                className={`w-3.5 h-3.5 ${
                                                     spinningProviders.openrouter
                                                         ? "animate-spin"
                                                         : ""
                                                 }`}
                                             />
-                                            <span className="text-sm">
+                                            <span className="text-sm font-sans normal-case">
                                                 Refresh
                                             </span>
                                         </button>
@@ -752,14 +723,7 @@ export function ManageModelsBox({
                             onAddApiKey={handleAddApiKey}
                             groupId="openrouter"
                             emptyState={
-                                !sectionsVisibility.openrouter ? (
-                                    <CollapsedSectionState
-                                        sectionName="OpenRouter"
-                                        onExpand={() =>
-                                            toggleSection("openrouter")
-                                        }
-                                    />
-                                ) : apiKeys && !apiKeys.openrouter ? (
+                                apiKeys && !apiKeys.openrouter ? (
                                     <div className="px-2 mb-4 text-sm text-muted-foreground">
                                         <p className="mb-2">
                                             OpenRouter models require an API
@@ -806,16 +770,6 @@ export function ManageModelsBox({
                             onToggleModelConfig={handleToggleModelConfig}
                             onAddApiKey={handleAddApiKey}
                             groupId="anthropic"
-                            emptyState={
-                                !sectionsVisibility.anthropic ? (
-                                    <CollapsedSectionState
-                                        sectionName="Anthropic"
-                                        onExpand={() =>
-                                            toggleSection("anthropic")
-                                        }
-                                    />
-                                ) : undefined
-                            }
                         />
                     )}
                     {modelGroups.directByProvider.openai.length > 0 && (
@@ -839,14 +793,6 @@ export function ManageModelsBox({
                             onToggleModelConfig={handleToggleModelConfig}
                             onAddApiKey={handleAddApiKey}
                             groupId="openai"
-                            emptyState={
-                                !sectionsVisibility.openai ? (
-                                    <CollapsedSectionState
-                                        sectionName="OpenAI"
-                                        onExpand={() => toggleSection("openai")}
-                                    />
-                                ) : undefined
-                            }
                         />
                     )}
                     {modelGroups.directByProvider.google.length > 0 && (
@@ -870,14 +816,6 @@ export function ManageModelsBox({
                             onToggleModelConfig={handleToggleModelConfig}
                             onAddApiKey={handleAddApiKey}
                             groupId="google"
-                            emptyState={
-                                !sectionsVisibility.google ? (
-                                    <CollapsedSectionState
-                                        sectionName="Google"
-                                        onExpand={() => toggleSection("google")}
-                                    />
-                                ) : undefined
-                            }
                         />
                     )}
                     {modelGroups.directByProvider.grok.length > 0 && (
@@ -901,14 +839,6 @@ export function ManageModelsBox({
                             onToggleModelConfig={handleToggleModelConfig}
                             onAddApiKey={handleAddApiKey}
                             groupId="grok"
-                            emptyState={
-                                !sectionsVisibility.grok ? (
-                                    <CollapsedSectionState
-                                        sectionName="Grok"
-                                        onExpand={() => toggleSection("grok")}
-                                    />
-                                ) : undefined
-                            }
                         />
                     )}
                     {modelGroups.directByProvider.perplexity.length > 0 && (
@@ -932,16 +862,6 @@ export function ManageModelsBox({
                             onToggleModelConfig={handleToggleModelConfig}
                             onAddApiKey={handleAddApiKey}
                             groupId="perplexity"
-                            emptyState={
-                                !sectionsVisibility.perplexity ? (
-                                    <CollapsedSectionState
-                                        sectionName="Perplexity"
-                                        onExpand={() =>
-                                            toggleSection("perplexity")
-                                        }
-                                    />
-                                ) : undefined
-                            }
                         />
                     )}
 
@@ -961,11 +881,13 @@ export function ManageModelsBox({
                                                 e.preventDefault();
                                                 handleAddCustomModel();
                                             }}
-                                            className="p-1.5 hover:bg-accent text-muted-foreground/50 rounded-md flex items-center gap-1"
+                                            className="px-2 py-1 bg-muted hover:bg-accent rounded-md flex items-center gap-1 transition-colors text-muted-foreground"
                                             title="Add custom model"
                                         >
-                                            <PlusIcon className="w-3 h-3" />
-                                            <span className="text-sm">Add</span>
+                                            <PlusIcon className="w-3.5 h-3.5" />
+                                            <span className="text-sm font-sans normal-case">
+                                                Add
+                                            </span>
                                         </button>
                                     }
                                 />
@@ -980,14 +902,6 @@ export function ManageModelsBox({
                             onToggleModelConfig={handleToggleModelConfig}
                             onAddApiKey={handleAddApiKey}
                             groupId="custom"
-                            emptyState={
-                                !sectionsVisibility.custom ? (
-                                    <CollapsedSectionState
-                                        sectionName="Custom"
-                                        onExpand={() => toggleSection("custom")}
-                                    />
-                                ) : undefined
-                            }
                         />
                     )}
 
@@ -1012,7 +926,7 @@ export function ManageModelsBox({
                                                     "lmstudio",
                                                 );
                                             }}
-                                            className="p-1.5 hover:bg-accent text-muted-foreground/50 rounded-md flex items-center gap-2"
+                                            className="px-2 py-1 bg-muted hover:bg-accent rounded-md flex items-center gap-1 transition-colors text-muted-foreground"
                                             title="Refresh local models"
                                             disabled={
                                                 spinningProviders.ollama ||
@@ -1020,14 +934,14 @@ export function ManageModelsBox({
                                             }
                                         >
                                             <RefreshCcwIcon
-                                                className={`w-3 h-3 ${
+                                                className={`w-3.5 h-3.5 ${
                                                     spinningProviders.ollama ||
                                                     spinningProviders.lmstudio
                                                         ? "animate-spin"
                                                         : ""
                                                 }`}
                                             />
-                                            <span className="text-sm">
+                                            <span className="text-sm font-sans normal-case">
                                                 Refresh
                                             </span>
                                         </button>
@@ -1045,12 +959,7 @@ export function ManageModelsBox({
                             onAddApiKey={handleAddApiKey}
                             groupId="local"
                             emptyState={
-                                !sectionsVisibility.local ? (
-                                    <CollapsedSectionState
-                                        sectionName="Local"
-                                        onExpand={() => toggleSection("local")}
-                                    />
-                                ) : modelGroups.local.length === 0 ? (
+                                modelGroups.local.length === 0 ? (
                                     <div className="flex flex-col gap-2 px-2">
                                         <div className="text-sm text-muted-foreground">
                                             No local models found. To run local
