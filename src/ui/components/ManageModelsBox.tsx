@@ -576,6 +576,10 @@ export function ManageModelsBox({
         });
     }, [searchQuery]);
 
+    const handleSearchInput = useCallback((value: string) => {
+        setSearchQuery(value);
+    }, []);
+
     return (
         <>
             <CommandDialog
@@ -662,9 +666,7 @@ export function ManageModelsBox({
                     <CommandInput
                         placeholder="Search models..."
                         value={searchQuery}
-                        onValueChange={(value) => {
-                            setSearchQuery(value);
-                        }}
+                        onValueChange={handleSearchInput}
                         autoFocus
                     />
                 </div>

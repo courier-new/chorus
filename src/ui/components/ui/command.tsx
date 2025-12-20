@@ -1,7 +1,7 @@
 import * as React from "react";
 import { DialogTitle, type DialogProps } from "@radix-ui/react-dialog";
 import { Command as CommandPrimitive } from "cmdk";
-import { Search } from "lucide-react";
+import { Search, XCircle } from "lucide-react";
 
 import { cn } from "@/ui/lib/utils";
 import { Dialog, DialogContent } from "@/ui/components/ui/dialog";
@@ -61,22 +61,53 @@ const CommandDialog = ({
 const CommandInput = React.forwardRef<
     React.ElementRef<typeof CommandPrimitive.Input>,
     React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input>
->(({ className, ...props }, ref) => (
-    <div
-        className="flex items-center border-b px-3 bg-background"
-        cmdk-input-wrapper=""
-    >
-        <Search className="mr-2 !h-4 !w-4 shrink-0 opacity-50" />
-        <CommandPrimitive.Input
-            ref={ref}
-            className={cn(
-                "flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground placeholder:text-base disabled:cursor-not-allowed disabled:opacity-50 bg-background",
-                className,
+>(({ className, value, onValueChange, ...props }, ref) => {
+    // Track value for showing/hiding clear button
+    const [internalValue, setInternalValue] = React.useState(value);
+
+    const handleValueChange = React.useCallback(
+        (newValue: string) => {
+            setInternalValue(newValue);
+            if (onValueChange) {
+                onValueChange(newValue);
+            }
+        },
+        [onValueChange],
+    );
+
+    const handleClear = React.useCallback(() => {
+        handleValueChange("");
+    }, [handleValueChange]);
+
+    return (
+        <div
+            className="flex items-center border-b px-3 bg-background"
+            cmdk-input-wrapper=""
+        >
+            <Search className="mr-2 !h-4 !w-4 shrink-0 opacity-50" />
+            <CommandPrimitive.Input
+                ref={ref}
+                className={cn(
+                    "flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground placeholder:text-base disabled:cursor-not-allowed disabled:opacity-50 bg-background",
+                    className,
+                )}
+                value={internalValue}
+                onValueChange={handleValueChange}
+                {...props}
+            />
+            {internalValue && (
+                <button
+                    onClick={handleClear}
+                    className="ml-2 hover:opacity-70 transition-opacity"
+                    type="button"
+                    aria-label="Clear search"
+                >
+                    <XCircle className="!h-4 !w-4 text-muted-foreground" />
+                </button>
             )}
-            {...props}
-        />
-    </div>
-));
+        </div>
+    );
+});
 
 CommandInput.displayName = CommandPrimitive.Input.displayName;
 

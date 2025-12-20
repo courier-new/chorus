@@ -130,10 +130,13 @@ export function CommandMenu() {
         [],
     );
 
-    const handleSearchInput = (value: string) => {
-        setInputValue(value);
-        void debouncedSearch(value);
-    };
+    const handleSearchInput = useCallback(
+        (value: string) => {
+            setInputValue(value);
+            void debouncedSearch(value);
+        },
+        [debouncedSearch],
+    );
 
     const handleValueChange = useCallback((value: string) => {
         setSelectedValue(value);
