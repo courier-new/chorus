@@ -1,4 +1,8 @@
-import { getProviderName, ProviderName } from "@core/chorus/Models";
+import {
+    getProviderName,
+    LogoProviderName,
+    ProviderName,
+} from "@core/chorus/Models";
 import { detectOpenRouterProviderLogo } from "@ui/lib/models";
 import { cn } from "@ui/lib/utils";
 import { BoxIcon } from "lucide-react";
@@ -39,7 +43,9 @@ export function ProviderLogo({
         lg: "w-8 h-8",
     };
 
-    const getLogoComponent = (provider: ProviderName | undefined) => {
+    const getLogoComponent = (
+        provider: ProviderName | LogoProviderName | undefined,
+    ) => {
         switch (provider) {
             case "anthropic":
                 return <RiAnthropicFill className="w-4 h-4" />;
@@ -61,6 +67,54 @@ export function ProviderLogo({
                     <img
                         src="/xai_light.svg"
                         alt="Grok"
+                        className="w-4 h-4 dark:invert"
+                    />
+                );
+            case "deepseek":
+                return (
+                    <img
+                        src="/deepseek_light.svg"
+                        alt="DeepSeek"
+                        className="w-4 h-4 dark:invert"
+                    />
+                );
+            case "kimi":
+                return (
+                    <img
+                        src="/kimi_light.svg"
+                        alt="Kimi"
+                        className="w-4 h-4 dark:invert"
+                    />
+                );
+            case "mistral":
+                return (
+                    <img
+                        src="/mistral_light.svg"
+                        alt="Mistral"
+                        className="w-4 h-4 dark:invert"
+                    />
+                );
+            case "nvidia":
+                return (
+                    <img
+                        src="/nvidia_light.svg"
+                        alt="NVIDIA"
+                        className="w-4 h-4 dark:invert"
+                    />
+                );
+            case "qwen":
+                return (
+                    <img
+                        src="/qwen_light.svg"
+                        alt="Qwen"
+                        className="w-4 h-4 dark:invert"
+                    />
+                );
+            case "zai":
+                return (
+                    <img
+                        src="/zai_light.svg"
+                        alt="01.AI"
                         className="w-4 h-4 dark:invert"
                     />
                 );

@@ -233,6 +233,20 @@ export type ProviderName =
     | "meta";
 
 /**
+ * Extended type for logo display that includes logo-only providers.
+ * These providers don't have full infrastructure (API routing, auth, etc.)
+ * but we want to show their logos for OpenRouter models.
+ */
+export type LogoProviderName =
+    | ProviderName
+    | "deepseek"
+    | "kimi"
+    | "mistral"
+    | "nvidia"
+    | "qwen"
+    | "zai";
+
+/**
  * Returns a human readable label for the provider
  * This is necessary since meta models go through openrouter
  * But users will want to search by "Meta" in the UI
