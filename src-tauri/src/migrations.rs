@@ -2554,5 +2554,25 @@ You have full access to bash commands on the user''''s computer. If you write a 
                 UPDATE projects SET total_cost_usd = 0.0 WHERE total_cost_usd IS NULL;
             "#,
         },
+         Migration {
+            version: 139,
+            description: "create model_groups table for saving groups of models",
+            kind: MigrationKind::Up,
+            sql: r#"
+                -- Create model_groups table
+                CREATE TABLE IF NOT EXISTS model_groups (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    description TEXT,
+                    model_config_ids TEXT NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                );
+
+                -- Add active_model_group_id to app_metadata
+                INSERT OR IGNORE INTO app_metadata (key, value) VALUES
+                    ('active_model_group_id', '');
+            "#,
+        },
     ];
 }
