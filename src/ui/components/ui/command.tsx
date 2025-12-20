@@ -37,7 +37,7 @@ const CommandDialog = ({
     return (
         <Dialog {...props} id={id}>
             <DialogContent
-                className="overflow-hidden p-0 shadow-lg max-w-xl h-[600px]"
+                className="overflow-hidden p-0 shadow-lg max-w-2xl h-1/2 min-h-[min(600px,90vh)]"
                 aria-describedby={undefined}
                 onKeyDown={(e) => {
                     // Prevent Escape key from propagating to parent components
