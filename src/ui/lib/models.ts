@@ -29,10 +29,57 @@ export const MODEL_IDS = {
     },
 } as const;
 
-// Hard coded list of default openrouter models that will receive special tier exemptions and logo handling
-export const OPENROUTER_CUSTOM_PROVIDER_LOGOS: Record<string, ProviderName> = {
-    "openrouter::x-ai/grok-4": "grok",
-};
+/**
+ * Attempts to detect a known provider from an OpenRouter model ID by pattern matching.
+ * This checks if any known provider name appears in the model ID string.
+ *
+ * Examples:
+ * - "openrouter::x-ai/grok-4" → "grok" (matches "grok" or "x-ai")
+ * - "openrouter::meta-llama/llama-3.3-70b" → "meta" (matches "meta")
+ * - "openrouter::anthropic/claude-3-5-sonnet" → "anthropic" (matches "anthropic")
+ * - "openrouter::openai/gpt-4o" → "openai" (matches "openai")
+ * - "openrouter::google/gemini-2.0" → "google" (matches "google")
+ *
+ * @param modelId - The full model ID (e.g., "openrouter::x-ai/grok-4")
+ * @returns The detected ProviderName or null if no match found
+ */
+export function detectOpenRouterProviderLogo(
+    modelId: string,
+): ProviderName | null {
+    if (!modelId || !modelId.startsWith("openrouter::")) {
+        return null;
+    }
+
+    // Providers to check for, in priority order
+    // Less ambiguous patterns come first (openai, anthropic, google, perplexity)
+    // More generic patterns come later (meta, grok)
+    const providerPatterns: Array<{
+        pattern: string;
+        provider: ProviderName;
+    }> = [
+        { pattern: "anthropic", provider: "anthropic" },
+        { pattern: "openai", provider: "openai" },
+        { pattern: "google", provider: "google" },
+        { pattern: "perplexity", provider: "perplexity" },
+        { pattern: "x-ai", provider: "grok" }, // xAI makes Grok
+        { pattern: "grok", provider: "grok" },
+        { pattern: "meta", provider: "meta" },
+        // Add more patterns as needed:
+        // { pattern: 'deepseek', provider: 'deepseek' }, // future
+        // { pattern: 'qwen', provider: 'qwen' }, // future
+    ];
+
+    const lowerModelId = modelId.toLowerCase();
+
+    // Find the first matching pattern
+    for (const { pattern, provider } of providerPatterns) {
+        if (lowerModelId.includes(pattern)) {
+            return provider;
+        }
+    }
+
+    return null; // No match, will fall back to OpenRouter logo
+}
 
 // Flatten the MODEL_IDS object into a single array of allowed IDs
 export const ALLOWED_MODEL_IDS_FOR_QUICK_CHAT: string[] = [

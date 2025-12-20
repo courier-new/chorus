@@ -1,5 +1,5 @@
 import { getProviderName, ProviderName } from "@core/chorus/Models";
-import { OPENROUTER_CUSTOM_PROVIDER_LOGOS } from "@ui/lib/models";
+import { detectOpenRouterProviderLogo } from "@ui/lib/models";
 import { cn } from "@ui/lib/utils";
 import { BoxIcon } from "lucide-react";
 import {
@@ -65,10 +65,12 @@ export function ProviderLogo({
                     />
                 );
             case "openrouter":
-                if (modelId && modelId in OPENROUTER_CUSTOM_PROVIDER_LOGOS) {
-                    return getLogoComponent(
-                        OPENROUTER_CUSTOM_PROVIDER_LOGOS[modelId],
-                    );
+                if (modelId) {
+                    const detectedProvider =
+                        detectOpenRouterProviderLogo(modelId);
+                    if (detectedProvider) {
+                        return getLogoComponent(detectedProvider);
+                    }
                 }
                 return (
                     <img
