@@ -27,8 +27,8 @@ import {
     XIcon,
     ArrowBigUpIcon,
     CircleCheckIcon,
-    ChevronDownIcon,
 } from "lucide-react";
+import { SectionHeading } from "./SectionHeading";
 import { ProviderLogo } from "./ui/provider-logo";
 import {
     CommandDialog,
@@ -46,6 +46,9 @@ import * as AppMetadataAPI from "@core/chorus/api/AppMetadataAPI";
 import { hasApiKey } from "@core/utilities/ProxyUtils";
 import * as ModelsAPI from "@core/chorus/api/ModelsAPI";
 import * as MessageAPI from "@core/chorus/api/MessageAPI";
+import * as ModelGroupsAPI from "@core/chorus/api/ModelGroupsAPI";
+import { ModelGroupsList } from "./ModelGroupsList";
+import { useShiftKey } from "./hooks/useShiftKey";
 
 // Helper function to filter models by search terms
 const filterBySearch = (models: ModelConfig[], searchTerms: string[]) => {
@@ -111,6 +114,42 @@ type ModelPickerMode =
           selectedModelConfigId: string;
       };
 
+/** Component to render help text for model selection actions */
+function ModelSelectionHelpText({
+    mode,
+    modelId,
+    checkedModelConfigIds,
+    activeGroupId,
+}: {
+    mode: ModelPickerMode;
+    modelId: string;
+    checkedModelConfigIds: string[];
+    activeGroupId?: string;
+}) {
+    const text = useMemo(() => {
+        if (mode.type === "single") {
+            return "⤶ to select";
+        }
+
+        const isChecked = checkedModelConfigIds.includes(modelId);
+        const hasActiveGroup = activeGroupId !== "NONE";
+
+        if (isChecked) {
+            return (
+                "⤶ to remove" +
+                (hasActiveGroup ? " / ⇧⤶ to remove from group" : "")
+            );
+        }
+        return "⤶ to add" + (hasActiveGroup ? " / ⇧⤶ to add to group" : "");
+    }, [mode, modelId, checkedModelConfigIds, activeGroupId]);
+
+    return (
+        <p className="text-sm text-muted-foreground opacity-0 group-data-[selected=true]:opacity-100 transition-opacity">
+            {text}
+        </p>
+    );
+}
+
 /** A component to render a draggable model pill */
 function ModelPill({
     modelConfig,
@@ -118,9 +157,10 @@ function ModelPill({
     isDragging,
 }: {
     modelConfig: ModelConfig;
-    handleRemoveModelConfig: (id: string) => void;
+    handleRemoveModelConfig: (id: string, shiftKey: boolean) => void;
     isDragging: boolean;
 }) {
+    const shiftKeyRef = useShiftKey();
     return (
         <Badge
             variant="secondary"
@@ -135,52 +175,14 @@ function ModelPill({
                 </span>
             </div>
             <button
-                onClick={() => handleRemoveModelConfig(modelConfig.id)}
+                onClick={() =>
+                    handleRemoveModelConfig(modelConfig.id, shiftKeyRef.current)
+                }
                 className="ml-1 rounded-full text-badge-foreground/50 border-none text-sm p-1 hover:text-badge-foreground flex-shrink-0"
             >
                 <XIcon className="w-3 h-3" />
             </button>
         </Badge>
-    );
-}
-
-/**
- * Section heading component that acts as an accordion header
- * Clickable to expand/collapse, with chevron indicator and optional action buttons
- */
-function SectionHeading({
-    title,
-    isVisible,
-    onToggleVisibility,
-    rightButton,
-}: {
-    title: string;
-    isVisible: boolean;
-    onToggleVisibility: () => void;
-    rightButton?: React.ReactNode;
-}) {
-    return (
-        <div className="flex items-center justify-between w-full">
-            <button
-                onClick={(e) => {
-                    e.preventDefault();
-                    onToggleVisibility();
-                }}
-                className="flex items-center gap-1"
-                title={isVisible ? `Collapse ${title}` : `Expand ${title}`}
-            >
-                <span>{title}</span>
-                <ChevronDownIcon
-                    className={`w-3.5 h-3.5 transition-transform duration-200 ${
-                        isVisible ? "" : "-rotate-90"
-                    }`}
-                />
-            </button>
-            <div className="flex items-center gap-1">
-                {/* Show right button only when section is visible */}
-                {isVisible && rightButton}
-            </div>
-        </div>
     );
 }
 
@@ -195,18 +197,21 @@ function ModelGroup({
     emptyState,
     onAddApiKey,
     groupId,
+    activeGroupId,
 }: {
     heading: React.ReactNode;
     models: ModelConfig[];
     checkedModelConfigIds: string[];
     mode: ModelPickerMode;
-    onToggleModelConfig: (id: string) => void;
+    onToggleModelConfig: (id: string, shiftKey: boolean) => void;
     refreshButton?: React.ReactNode;
     emptyState?: React.ReactNode;
     onAddApiKey: () => void;
     groupId?: string;
+    activeGroupId?: string;
 }) {
     const { data: apiKeys } = AppMetadataAPI.useApiKeys();
+    const shiftKeyRef = useShiftKey();
 
     // Determine if a model should be disabled (no API key for the provider)
     const isModelNotAllowed = useCallback(
@@ -252,7 +257,7 @@ function ModelGroup({
                         value={groupId ? `${groupId}-${m.id}` : m.id}
                         onSelect={() => {
                             if (!isModelNotAllowed(m)) {
-                                onToggleModelConfig(m.id);
+                                onToggleModelConfig(m.id, shiftKeyRef.current);
                             } else {
                                 onAddApiKey();
                             }
@@ -302,20 +307,18 @@ function ModelGroup({
                                     </Button>
                                 ) : (
                                     <>
-                                        <p className="text-sm text-muted-foreground opacity-0 group-data-[selected=true]:opacity-100 transition-opacity">
-                                            ⤶ to{" "}
-                                            {mode.type === "single"
-                                                ? "select"
-                                                : checkedModelConfigIds.includes(
-                                                        m.id,
-                                                    )
-                                                  ? "remove"
-                                                  : "add"}
-                                        </p>
+                                        <ModelSelectionHelpText
+                                            mode={mode}
+                                            modelId={m.id}
+                                            checkedModelConfigIds={
+                                                checkedModelConfigIds
+                                            }
+                                            activeGroupId={activeGroupId}
+                                        />
                                         {checkedModelConfigIds.includes(
                                             m.id,
                                         ) && (
-                                            <CircleCheckIcon className="!w-5 !h-5 ml-2 fill-primary text-primary-foreground" />
+                                            <CircleCheckIcon className="!w-5 !h-5 fill-primary text-primary-foreground" />
                                         )}
                                     </>
                                 )}
@@ -348,7 +351,40 @@ export function ManageModelsBox({
     const containerRef = useRef<HTMLDivElement>(null);
     const [showMoreIndicator, setShowMoreIndicator] = useState(false);
 
-    function handleToggleModelConfig(id: string) {
+    // Model groups hooks
+    const { data: activeGroupId = "NONE" } =
+        ModelGroupsAPI.useActiveModelGroupId();
+    const clearActiveGroup = ModelGroupsAPI.useClearActiveModelGroup();
+    const addModelToActiveGroup = ModelGroupsAPI.useAddModelToActiveGroup();
+    const removeModelFromActiveGroup =
+        ModelGroupsAPI.useRemoveModelFromActiveGroup();
+    const updateActiveGroupOrder = ModelGroupsAPI.useUpdateActiveGroupOrder();
+
+    function handleToggleModelConfig(id: string, shiftKey = false) {
+        const isCurrentlySelected = checkedModelConfigIds.includes(id);
+
+        // Handle group interactions only in default mode
+        if (mode.type === "default" && activeGroupId !== "NONE") {
+            if (shiftKey) {
+                // Shift+click: Add/remove from active group
+                if (isCurrentlySelected) {
+                    void removeModelFromActiveGroup.mutateAsync({
+                        groupId: activeGroupId,
+                        modelConfigId: id,
+                    });
+                } else {
+                    void addModelToActiveGroup.mutateAsync({
+                        groupId: activeGroupId,
+                        modelConfigId: id,
+                    });
+                }
+            } else {
+                // Regular click: Detach from group
+                void clearActiveGroup.mutateAsync();
+            }
+        }
+
+        // Execute normal toggle behavior
         if (mode.type === "default") {
             mode.onToggleModelConfig(id);
         } else if (mode.type === "add") {
@@ -437,7 +473,36 @@ export function ManageModelsBox({
         await updateSelectedModelConfigsCompare.mutateAsync({
             modelConfigs: items,
         });
+
+        // If there's an active group, update its order too
+        if (activeGroupId !== "NONE") {
+            await updateActiveGroupOrder.mutateAsync({
+                groupId: activeGroupId,
+                modelConfigIds: items.map((m) => m.id),
+            });
+        }
     }
+
+    const handleRemoveModelConfig = useCallback(
+        (id: string, shiftKey: boolean) => {
+            if (mode.type === "default") {
+                if (activeGroupId !== "NONE") {
+                    if (shiftKey) {
+                        // Shift+click: Remove from group
+                        void removeModelFromActiveGroup.mutateAsync({
+                            groupId: activeGroupId,
+                            modelConfigId: id,
+                        });
+                    } else {
+                        // Regular click: Clear active group
+                        void clearActiveGroup.mutateAsync();
+                    }
+                }
+                mode.onToggleModelConfig(id);
+            }
+        },
+        [mode, activeGroupId, removeModelFromActiveGroup, clearActiveGroup],
+    );
 
     // Helper function to render model pills for dragging
     const renderModelPill = (
@@ -454,10 +519,7 @@ export function ManageModelsBox({
             >
                 <ModelPill
                     modelConfig={modelConfig}
-                    handleRemoveModelConfig={() =>
-                        mode.type === "default" &&
-                        mode.onToggleModelConfig(modelConfig.id)
-                    }
+                    handleRemoveModelConfig={handleRemoveModelConfig}
                     isDragging={snapshot.isDragging}
                 />
             </div>
@@ -703,6 +765,17 @@ export function ManageModelsBox({
                         <CommandEmpty>No models found</CommandEmpty>
                     )}
 
+                    {/* Model Groups Section */}
+                    {!searchQuery && mode.type === "default" && (
+                        <ModelGroupsList
+                            isVisible={sectionsVisibility.groups}
+                            onToggleVisibility={() => toggleSection("groups")}
+                            selectedModelConfigs={selectedModelConfigsCompare}
+                            activeGroupId={activeGroupId}
+                            allModelConfigs={modelConfigs.data ?? []}
+                        />
+                    )}
+
                     {/* OpenRouter Models - main list */}
                     {modelGroups.openrouter.length > 0 && (
                         <ModelGroup
@@ -754,6 +827,7 @@ export function ManageModelsBox({
                             onToggleModelConfig={handleToggleModelConfig}
                             onAddApiKey={handleAddApiKey}
                             groupId="openrouter"
+                            activeGroupId={activeGroupId}
                             emptyState={
                                 apiKeys && !apiKeys.openrouter ? (
                                     <div className="px-2 mb-4 text-sm text-muted-foreground">
@@ -802,6 +876,7 @@ export function ManageModelsBox({
                             onToggleModelConfig={handleToggleModelConfig}
                             onAddApiKey={handleAddApiKey}
                             groupId="anthropic"
+                            activeGroupId={activeGroupId}
                         />
                     )}
                     {modelGroups.directByProvider.openai.length > 0 && (
@@ -825,6 +900,7 @@ export function ManageModelsBox({
                             onToggleModelConfig={handleToggleModelConfig}
                             onAddApiKey={handleAddApiKey}
                             groupId="openai"
+                            activeGroupId={activeGroupId}
                         />
                     )}
                     {modelGroups.directByProvider.google.length > 0 && (
@@ -848,6 +924,7 @@ export function ManageModelsBox({
                             onToggleModelConfig={handleToggleModelConfig}
                             onAddApiKey={handleAddApiKey}
                             groupId="google"
+                            activeGroupId={activeGroupId}
                         />
                     )}
                     {modelGroups.directByProvider.grok.length > 0 && (
@@ -871,6 +948,7 @@ export function ManageModelsBox({
                             onToggleModelConfig={handleToggleModelConfig}
                             onAddApiKey={handleAddApiKey}
                             groupId="grok"
+                            activeGroupId={activeGroupId}
                         />
                     )}
                     {modelGroups.directByProvider.perplexity.length > 0 && (
@@ -894,6 +972,7 @@ export function ManageModelsBox({
                             onToggleModelConfig={handleToggleModelConfig}
                             onAddApiKey={handleAddApiKey}
                             groupId="perplexity"
+                            activeGroupId={activeGroupId}
                         />
                     )}
 
@@ -936,6 +1015,7 @@ export function ManageModelsBox({
                             onToggleModelConfig={handleToggleModelConfig}
                             onAddApiKey={handleAddApiKey}
                             groupId="custom"
+                            activeGroupId={activeGroupId}
                         />
                     )}
 
@@ -994,6 +1074,7 @@ export function ManageModelsBox({
                             onToggleModelConfig={handleToggleModelConfig}
                             onAddApiKey={handleAddApiKey}
                             groupId="local"
+                            activeGroupId={activeGroupId}
                             emptyState={
                                 modelGroups.local.length === 0 ? (
                                     <div className="flex flex-col gap-2 px-2">

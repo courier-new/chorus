@@ -72,7 +72,7 @@ export async function fetchModelGroup(
     return rows.length > 0 ? readModelGroup(rows[0]) : undefined;
 }
 
-export async function fetchActiveModelGroupId(): Promise<string | "NONE"> {
+export async function fetchActiveModelGroupId(): Promise<string> {
     const appMetadata = await fetchAppMetadata();
     return appMetadata.active_model_group_id || ("NONE" as const);
 }
