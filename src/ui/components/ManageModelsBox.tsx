@@ -684,7 +684,9 @@ export function ManageModelsBox({
                                         toggleSection("openrouter")
                                     }
                                     rightButton={
-                                        <button
+                                        <Button
+                                            variant="outline"
+                                            size="xs"
                                             onClick={(e) => {
                                                 e.preventDefault();
                                                 e.stopPropagation();
@@ -692,7 +694,7 @@ export function ManageModelsBox({
                                                     "openrouter",
                                                 );
                                             }}
-                                            className="px-2 py-1 bg-muted hover:bg-accent rounded-md flex items-center gap-1 transition-colors text-muted-foreground"
+                                            className="gap-1 px-1.5"
                                             title="Refresh OpenRouter models"
                                             disabled={
                                                 spinningProviders.openrouter
@@ -708,7 +710,7 @@ export function ManageModelsBox({
                                             <span className="text-sm font-sans normal-case">
                                                 Refresh
                                             </span>
-                                        </button>
+                                        </Button>
                                     }
                                 />
                             }
@@ -876,19 +878,21 @@ export function ManageModelsBox({
                                         toggleSection("custom")
                                     }
                                     rightButton={
-                                        <button
+                                        <Button
+                                            variant="outline"
+                                            size="xs"
                                             onClick={(e) => {
                                                 e.preventDefault();
                                                 handleAddCustomModel();
                                             }}
-                                            className="px-2 py-1 bg-muted hover:bg-accent rounded-md flex items-center gap-1 transition-colors text-muted-foreground"
+                                            className="gap-1 px-1.5"
                                             title="Add custom model"
                                         >
                                             <PlusIcon className="w-3.5 h-3.5" />
                                             <span className="text-sm font-sans normal-case">
                                                 Add
                                             </span>
-                                        </button>
+                                        </Button>
                                     }
                                 />
                             }
@@ -916,7 +920,9 @@ export function ManageModelsBox({
                                         toggleSection("local")
                                     }
                                     rightButton={
-                                        <button
+                                        <Button
+                                            variant="outline"
+                                            size="xs"
                                             onClick={(e) => {
                                                 e.preventDefault();
                                                 void handleRefreshProviders(
@@ -926,7 +932,7 @@ export function ManageModelsBox({
                                                     "lmstudio",
                                                 );
                                             }}
-                                            className="px-2 py-1 bg-muted hover:bg-accent rounded-md flex items-center gap-1 transition-colors text-muted-foreground"
+                                            className="gap-1 px-1.5"
                                             title="Refresh local models"
                                             disabled={
                                                 spinningProviders.ollama ||
@@ -944,7 +950,7 @@ export function ManageModelsBox({
                                             <span className="text-sm font-sans normal-case">
                                                 Refresh
                                             </span>
-                                        </button>
+                                        </Button>
                                     }
                                 />
                             }
