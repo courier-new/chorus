@@ -126,10 +126,15 @@ export async function fetchModelConfigs() {
             `SELECT model_configs.id, model_configs.display_name, model_configs.author, 
                         model_configs.model_id, model_configs.system_prompt, models.is_enabled, 
                         models.is_internal, models.supported_attachment_types, model_configs.is_default,
-                        models.is_deprecated, model_configs.budget_tokens, model_configs.reasoning_effort, model_configs.new_until
+                        models.is_deprecated, model_configs.budget_tokens, model_configs.reasoning_effort, model_configs.new_until,
+                        model_configs.created_at
                  FROM model_configs 
                  JOIN models ON model_configs.model_id = models.id
-                 ORDER BY models.is_enabled DESC`,
+                 ORDER BY
+                    models.is_enabled DESC,
+                    CASE WHEN models.id LIKE 'openrouter::%' THEN 0 ELSE 1 END,
+                    CASE WHEN models.id LIKE 'openrouter::%' THEN model_configs.display_name ELSE NULL END ASC,
+                    CASE WHEN models.id NOT LIKE 'openrouter::%' THEN model_configs.created_at ELSE NULL END DESC`,
         )
     ).map(readModelConfig);
 }
