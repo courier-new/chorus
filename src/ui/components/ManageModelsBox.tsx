@@ -694,7 +694,7 @@ export function ManageModelsBox({
                                                     "openrouter",
                                                 );
                                             }}
-                                            className="gap-1 px-1.5"
+                                            className="gap-1 px-1.5 tracking-normal"
                                             title="Refresh OpenRouter models"
                                             disabled={
                                                 spinningProviders.openrouter
@@ -885,7 +885,7 @@ export function ManageModelsBox({
                                                 e.preventDefault();
                                                 handleAddCustomModel();
                                             }}
-                                            className="gap-1 px-1.5"
+                                            className="gap-1 px-1.5 tracking-normal"
                                             title="Add custom model"
                                         >
                                             <PlusIcon className="w-3.5 h-3.5" />
@@ -932,7 +932,7 @@ export function ManageModelsBox({
                                                     "lmstudio",
                                                 );
                                             }}
-                                            className="gap-1 px-1.5"
+                                            className="gap-1 px-1.5 tracking-normal"
                                             title="Refresh local models"
                                             disabled={
                                                 spinningProviders.ollama ||
