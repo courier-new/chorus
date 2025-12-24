@@ -75,7 +75,10 @@ export function DeleteConfirmButton({
     return (
         <Button
             ref={buttonRef}
-            className={cn("p-1.5 w-6 h-7", isConfirming && "w-auto")}
+            className={cn(
+                "p-1.5 w-6 h-7 hover:bg-accent",
+                isConfirming && "w-auto",
+            )}
             variant={isConfirming ? "destructive" : "ghost"}
             size="xs"
             onClick={handleClick}
@@ -289,7 +292,7 @@ export function ModelGroupsList({
                                             </span>
                                         </div>
                                         <p
-                                            className="text-xs text-helper mt-1.5"
+                                            className="text-xs text-muted-foreground mt-1.5"
                                             title={modelNames.join(", ")}
                                         >
                                             {modelNames.slice(0, 4).join(", ")}
@@ -303,7 +306,7 @@ export function ModelGroupsList({
                                         <Button
                                             variant="ghost"
                                             size="xs"
-                                            className="p-1.5 w-6 h-7"
+                                            className="p-1.5 w-6 h-7 hover:bg-accent"
                                             title="Edit group name and description"
                                             onClick={(e) => {
                                                 e.stopPropagation();

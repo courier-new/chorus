@@ -62,7 +62,7 @@ export const defaultTheme: Theme = {
         light: {
             highlight: colorPalette.accent[25],
             "highlight-foreground": colorPalette.accent[800],
-            accent: colorPalette.gray[100],
+            accent: colorPalette.gray[200],
             "accent-foreground": colorPalette.gray[900],
             background: colorPalette.gray[0],
             border: colorPalette.gray[200],

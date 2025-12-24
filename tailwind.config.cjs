@@ -77,10 +77,6 @@ export default {
                     DEFAULT: "hsl(var(--muted))",
                     foreground: "hsl(var(--muted-foreground))",
                 },
-                accent: {
-                    DEFAULT: "hsl(var(--accent))",
-                    foreground: "hsl(var(--accent-foreground))",
-                },
                 popover: {
                     DEFAULT: "hsl(var(--popover))",
                     foreground: "hsl(var(--popover-foreground))",
@@ -128,12 +124,15 @@ export default {
                         `hsl(${value})`,
                     ]),
                 ),
-                accent: Object.fromEntries(
-                    Object.entries(colorPalette.accent).map(([key, value]) => [
-                        key,
-                        `hsl(${value})`,
-                    ]),
-                ),
+                accent: {
+                    DEFAULT: "hsl(var(--accent))",
+                    foreground: "hsl(var(--accent-foreground))",
+                    ...Object.fromEntries(
+                        Object.entries(colorPalette.accent).map(
+                            ([key, value]) => [key, `hsl(${value})`],
+                        ),
+                    ),
+                },
                 transparent: Object.fromEntries(
                     Object.entries(colorPalette.transparent).map(
                         ([key, value]) => [key, `hsl(${value})`],
