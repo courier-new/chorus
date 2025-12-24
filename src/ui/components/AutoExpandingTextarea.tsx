@@ -42,7 +42,10 @@ const AutoExpandingTextarea = forwardRef<
                 adjustHeight(e.target);
             }}
             autoFocus={autoFocus}
-            className={cn("resize-none overflow-hidden min-h-0 p-0", className)}
+            className={cn(
+                "border-none resize-none overflow-hidden min-h-0 p-0",
+                className,
+            )}
             {...props}
         />
     );

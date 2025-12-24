@@ -35,7 +35,7 @@ import { ChatSuggestions } from "./ChatSuggestions";
 import { ArrowUp, ChevronDownIcon } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { EmptyState } from "./EmptyState";
-import { handleInputPasteWithAttachments } from "@ui/lib/utils";
+import { cn, handleInputPasteWithAttachments } from "@ui/lib/utils";
 import { inputActions, useInputStore } from "@core/infra/InputStore";
 import { useSearchParams } from "react-router-dom";
 import * as ModelsAPI from "@core/chorus/api/ModelsAPI";
@@ -536,16 +536,19 @@ export function ChatInput({
 
     const defaultChatComposer = !isQuickChatWindow && (
         <div
-            className={
+            className={cn(
+                "focus-within:ring-1 bg-background",
                 isReply
-                    ? "bg-background mx-4 px-4 pt-1 border shadow-lg rounded-t-lg"
-                    : `bg-background border-t @3xl:px-4 px-7 @3xl:mx-auto @3xl:border-l
-                 @3xl:border-r @3xl:border-t @3xl:max-w-3xl pt-1 ${
-                     isNewChat && !isAnimatingToBottom
-                         ? "@3xl:rounded-lg border-t border-b @3xl:shadow-diffuse"
-                         : "@3xl:rounded-t-lg @3xl:shadow-lg @3xl:has-[:focus]:shadow-muted-foreground/10"
-                 }`
-            }
+                    ? "mx-4 px-4 pt-1 border shadow-lg rounded-t-lg"
+                    : "border-t @3xl:px-4 px-7 @3xl:mx-auto @3xl:border-l @3xl:border-r @3xl:border-t @3xl:max-w-3xl pt-1",
+                !isReply &&
+                    isNewChat &&
+                    !isAnimatingToBottom &&
+                    "@3xl:rounded-lg border-t border-b @3xl:shadow-diffuse @3xl:has-[:focus]:shadow-muted-foreground/30",
+                !isReply &&
+                    (!isNewChat || isAnimatingToBottom) &&
+                    "@3xl:rounded-t-lg @3xl:shadow-lg @3xl:has-[:focus]:shadow-muted-foreground/10 @3xl:has-[:focus]:shadow-muted-foreground/70",
+            )}
         >
             <AttachmentDropArea
                 attachments={attachmentsQuery.data ?? []}
@@ -584,7 +587,7 @@ export function ChatInput({
                     }}
                     placeholder={placeholderText}
                     className="ring-0
-                placeholder:text-muted-foreground/50 font-[350] focus:outline-none pt-2 px-1.5 select-text
+                placeholder:text-muted-foreground/50 font-[350] focus:outline-none focus:ring-0 pt-2 px-1.5 select-text
                 max-h-[60vh] overflow-y-auto my-2 rounded-none !p-0"
                     autoFocus
                     onFocus={() =>
