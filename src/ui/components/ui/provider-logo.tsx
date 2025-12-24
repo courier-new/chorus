@@ -7,12 +7,16 @@ import { detectOpenRouterProviderLogo } from "@ui/lib/models";
 import { cn } from "@ui/lib/utils";
 import { BoxIcon } from "lucide-react";
 import {
+    RiAlibabaCloudFill,
+    RiAmazonFill,
     RiAnthropicFill,
+    RiBaiduFill,
     RiOpenaiFill,
     RiGoogleFill,
+    RiMetaFill,
+    RiMicrosoftFill,
     RiPerplexityFill,
     RiQuestionMark,
-    RiMetaFill,
 } from "react-icons/ri";
 import { SiOllama } from "react-icons/si";
 
@@ -70,11 +74,89 @@ export function ProviderLogo({
                         className="w-4 h-4 dark:invert"
                     />
                 );
+            case "ai21":
+                return (
+                    <img
+                        src="/ai21_light.svg"
+                        alt="AI21"
+                        className="w-4 h-4 dark:invert"
+                    />
+                );
+            case "aionlabs":
+                return (
+                    <img
+                        src="/aionlabs_light.svg"
+                        alt="Aion Labs"
+                        className="w-4 h-4 dark:invert"
+                    />
+                );
+            case "alibaba":
+                return <RiAlibabaCloudFill className="w-4 h-4" />;
+            case "amazon":
+                return <RiAmazonFill className="w-4 h-4" />;
+            case "arcee":
+                return (
+                    <img
+                        src="/arcee_light.svg"
+                        alt="Arcee AI"
+                        className="w-4 h-4 dark:invert"
+                    />
+                );
+            case "baidu":
+                return <RiBaiduFill className="w-4 h-4" />;
+            case "bytedance":
+                return (
+                    <img
+                        src="/bytedance_light.svg"
+                        alt="Bytedance"
+                        className="w-4 h-4 dark:invert"
+                    />
+                );
+            case "cohere":
+                return (
+                    <img
+                        src="/cohere_light.svg"
+                        alt="Cohere"
+                        className="w-4 h-4 dark:invert"
+                    />
+                );
+            case "deepcogito":
+                return (
+                    <img
+                        src="/deepcogito_light.svg"
+                        alt="DeepCogito"
+                        className="w-4 h-4 dark:invert"
+                    />
+                );
             case "deepseek":
                 return (
                     <img
                         src="/deepseek_light.svg"
                         alt="DeepSeek"
+                        className="w-4 h-4 dark:invert"
+                    />
+                );
+            case "ibm":
+                return (
+                    <img
+                        src="/ibm_light.svg"
+                        alt="IBM"
+                        className="w-4 h-4 dark:invert"
+                    />
+                );
+            case "inception":
+                return (
+                    <img
+                        src="/inception_light.svg"
+                        alt="Inception"
+                        className="w-4 h-4 dark:invert"
+                    />
+                );
+            case "inflection":
+                return (
+                    <img
+                        src="/inflection_light.svg"
+                        alt="Inflection"
                         className="w-4 h-4 dark:invert"
                     />
                 );
@@ -86,11 +168,45 @@ export function ProviderLogo({
                         className="w-4 h-4 dark:invert"
                     />
                 );
+            case "liquid":
+                return (
+                    <img
+                        src="/liquid_light.svg"
+                        alt="Liquid"
+                        className="w-4 h-4 dark:invert"
+                    />
+                );
+            case "microsoft":
+                return <RiMicrosoftFill className="w-4 h-4" />;
+            case "minimax":
+                return (
+                    <img
+                        src="/minimax_light.svg"
+                        alt="Minimax"
+                        className="w-4 h-4 dark:invert"
+                    />
+                );
             case "mistral":
                 return (
                     <img
                         src="/mistral_light.svg"
                         alt="Mistral"
+                        className="w-4 h-4 dark:invert"
+                    />
+                );
+            case "morph":
+                return (
+                    <img
+                        src="/morph_light.svg"
+                        alt="Morph"
+                        className="w-4 h-4 dark:invert"
+                    />
+                );
+            case "nousresearch":
+                return (
+                    <img
+                        src="/nousresearch_light.svg"
+                        alt="Nous Research"
                         className="w-4 h-4 dark:invert"
                     />
                 );
@@ -107,6 +223,14 @@ export function ProviderLogo({
                     <img
                         src="/qwen_light.svg"
                         alt="Qwen"
+                        className="w-4 h-4 dark:invert"
+                    />
+                );
+            case "relace":
+                return (
+                    <img
+                        src="/relace_light.svg"
+                        alt="Relace"
                         className="w-4 h-4 dark:invert"
                     />
                 );

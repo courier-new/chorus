@@ -67,23 +67,43 @@ export function detectOpenRouterProviderLogo(
         { pattern: "x-ai", provider: "grok" }, // xAI makes Grok
         { pattern: "grok", provider: "grok" },
         { pattern: "meta", provider: "meta" },
+        { pattern: "meta-llama", provider: "meta" },
         // Logo-only providers (no full infrastructure)
+        { pattern: "ai21", provider: "ai21" },
+        { pattern: "aion-labs", provider: "aionlabs" },
+        { pattern: "alibaba", provider: "alibaba" },
+        { pattern: "amazon", provider: "amazon" },
+        { pattern: "arcee-ai", provider: "arcee" },
+        { pattern: "baidu", provider: "baidu" },
+        { pattern: "bytedance", provider: "bytedance" },
+        { pattern: "bytedance-seed", provider: "bytedance" },
+        { pattern: "cohere", provider: "cohere" },
+        { pattern: "deepcogito", provider: "deepcogito" },
         { pattern: "deepseek", provider: "deepseek" },
-        { pattern: "mistralai", provider: "mistral" }, // Match "mistralai" first
-        { pattern: "mistral", provider: "mistral" },
-        { pattern: "moonshot", provider: "kimi" }, // Moonshot makes Kimi
+        { pattern: "ibm", provider: "ibm" },
+        { pattern: "ibm-granite", provider: "ibm" },
+        { pattern: "inception", provider: "inception" },
+        { pattern: "inflection", provider: "inflection" },
         { pattern: "kimi", provider: "kimi" },
+        { pattern: "liquid", provider: "liquid" },
+        { pattern: "microsoft", provider: "microsoft" },
+        { pattern: "minimax", provider: "minimax" },
+        { pattern: "mistral", provider: "mistral" },
+        { pattern: "mistralai", provider: "mistral" },
+        { pattern: "moonshotai", provider: "kimi" }, // Moonshot makes Kimi
+        { pattern: "morph", provider: "morph" },
+        { pattern: "nousresearch", provider: "nousresearch" },
         { pattern: "nvidia", provider: "nvidia" },
         { pattern: "qwen", provider: "qwen" },
+        { pattern: "relace", provider: "relace" },
         { pattern: "z-ai", provider: "zai" }, // Z.AI makes GLM models
-        { pattern: "thudm", provider: "zai" }, // THUDM also makes GLM models
     ];
 
     const lowerModelId = modelId.toLowerCase();
 
     // Find the first matching pattern
     for (const { pattern, provider } of providerPatterns) {
-        if (lowerModelId.includes(pattern)) {
+        if (lowerModelId.includes(pattern + "/")) {
             return provider;
         }
     }

@@ -251,11 +251,29 @@ export type ProviderName =
  */
 export type LogoProviderName =
     | ProviderName
+    | "ai21"
+    | "aionlabs"
+    | "alibaba"
+    | "amazon"
+    | "arcee"
+    | "baidu"
+    | "bytedance"
+    | "cohere"
+    | "deepcogito"
     | "deepseek"
+    | "ibm"
+    | "inception"
+    | "inflection"
     | "kimi"
+    | "liquid"
+    | "microsoft"
+    | "minimax"
     | "mistral"
+    | "morph"
+    | "nousresearch"
     | "nvidia"
     | "qwen"
+    | "relace"
     | "zai";
 
 /**
