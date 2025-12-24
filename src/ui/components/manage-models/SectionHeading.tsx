@@ -1,22 +1,21 @@
 import { ChevronDownIcon } from "lucide-react";
 
-export type SectionHeadingProps = {
-    title: string;
-    isVisible: boolean;
-    onToggleVisibility: () => void;
-    rightButton?: React.ReactNode;
-};
-
 /**
- * Section heading component that acts as an accordion header
- * Clickable to expand/collapse, with chevron indicator and optional action buttons
+ * Section heading for a list of models that acts as an accordion header.
+ * Clickable to expand/collapse the section, with chevron indicator and optional
+ * action buttons.
  */
 export function SectionHeading({
     title,
     isVisible,
     onToggleVisibility,
     rightButton,
-}: SectionHeadingProps) {
+}: {
+    title: string;
+    isVisible: boolean;
+    onToggleVisibility: () => void;
+    rightButton?: React.ReactNode;
+}) {
     return (
         <div className="flex items-center justify-between w-full min-h-8">
             <button

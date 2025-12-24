@@ -7,7 +7,7 @@ import { AttachmentType } from "@core/chorus/Models";
 import {
     MANAGE_MODELS_COMPARE_DIALOG_ID,
     ManageModelsBox,
-} from "./ManageModelsBox";
+} from "./manage-models/ManageModelsBox";
 import { MessageSetDetail } from "@core/chorus/ChatState";
 import * as MessageAPI from "@core/chorus/api/MessageAPI";
 import { useSettings } from "./hooks/useSettings";

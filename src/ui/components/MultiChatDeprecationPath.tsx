@@ -27,7 +27,7 @@ import { ProviderLogo } from "@ui/components/ui/provider-logo";
 import {
     MANAGE_MODELS_COMPARE_INLINE_DIALOG_ID,
     ManageModelsBox,
-} from "./ManageModelsBox";
+} from "./manage-models/ManageModelsBox";
 import {
     Dialog,
     DialogContent,

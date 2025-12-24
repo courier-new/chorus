@@ -1,28 +1,27 @@
 import { v4 as uuidv4 } from "uuid";
-import { Button } from "./ui/button";
-import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { Button } from "../ui/button";
+import { PencilIcon, PlusIcon, TrashIcon } from "lucide-react";
 import { ModelConfig } from "@core/chorus/Models";
 import * as ModelGroupsAPI from "@core/chorus/api/ModelGroupsAPI";
 import { ModelGroupForm } from "./ModelGroupForm";
-import { CommandGroup, CommandItem } from "./ui/command";
+import { CommandGroup, CommandItem } from "../ui/command";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { cn } from "@ui/lib/utils";
 import { SectionHeading } from "./SectionHeading";
 
-interface DeleteConfirmButtonProps {
-    onConfirm: () => void;
-    disabled?: boolean;
-}
-
 /**
- * A button that requires two clicks to confirm an action.
+ * Button to delete a model group. Requires two clicks to confirm the action.
  * First click changes to confirmation state, second click executes the action.
- * Reverts to initial state after 5 seconds or when clicking outside.
+ * Reverts to initial state after 5 seconds of inactivity or when clicking
+ * elsewhere in the document.
  */
-export function DeleteConfirmButton({
+function DeleteConfirmButton({
     onConfirm,
     disabled = false,
-}: DeleteConfirmButtonProps) {
+}: {
+    onConfirm: () => void;
+    disabled?: boolean;
+}) {
     const [isConfirming, setIsConfirming] = useState(false);
     const buttonRef = useRef<HTMLButtonElement>(null);
 
@@ -56,11 +55,7 @@ export function DeleteConfirmButton({
         if (!isConfirming) return;
 
         const handleClickOutside = (event: MouseEvent) => {
-            // Don't reset if clicking the button itself
-            if (
-                buttonRef.current &&
-                buttonRef.current.contains(event.target as Node)
-            ) {
+            if (buttonRef.current?.contains(event.target as Node)) {
                 return;
             }
             setIsConfirming(false);
@@ -83,9 +78,13 @@ export function DeleteConfirmButton({
             size="xs"
             onClick={handleClick}
             disabled={disabled}
-            title={isConfirming ? "Confirm?" : "Delete group"}
+            title={
+                isConfirming
+                    ? "Are you sure you want to delete this model group?"
+                    : "Delete model group"
+            }
         >
-            {isConfirming ? "Confirm?" : <Trash2Icon />}
+            {isConfirming ? "Confirm?" : <TrashIcon />}
         </Button>
     );
 }
@@ -118,8 +117,8 @@ export function ModelGroupsList({
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
 
-    // Disable "Add" button if no models selected
-    const isAddDisabled = selectedModelConfigs.length === 0;
+    // Disable "Add" button is <2 models selected.
+    const isAddDisabled = selectedModelConfigs.length < 2;
 
     const handleShowCreateForm = useCallback(() => {
         setFormMode("create");
@@ -212,20 +211,32 @@ export function ModelGroupsList({
                     isVisible={isVisible}
                     onToggleVisibility={onToggleVisibility}
                     rightButton={
-                        formMode === "hidden" &&
-                        !isAddDisabled && (
-                            <Button
-                                variant="outline"
-                                size="xs"
-                                onClick={handleShowCreateForm}
-                                className="gap-1 px-1.5"
-                                title="Save current selection of models as a new group"
+                        formMode === "hidden" && (
+                            // Since disabled form elements are treated as inert
+                            // and don't receive mouse events, we need to wrap
+                            // the button in a span to ensure the title can be
+                            // shown even when the button is disabled.
+                            <span
+                                title={
+                                    isAddDisabled
+                                        ? "Select at least 2 models to create a group"
+                                        : "Save current selection of models as a new group"
+                                }
+                                className="inline-block"
                             >
-                                <PlusIcon className="w-3.5 h-3.5" />
-                                <span className="text-sm font-sans normal-case">
-                                    New
-                                </span>
-                            </Button>
+                                <Button
+                                    variant="outline"
+                                    size="xs"
+                                    onClick={handleShowCreateForm}
+                                    className="gap-1 px-1.5"
+                                    disabled={isAddDisabled}
+                                >
+                                    <PlusIcon className="w-3.5 h-3.5" />
+                                    <span className="text-sm font-sans normal-case">
+                                        New
+                                    </span>
+                                </Button>
+                            </span>
                         )
                     }
                 />
@@ -250,7 +261,7 @@ export function ModelGroupsList({
                     {/* List of Groups */}
                     {groups.length === 0 && formMode === "hidden" && (
                         <p className="pb-2 text-center text-sm tracking-wider uppercase font-[350] text-gray-500 font-geist-mono">
-                            No groups found. Why not create one?
+                            No model groups created.
                         </p>
                     )}
                     {groups.map((group) => {

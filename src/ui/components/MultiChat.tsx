@@ -94,7 +94,7 @@ import { useSidebar } from "@ui/hooks/useSidebar";
 import { useShortcut } from "@ui/hooks/useShortcut";
 import { projectDisplayName, sendTauriNotification } from "@ui/lib/utils";
 import { useQuery } from "@tanstack/react-query";
-import { ManageModelsBox } from "./ManageModelsBox";
+import { ManageModelsBox } from "./manage-models/ManageModelsBox";
 import RepliesDrawer from "./RepliesDrawer";
 import useElementScrollDetection from "@ui/hooks/useScrollDetection";
 import { checkScreenRecordingPermission } from "tauri-plugin-macos-permissions-api";
