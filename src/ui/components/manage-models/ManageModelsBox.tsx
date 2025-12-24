@@ -27,9 +27,8 @@ import {
     XIcon,
     ArrowBigUpIcon,
     CircleCheckIcon,
-    ChevronDownIcon,
 } from "lucide-react";
-import { ProviderLogo } from "./ui/provider-logo";
+import { ProviderLogo } from "../ui/provider-logo";
 import {
     CommandDialog,
     CommandGroup,
@@ -37,15 +36,19 @@ import {
     CommandItem,
     CommandList,
     CommandEmpty,
-} from "./ui/command";
-import { Button } from "./ui/button";
+} from "../ui/command";
+import { Button } from "../ui/button";
 import { emit } from "@tauri-apps/api/event";
-import { Badge } from "./ui/badge";
+import { Badge } from "../ui/badge";
 import { dialogActions, useDialogStore } from "@core/infra/DialogStore";
 import * as AppMetadataAPI from "@core/chorus/api/AppMetadataAPI";
 import { hasApiKey } from "@core/utilities/ProxyUtils";
 import * as ModelsAPI from "@core/chorus/api/ModelsAPI";
 import * as MessageAPI from "@core/chorus/api/MessageAPI";
+import * as ModelGroupsAPI from "@core/chorus/api/ModelGroupsAPI";
+import { ModelGroupsList } from "./ModelGroupsList";
+import { useShiftKey } from "../hooks/useShiftKey";
+import { SectionHeading } from "./SectionHeading";
 
 // Helper function to filter models by search terms
 const filterBySearch = (models: ModelConfig[], searchTerms: string[]) => {
@@ -111,6 +114,42 @@ type ModelPickerMode =
           selectedModelConfigId: string;
       };
 
+/** Component to render help text for model selection actions */
+function ModelSelectionHelpText({
+    mode,
+    modelId,
+    checkedModelConfigIds,
+    activeGroupId,
+}: {
+    mode: ModelPickerMode;
+    modelId: string;
+    checkedModelConfigIds: string[];
+    activeGroupId?: string;
+}) {
+    const isChecked = checkedModelConfigIds.includes(modelId);
+    const hasActiveGroup = activeGroupId !== "NONE";
+
+    const text = useMemo(() => {
+        if (mode.type === "single") {
+            return "⤶ to select";
+        }
+
+        if (isChecked) {
+            return (
+                "⤶ to remove" +
+                (hasActiveGroup ? " / ⇧⤶ to remove from group" : "")
+            );
+        }
+        return "⤶ to add" + (hasActiveGroup ? " / ⇧⤶ to add to group" : "");
+    }, [mode, isChecked, hasActiveGroup]);
+
+    return (
+        <p className="text-sm text-muted-foreground opacity-0 group-data-[selected=true]:opacity-100 transition-opacity">
+            {text}
+        </p>
+    );
+}
+
 /** A component to render a draggable model pill */
 function ModelPill({
     modelConfig,
@@ -118,9 +157,10 @@ function ModelPill({
     isDragging,
 }: {
     modelConfig: ModelConfig;
-    handleRemoveModelConfig: (id: string) => void;
+    handleRemoveModelConfig: (id: string, shiftKey: boolean) => void;
     isDragging: boolean;
 }) {
+    const shiftKeyRef = useShiftKey();
     return (
         <Badge
             variant="secondary"
@@ -135,7 +175,9 @@ function ModelPill({
                 </span>
             </div>
             <button
-                onClick={() => handleRemoveModelConfig(modelConfig.id)}
+                onClick={() =>
+                    handleRemoveModelConfig(modelConfig.id, shiftKeyRef.current)
+                }
                 className="ml-1 rounded-full text-badge-foreground/50 border-none text-sm p-1 hover:text-badge-foreground flex-shrink-0"
             >
                 <XIcon className="w-3 h-3" />
@@ -144,48 +186,8 @@ function ModelPill({
     );
 }
 
-/**
- * Section heading component that acts as an accordion header
- * Clickable to expand/collapse, with chevron indicator and optional action buttons
- */
-function SectionHeading({
-    title,
-    isVisible,
-    onToggleVisibility,
-    rightButton,
-}: {
-    title: string;
-    isVisible: boolean;
-    onToggleVisibility: () => void;
-    rightButton?: React.ReactNode;
-}) {
-    return (
-        <div className="flex items-center justify-between w-full">
-            <button
-                onClick={(e) => {
-                    e.preventDefault();
-                    onToggleVisibility();
-                }}
-                className="flex items-center gap-1"
-                title={isVisible ? `Collapse ${title}` : `Expand ${title}`}
-            >
-                <span>{title}</span>
-                <ChevronDownIcon
-                    className={`w-3.5 h-3.5 transition-transform duration-200 ${
-                        isVisible ? "" : "-rotate-90"
-                    }`}
-                />
-            </button>
-            <div className="flex items-center gap-1">
-                {/* Show right button only when section is visible */}
-                {isVisible && rightButton}
-            </div>
-        </div>
-    );
-}
-
-/** A component to render a group of models with a heading */
-function ModelGroup({
+/** A component to render a section of models with a heading */
+function ModelSection({
     heading,
     models,
     checkedModelConfigIds,
@@ -195,18 +197,21 @@ function ModelGroup({
     emptyState,
     onAddApiKey,
     groupId,
+    activeGroupId,
 }: {
     heading: React.ReactNode;
     models: ModelConfig[];
     checkedModelConfigIds: string[];
     mode: ModelPickerMode;
-    onToggleModelConfig: (id: string) => void;
+    onToggleModelConfig: (id: string, shiftKey: boolean) => void;
     refreshButton?: React.ReactNode;
     emptyState?: React.ReactNode;
     onAddApiKey: () => void;
     groupId?: string;
+    activeGroupId?: string;
 }) {
     const { data: apiKeys } = AppMetadataAPI.useApiKeys();
+    const shiftKeyRef = useShiftKey();
 
     // Determine if a model should be disabled (no API key for the provider)
     const isModelNotAllowed = useCallback(
@@ -252,7 +257,7 @@ function ModelGroup({
                         value={groupId ? `${groupId}-${m.id}` : m.id}
                         onSelect={() => {
                             if (!isModelNotAllowed(m)) {
-                                onToggleModelConfig(m.id);
+                                onToggleModelConfig(m.id, shiftKeyRef.current);
                             } else {
                                 onAddApiKey();
                             }
@@ -302,20 +307,18 @@ function ModelGroup({
                                     </Button>
                                 ) : (
                                     <>
-                                        <p className="text-sm text-muted-foreground opacity-0 group-data-[selected=true]:opacity-100 transition-opacity">
-                                            ⤶ to{" "}
-                                            {mode.type === "single"
-                                                ? "select"
-                                                : checkedModelConfigIds.includes(
-                                                        m.id,
-                                                    )
-                                                  ? "remove"
-                                                  : "add"}
-                                        </p>
+                                        <ModelSelectionHelpText
+                                            mode={mode}
+                                            modelId={m.id}
+                                            checkedModelConfigIds={
+                                                checkedModelConfigIds
+                                            }
+                                            activeGroupId={activeGroupId}
+                                        />
                                         {checkedModelConfigIds.includes(
                                             m.id,
                                         ) && (
-                                            <CircleCheckIcon className="!w-5 !h-5 ml-2 fill-primary text-primary-foreground" />
+                                            <CircleCheckIcon className="!w-5 !h-5 fill-primary text-primary-foreground" />
                                         )}
                                     </>
                                 )}
@@ -348,23 +351,6 @@ export function ManageModelsBox({
     const containerRef = useRef<HTMLDivElement>(null);
     const [showMoreIndicator, setShowMoreIndicator] = useState(false);
 
-    function handleToggleModelConfig(id: string) {
-        if (mode.type === "default") {
-            mode.onToggleModelConfig(id);
-        } else if (mode.type === "add") {
-            mode.onAddModel(id);
-            dialogActions.closeDialog();
-        } else if (mode.type === "single") {
-            mode.onSetModel(id);
-            dialogActions.closeDialog();
-        }
-    }
-
-    const handleAddApiKey = () => {
-        void emit("open_settings", { tab: "api-keys" });
-        dialogActions.closeDialog();
-    };
-
     const selectedModelConfigsCompareResult =
         ModelsAPI.useSelectedModelConfigsCompare();
     const selectedModelConfigsCompare = useMemo(
@@ -375,6 +361,88 @@ export function ManageModelsBox({
     const updateSelectedModelConfigsCompare =
         MessageAPI.useUpdateSelectedModelConfigsCompare();
     const modelConfigs = ModelsAPI.useModelConfigs();
+
+    const selectedSingleModelConfig = useMemo(() => {
+        if (mode.type === "single") {
+            return modelConfigs.data?.find(
+                (m) => m.id === mode.selectedModelConfigId,
+            );
+        }
+        return undefined;
+    }, [mode, modelConfigs.data]);
+
+    // model configs that will show a check mark
+    const checkedModelConfigIds = useMemo(() => {
+        if (mode.type === "default") {
+            return selectedModelConfigsCompare.map((m) => m.id);
+        } else if (mode.type === "single") {
+            return selectedSingleModelConfig?.id
+                ? [selectedSingleModelConfig.id]
+                : [];
+        } else {
+            return mode.checkedModelConfigIds;
+        }
+    }, [mode, selectedModelConfigsCompare, selectedSingleModelConfig]);
+
+    // Model groups hooks
+    const { data: activeGroupId = "NONE" } =
+        ModelGroupsAPI.useActiveModelGroupId();
+    const clearActiveGroup = ModelGroupsAPI.useClearActiveModelGroup();
+    const addModelToActiveGroup = ModelGroupsAPI.useAddModelToActiveGroup();
+    const removeModelFromActiveGroup =
+        ModelGroupsAPI.useRemoveModelFromActiveGroup();
+    const updateActiveGroupOrder = ModelGroupsAPI.useUpdateActiveGroupOrder();
+
+    const handleToggleModelConfig = useCallback(
+        (id: string, shiftKey = false) => {
+            const isCurrentlySelected = checkedModelConfigIds.includes(id);
+
+            // Handle group interactions only in default mode
+            if (mode.type === "default" && activeGroupId !== "NONE") {
+                if (shiftKey) {
+                    // Shift+click: Add/remove from active group
+                    if (isCurrentlySelected) {
+                        void removeModelFromActiveGroup.mutateAsync({
+                            groupId: activeGroupId,
+                            modelConfigId: id,
+                        });
+                    } else {
+                        void addModelToActiveGroup.mutateAsync({
+                            groupId: activeGroupId,
+                            modelConfigId: id,
+                        });
+                    }
+                } else {
+                    // Regular click: Detach from group
+                    void clearActiveGroup.mutateAsync();
+                }
+            }
+
+            // Execute normal toggle behavior
+            if (mode.type === "default") {
+                mode.onToggleModelConfig(id);
+            } else if (mode.type === "add") {
+                mode.onAddModel(id);
+                dialogActions.closeDialog();
+            } else if (mode.type === "single") {
+                mode.onSetModel(id);
+                dialogActions.closeDialog();
+            }
+        },
+        [
+            mode,
+            checkedModelConfigIds,
+            activeGroupId,
+            removeModelFromActiveGroup,
+            addModelToActiveGroup,
+            clearActiveGroup,
+        ],
+    );
+
+    const handleAddApiKey = () => {
+        void emit("open_settings", { tab: "api-keys" });
+        dialogActions.closeDialog();
+    };
 
     // Get all section visibility state
     const sectionsVisibility = AppMetadataAPI.useSectionsVisibility();
@@ -391,15 +459,6 @@ export function ManageModelsBox({
         [sectionsVisibility, setSectionVisibility],
     );
 
-    const selectedSingleModelConfig = useMemo(() => {
-        if (mode.type === "single") {
-            return modelConfigs.data?.find(
-                (m) => m.id === mode.selectedModelConfigId,
-            );
-        }
-        return undefined;
-    }, [mode, modelConfigs.data]);
-
     const [searchQuery, setSearchQuery] = useState("");
     const [spinningProviders, setSpinningProviders] = useState<
         Record<string, boolean>
@@ -409,16 +468,6 @@ export function ManageModelsBox({
         openrouter: false,
     });
     const listRef = useRef<HTMLDivElement>(null);
-
-    // model configs that will show a check mark
-    const checkedModelConfigIds =
-        mode.type === "default"
-            ? selectedModelConfigsCompare.map((m) => m.id)
-            : mode.type === "single"
-              ? selectedSingleModelConfig?.id
-                  ? [selectedSingleModelConfig.id]
-                  : []
-              : mode.checkedModelConfigIds;
 
     // clear query when dropdown closes
     useEffect(() => {
@@ -437,7 +486,49 @@ export function ManageModelsBox({
         await updateSelectedModelConfigsCompare.mutateAsync({
             modelConfigs: items,
         });
+
+        // If there's an active group, update its order too
+        if (activeGroupId !== "NONE") {
+            await updateActiveGroupOrder.mutateAsync({
+                groupId: activeGroupId,
+                modelConfigIds: items.map((m) => m.id),
+            });
+        }
     }
+
+    const handleRemoveModelConfig = useCallback(
+        (id: string, shiftKey: boolean) => {
+            if (mode.type === "default") {
+                if (activeGroupId !== "NONE") {
+                    if (shiftKey) {
+                        // Shift+click: Remove from group
+                        void removeModelFromActiveGroup.mutateAsync({
+                            groupId: activeGroupId,
+                            modelConfigId: id,
+                        });
+                    } else {
+                        // Regular click: Clear active group
+                        void clearActiveGroup.mutateAsync();
+                    }
+                }
+                mode.onToggleModelConfig(id);
+            }
+        },
+        [mode, activeGroupId, removeModelFromActiveGroup, clearActiveGroup],
+    );
+
+    const handleRemoveAll = useCallback(
+        (e: React.MouseEvent<HTMLButtonElement>) => {
+            if (mode.type !== "default") return;
+            if (activeGroupId !== "NONE") {
+                // Clear active group
+                void clearActiveGroup.mutateAsync();
+            }
+            e.preventDefault();
+            mode.onClearModelConfigs();
+        },
+        [mode, activeGroupId, clearActiveGroup],
+    );
 
     // Helper function to render model pills for dragging
     const renderModelPill = (
@@ -454,10 +545,7 @@ export function ManageModelsBox({
             >
                 <ModelPill
                     modelConfig={modelConfig}
-                    handleRemoveModelConfig={() =>
-                        mode.type === "default" &&
-                        mode.onToggleModelConfig(modelConfig.id)
-                    }
+                    handleRemoveModelConfig={handleRemoveModelConfig}
                     isDragging={snapshot.isDragging}
                 />
             </div>
@@ -521,8 +609,8 @@ export function ManageModelsBox({
         navigate("/new-prompt");
     }, [navigate]);
 
-    // Compute filtered model groups based on search
-    const modelGroups = useMemo(() => {
+    // Compute filtered model sections based on search
+    const modelSections = useMemo(() => {
         const searchTerms = searchQuery
             .toLowerCase()
             .split(" ")
@@ -582,14 +670,14 @@ export function ManageModelsBox({
     // Check if there are ANY matching models across all sections (for CommandEmpty)
     const hasAnyMatches = useMemo(() => {
         return (
-            modelGroups.openrouter.length > 0 ||
-            modelGroups.custom.length > 0 ||
-            modelGroups.local.length > 0 ||
-            Object.values(modelGroups.directByProvider).some(
+            modelSections.openrouter.length > 0 ||
+            modelSections.custom.length > 0 ||
+            modelSections.local.length > 0 ||
+            Object.values(modelSections.directByProvider).some(
                 (models) => models.length > 0,
             )
         );
-    }, [modelGroups]);
+    }, [modelSections]);
 
     useLayoutEffect(() => {
         if (!listRef.current) return;
@@ -666,10 +754,9 @@ export function ManageModelsBox({
                                                     )}
                                                     {provided.placeholder}
                                                     <button
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            mode.onClearModelConfigs();
-                                                        }}
+                                                        onClick={
+                                                            handleRemoveAll
+                                                        }
                                                         className="text-sm text-muted-foreground hover:text-foreground flex-shrink-0"
                                                         title="Clear all models"
                                                     >
@@ -703,9 +790,20 @@ export function ManageModelsBox({
                         <CommandEmpty>No models found</CommandEmpty>
                     )}
 
+                    {/* Model Groups Section */}
+                    {!searchQuery && mode.type === "default" && (
+                        <ModelGroupsList
+                            isVisible={sectionsVisibility.groups}
+                            onToggleVisibility={() => toggleSection("groups")}
+                            selectedModelConfigs={selectedModelConfigsCompare}
+                            activeGroupId={activeGroupId}
+                            allModelConfigs={modelConfigs.data ?? []}
+                        />
+                    )}
+
                     {/* OpenRouter Models - main list */}
-                    {modelGroups.openrouter.length > 0 && (
-                        <ModelGroup
+                    {modelSections.openrouter.length > 0 && (
+                        <ModelSection
                             heading={
                                 <SectionHeading
                                     title="OpenRouter"
@@ -746,7 +844,7 @@ export function ManageModelsBox({
                             }
                             models={
                                 sectionsVisibility.openrouter
-                                    ? modelGroups.openrouter
+                                    ? modelSections.openrouter
                                     : []
                             }
                             checkedModelConfigIds={checkedModelConfigIds}
@@ -754,6 +852,7 @@ export function ManageModelsBox({
                             onToggleModelConfig={handleToggleModelConfig}
                             onAddApiKey={handleAddApiKey}
                             groupId="openrouter"
+                            activeGroupId={activeGroupId}
                             emptyState={
                                 apiKeys && !apiKeys.openrouter ? (
                                     <div className="px-2 mb-4 text-sm text-muted-foreground">
@@ -781,8 +880,8 @@ export function ManageModelsBox({
                     )}
 
                     {/* Direct Provider Models (Anthropic, OpenAI, Google, etc.) */}
-                    {modelGroups.directByProvider.anthropic.length > 0 && (
-                        <ModelGroup
+                    {modelSections.directByProvider.anthropic.length > 0 && (
+                        <ModelSection
                             heading={
                                 <SectionHeading
                                     title="Anthropic"
@@ -794,7 +893,7 @@ export function ManageModelsBox({
                             }
                             models={
                                 sectionsVisibility.anthropic
-                                    ? modelGroups.directByProvider.anthropic
+                                    ? modelSections.directByProvider.anthropic
                                     : []
                             }
                             checkedModelConfigIds={checkedModelConfigIds}
@@ -802,10 +901,11 @@ export function ManageModelsBox({
                             onToggleModelConfig={handleToggleModelConfig}
                             onAddApiKey={handleAddApiKey}
                             groupId="anthropic"
+                            activeGroupId={activeGroupId}
                         />
                     )}
-                    {modelGroups.directByProvider.openai.length > 0 && (
-                        <ModelGroup
+                    {modelSections.directByProvider.openai.length > 0 && (
+                        <ModelSection
                             heading={
                                 <SectionHeading
                                     title="OpenAI"
@@ -817,7 +917,7 @@ export function ManageModelsBox({
                             }
                             models={
                                 sectionsVisibility.openai
-                                    ? modelGroups.directByProvider.openai
+                                    ? modelSections.directByProvider.openai
                                     : []
                             }
                             checkedModelConfigIds={checkedModelConfigIds}
@@ -825,10 +925,11 @@ export function ManageModelsBox({
                             onToggleModelConfig={handleToggleModelConfig}
                             onAddApiKey={handleAddApiKey}
                             groupId="openai"
+                            activeGroupId={activeGroupId}
                         />
                     )}
-                    {modelGroups.directByProvider.google.length > 0 && (
-                        <ModelGroup
+                    {modelSections.directByProvider.google.length > 0 && (
+                        <ModelSection
                             heading={
                                 <SectionHeading
                                     title="Google"
@@ -840,7 +941,7 @@ export function ManageModelsBox({
                             }
                             models={
                                 sectionsVisibility.google
-                                    ? modelGroups.directByProvider.google
+                                    ? modelSections.directByProvider.google
                                     : []
                             }
                             checkedModelConfigIds={checkedModelConfigIds}
@@ -848,10 +949,11 @@ export function ManageModelsBox({
                             onToggleModelConfig={handleToggleModelConfig}
                             onAddApiKey={handleAddApiKey}
                             groupId="google"
+                            activeGroupId={activeGroupId}
                         />
                     )}
-                    {modelGroups.directByProvider.grok.length > 0 && (
-                        <ModelGroup
+                    {modelSections.directByProvider.grok.length > 0 && (
+                        <ModelSection
                             heading={
                                 <SectionHeading
                                     title="Grok"
@@ -863,7 +965,7 @@ export function ManageModelsBox({
                             }
                             models={
                                 sectionsVisibility.grok
-                                    ? modelGroups.directByProvider.grok
+                                    ? modelSections.directByProvider.grok
                                     : []
                             }
                             checkedModelConfigIds={checkedModelConfigIds}
@@ -871,10 +973,11 @@ export function ManageModelsBox({
                             onToggleModelConfig={handleToggleModelConfig}
                             onAddApiKey={handleAddApiKey}
                             groupId="grok"
+                            activeGroupId={activeGroupId}
                         />
                     )}
-                    {modelGroups.directByProvider.perplexity.length > 0 && (
-                        <ModelGroup
+                    {modelSections.directByProvider.perplexity.length > 0 && (
+                        <ModelSection
                             heading={
                                 <SectionHeading
                                     title="Perplexity"
@@ -886,7 +989,7 @@ export function ManageModelsBox({
                             }
                             models={
                                 sectionsVisibility.perplexity
-                                    ? modelGroups.directByProvider.perplexity
+                                    ? modelSections.directByProvider.perplexity
                                     : []
                             }
                             checkedModelConfigIds={checkedModelConfigIds}
@@ -894,12 +997,13 @@ export function ManageModelsBox({
                             onToggleModelConfig={handleToggleModelConfig}
                             onAddApiKey={handleAddApiKey}
                             groupId="perplexity"
+                            activeGroupId={activeGroupId}
                         />
                     )}
 
                     {/* Custom Models */}
-                    {(modelGroups.custom.length > 0 || !searchQuery) && (
-                        <ModelGroup
+                    {(modelSections.custom.length > 0 || !searchQuery) && (
+                        <ModelSection
                             heading={
                                 <SectionHeading
                                     title="Custom"
@@ -928,7 +1032,7 @@ export function ManageModelsBox({
                             }
                             models={
                                 sectionsVisibility.custom
-                                    ? modelGroups.custom
+                                    ? modelSections.custom
                                     : []
                             }
                             checkedModelConfigIds={checkedModelConfigIds}
@@ -936,12 +1040,13 @@ export function ManageModelsBox({
                             onToggleModelConfig={handleToggleModelConfig}
                             onAddApiKey={handleAddApiKey}
                             groupId="custom"
+                            activeGroupId={activeGroupId}
                         />
                     )}
 
                     {/* Local Models */}
-                    {(modelGroups.local.length > 0 || !searchQuery) && (
-                        <ModelGroup
+                    {(modelSections.local.length > 0 || !searchQuery) && (
+                        <ModelSection
                             heading={
                                 <SectionHeading
                                     title="Local"
@@ -986,7 +1091,7 @@ export function ManageModelsBox({
                             }
                             models={
                                 sectionsVisibility.local
-                                    ? modelGroups.local
+                                    ? modelSections.local
                                     : []
                             }
                             checkedModelConfigIds={checkedModelConfigIds}
@@ -994,8 +1099,9 @@ export function ManageModelsBox({
                             onToggleModelConfig={handleToggleModelConfig}
                             onAddApiKey={handleAddApiKey}
                             groupId="local"
+                            activeGroupId={activeGroupId}
                             emptyState={
-                                modelGroups.local.length === 0 ? (
+                                modelSections.local.length === 0 ? (
                                     <div className="flex flex-col gap-2 px-2">
                                         <div className="text-sm text-muted-foreground">
                                             No local models found. To run local

@@ -3,12 +3,15 @@ import { ProviderLogo } from "./ui/provider-logo";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { BoxIcon } from "lucide-react";
 import { dialogActions } from "@core/infra/DialogStore";
+import { ModelGroup } from "@core/chorus/api/ModelGroupsAPI";
 
 export function ManageModelsButtonCompare({
+    activeGroup,
     selectedModelConfigs,
     dialogId,
     showShortcut = true,
 }: {
+    activeGroup?: ModelGroup;
     selectedModelConfigs?: ModelConfig[];
     dialogId: string;
     showShortcut?: boolean;
@@ -63,6 +66,8 @@ export function ManageModelsButtonCompare({
                     <span className="pl-0.5">
                         {selectedModelConfigs[0].displayName}
                     </span>
+                ) : activeGroup ? (
+                    <span className="pl-0.5">{activeGroup.name}</span>
                 ) : selectedModelConfigs && selectedModelConfigs.length > 1 ? (
                     <span className="pl-0.5">
                         {selectedModelConfigs.length} Models

@@ -7,7 +7,7 @@ import { AttachmentType } from "@core/chorus/Models";
 import {
     MANAGE_MODELS_COMPARE_DIALOG_ID,
     ManageModelsBox,
-} from "./ManageModelsBox";
+} from "./manage-models/ManageModelsBox";
 import { MessageSetDetail } from "@core/chorus/ChatState";
 import * as MessageAPI from "@core/chorus/api/MessageAPI";
 import { useSettings } from "./hooks/useSettings";
@@ -42,6 +42,7 @@ import * as ModelsAPI from "@core/chorus/api/ModelsAPI";
 import * as DraftAPI from "@core/chorus/api/DraftAPI";
 import * as ModelConfigChatAPI from "@core/chorus/api/ModelConfigChatAPI";
 import * as ProjectAPI from "@core/chorus/api/ProjectAPI";
+import * as ModelGroupsAPI from "@core/chorus/api/ModelGroupsAPI";
 
 const DEFAULT_CHAT_INPUT_ID = "default-chat-input";
 const REPLY_CHAT_INPUT_ID = "reply-chat-input";
@@ -93,6 +94,8 @@ export function ChatInput({
     const modelConfigs = ModelsAPI.useModelConfigs();
     const appMetadata = useWaitForAppMetadata();
     const cautiousEnter = appMetadata["cautious_enter"] === "true";
+
+    const { data: activeGroup } = ModelGroupsAPI.useActiveModelGroup();
 
     const { draft, setDraft } = DraftAPI.useAutoSyncMessageDraft(chatId);
 
@@ -607,6 +610,7 @@ export function ChatInput({
                         <AttachmentAddPill onSelect={fileSelect.mutate} />
                         {!isReply && (
                             <ManageModelsButtonCompare
+                                activeGroup={activeGroup}
                                 selectedModelConfigs={
                                     selectedModelConfigsCompare.data ?? []
                                 }
@@ -615,6 +619,7 @@ export function ChatInput({
                         )}
                         {isReply && (
                             <ManageModelsButtonCompare
+                                activeGroup={activeGroup}
                                 selectedModelConfigs={
                                     replyToModelConfig
                                         ? [replyToModelConfig]
