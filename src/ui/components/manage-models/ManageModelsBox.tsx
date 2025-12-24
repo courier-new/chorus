@@ -49,6 +49,7 @@ import * as ModelGroupsAPI from "@core/chorus/api/ModelGroupsAPI";
 import { ModelGroupsList } from "./ModelGroupsList";
 import { useShiftKey } from "../hooks/useShiftKey";
 import { SectionHeading } from "./SectionHeading";
+import { useSettings } from "../hooks/useSettings";
 
 // Helper function to filter models by search terms
 const filterBySearch = (models: ModelConfig[], searchTerms: string[]) => {
@@ -84,7 +85,7 @@ const formatPricing = (model: ModelConfig): string | null => {
         return price.toFixed(3);
     };
 
-    return `$${formatPrice(inputPricePerMillion)}/$${formatPrice(outputPricePerMillion)} per 1M tokens`;
+    return `$${formatPrice(inputPricePerMillion)} / $${formatPrice(outputPricePerMillion)} per 1M tokens`;
 };
 
 // Helper function to check if a model is still considered "new"
@@ -198,6 +199,7 @@ function ModelSection({
     onAddApiKey,
     groupId,
     activeGroupId,
+    showCost,
 }: {
     heading: React.ReactNode;
     models: ModelConfig[];
@@ -209,6 +211,7 @@ function ModelSection({
     onAddApiKey: () => void;
     groupId?: string;
     activeGroupId?: string;
+    showCost: boolean;
 }) {
     const { data: apiKeys } = AppMetadataAPI.useApiKeys();
     const shiftKeyRef = useShiftKey();
@@ -283,7 +286,7 @@ function ModelSection({
                                             </Badge>
                                         )}
                                     </div>
-                                    {formatPricing(m) && (
+                                    {showCost && formatPricing(m) && (
                                         <p className="mt-0.5 text-xs text-muted-foreground">
                                             {formatPricing(m)}
                                         </p>
@@ -361,6 +364,8 @@ export function ManageModelsBox({
     const updateSelectedModelConfigsCompare =
         MessageAPI.useUpdateSelectedModelConfigsCompare();
     const modelConfigs = ModelsAPI.useModelConfigs();
+    const settings = useSettings();
+    const showCost = settings?.showCost ?? false;
 
     const selectedSingleModelConfig = useMemo(() => {
         if (mode.type === "single") {
@@ -842,6 +847,7 @@ export function ManageModelsBox({
                                     }
                                 />
                             }
+                            showCost={showCost}
                             models={
                                 sectionsVisibility.openrouter
                                     ? modelSections.openrouter
@@ -902,6 +908,7 @@ export function ManageModelsBox({
                             onAddApiKey={handleAddApiKey}
                             groupId="anthropic"
                             activeGroupId={activeGroupId}
+                            showCost={showCost}
                         />
                     )}
                     {modelSections.directByProvider.openai.length > 0 && (
@@ -926,6 +933,7 @@ export function ManageModelsBox({
                             onAddApiKey={handleAddApiKey}
                             groupId="openai"
                             activeGroupId={activeGroupId}
+                            showCost={showCost}
                         />
                     )}
                     {modelSections.directByProvider.google.length > 0 && (
@@ -950,6 +958,7 @@ export function ManageModelsBox({
                             onAddApiKey={handleAddApiKey}
                             groupId="google"
                             activeGroupId={activeGroupId}
+                            showCost={showCost}
                         />
                     )}
                     {modelSections.directByProvider.grok.length > 0 && (
@@ -974,6 +983,7 @@ export function ManageModelsBox({
                             onAddApiKey={handleAddApiKey}
                             groupId="grok"
                             activeGroupId={activeGroupId}
+                            showCost={showCost}
                         />
                     )}
                     {modelSections.directByProvider.perplexity.length > 0 && (
@@ -998,6 +1008,7 @@ export function ManageModelsBox({
                             onAddApiKey={handleAddApiKey}
                             groupId="perplexity"
                             activeGroupId={activeGroupId}
+                            showCost={showCost}
                         />
                     )}
 
@@ -1041,6 +1052,7 @@ export function ManageModelsBox({
                             onAddApiKey={handleAddApiKey}
                             groupId="custom"
                             activeGroupId={activeGroupId}
+                            showCost={showCost}
                         />
                     )}
 
@@ -1089,6 +1101,7 @@ export function ManageModelsBox({
                                     }
                                 />
                             }
+                            showCost={showCost}
                             models={
                                 sectionsVisibility.local
                                     ? modelSections.local
