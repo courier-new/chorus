@@ -1,5 +1,6 @@
 import { getStore } from "@core/infra/Store";
 import { emit } from "@tauri-apps/api/event";
+import { createDefaultShortcutsConfig, ShortcutsSettings } from "./Shortcuts";
 
 export interface Settings {
     defaultEditor: string;
@@ -17,12 +18,15 @@ export interface Settings {
         firecrawl?: string;
     };
     quickChat?: {
+        /** @deprecated Use the "ambient-chat" shortcut instead */
         enabled?: boolean;
         modelConfigId?: string;
+        /** @deprecated Use the "ambient-chat" shortcut instead */
         shortcut?: string;
     };
     lmStudioBaseUrl?: string;
     cautiousEnter?: boolean;
+    shortcuts: ShortcutsSettings;
 }
 
 export class SettingsManager {
@@ -41,8 +45,22 @@ export class SettingsManager {
     public async get(): Promise<Settings> {
         try {
             const store = await getStore(this.storeName);
-            const settings = await store.get("settings");
-            const defaultSettings = {
+            const settings = (await store.get("settings")) as Partial<Settings>;
+
+            // If we're accessing shortcut settings for the first time, we'll
+            // prefer the quick chat shortcut setting from the new shortcuts
+            // object, but fall back to the deprecated quick chat setting to
+            // ensure we preserve any previous user setting.
+            const quickChatEnabled =
+                settings?.shortcuts?.["ambient-chat"]?.disabled ??
+                settings?.quickChat?.enabled ??
+                false;
+            const quickChatShortcut =
+                settings?.shortcuts?.["ambient-chat"]?.combo ??
+                settings?.quickChat?.shortcut ??
+                "Alt+Space";
+
+            const defaultSettings: Settings = {
                 defaultEditor: "default",
                 sansFont: "Geist",
                 monoFont: "Geist Mono",
@@ -51,9 +69,18 @@ export class SettingsManager {
                 showCost: false,
                 apiKeys: {},
                 quickChat: {
-                    enabled: true,
                     modelConfigId: "anthropic::claude-sonnet-4-5-20250929",
-                    shortcut: "Alt+Space",
+                },
+                // If we're accessing shortcut settings for the first time and
+                // they are not yet set, we will initialize them with the
+                // defaults but ensure we preserve quick chat from the previous
+                // settings object.
+                shortcuts: {
+                    ...createDefaultShortcutsConfig(),
+                    "ambient-chat": {
+                        combo: quickChatShortcut,
+                        disabled: quickChatEnabled,
+                    },
                 },
             };
 
@@ -63,7 +90,14 @@ export class SettingsManager {
                 return defaultSettings;
             }
 
-            return (settings as Settings) || defaultSettings;
+            return {
+                ...defaultSettings,
+                ...settings,
+                shortcuts: {
+                    ...defaultSettings.shortcuts,
+                    ...settings.shortcuts,
+                },
+            };
         } catch (error) {
             console.error("Failed to get settings:", error);
             return {
@@ -75,10 +109,9 @@ export class SettingsManager {
                 showCost: false,
                 apiKeys: {},
                 quickChat: {
-                    enabled: true,
                     modelConfigId: "anthropic::claude-3-5-sonnet-latest",
-                    shortcut: "Alt+Space",
                 },
+                shortcuts: createDefaultShortcutsConfig(),
             };
         }
     }
