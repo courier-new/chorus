@@ -306,6 +306,47 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
         visible: true,
     },
 };
+
+/** Modifier keys */
+const MODIFIER_KEYS = ["Meta", "Control", "Alt", "Shift"] as const;
+type ModifierKey = (typeof MODIFIER_KEYS)[number];
+
+/**
+ * Type guard to check if a part of a binding is a modifier key.
+ */
+function isModifier(part: string): part is ModifierKey {
+    return MODIFIER_KEYS.includes(part as ModifierKey);
+}
+
+/**
+ * Check if a KeyboardEvent matches a combo binding
+ * @param event - The keyboard event
+ * @param combo - The combo array (e.g., ["Meta", "Shift", "K"], ["Control", "Enter"], ["Shift", "Enter"])
+ * @returns true if the event matches the binding
+ */
+export function matchesBinding(event: KeyboardEvent, combo: string[]): boolean {
+    if (combo.length === 0) return false;
+
+    const modifiers = new Set(combo.filter((p) => isModifier(p)));
+    const mainKeys = new Set(
+        combo.filter((p) => !isModifier(p)).map((p) => p.toLowerCase()),
+    );
+
+    // Compare every modifier for what is expected in the combo vs. what was
+    // actually active in the event.
+    const matchesModifiers = MODIFIER_KEYS.every((m) => {
+        const modifierState = event.getModifierState(m);
+        // Only modifiers in the combo should be active in the event
+        if (modifiers.has(m)) {
+            return modifierState;
+        }
+        // Other modifiers should be inactive in the event
+        return !modifierState;
+    });
+
+    return matchesModifiers && mainKeys.has(event.key.toLowerCase());
+}
+
 /**
  * Create default shortcuts config (all using defaults, none disabled)
  */
