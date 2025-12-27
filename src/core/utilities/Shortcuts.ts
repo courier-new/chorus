@@ -336,6 +336,32 @@ export function parseBinding(binding: unknown): string[] {
     return binding.split("+").map((part) => part.trim());
 }
 
+/**
+ * Gets the raw key from a keyboard event, without modifier states.
+ */
+export function keyFromEvent(event: KeyboardEvent): string {
+    // We use e.code for keys and digits to get their raw keyboard value so
+    // modifier keys can't affect their values (e.g., Alt+G gives "©" in
+    // event.key, which is not what we want)
+    if (event.code === "Space") return "Space";
+    if (event.code.startsWith("Key")) return event.code.replace("Key", "");
+    if (event.code.startsWith("Digit")) return event.code.replace("Digit", "");
+
+    // Normalize common punctuation keys
+    if (event.code === "Slash") return "/";
+    if (event.code === "Comma") return ",";
+    if (event.code === "Period") return ".";
+    if (event.code === "Semicolon") return ";";
+    if (event.code === "Quote") return "'";
+    if (event.code === "BracketLeft") return "[";
+    if (event.code === "BracketRight") return "]";
+    if (event.code === "Backslash") return "\\";
+    if (event.code === "Minus") return "-";
+    if (event.code === "Equal") return "=";
+    if (event.code === "Backquote") return "`";
+
+    return event.key.toUpperCase();
+}
 
 /**
  * Check if a KeyboardEvent matches a combo binding
@@ -347,9 +373,7 @@ export function matchesBinding(event: KeyboardEvent, combo: string[]): boolean {
     if (combo.length === 0) return false;
 
     const modifiers = new Set(combo.filter((p) => isModifier(p)));
-    const mainKeys = new Set(
-        combo.filter((p) => !isModifier(p)).map((p) => p.toLowerCase()),
-    );
+    const mainKeys = new Set(combo.filter((p) => !isModifier(p)));
 
     // Compare every modifier for what is expected in the combo vs. what was
     // actually active in the event.
@@ -363,7 +387,7 @@ export function matchesBinding(event: KeyboardEvent, combo: string[]): boolean {
         return !modifierState;
     });
 
-    return matchesModifiers && mainKeys.has(event.key.toLowerCase());
+    return matchesModifiers && mainKeys.has(keyFromEvent(event));
 }
 
 /**
