@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -20,6 +20,8 @@ import { useShortcut } from "@ui/hooks/useShortcut";
 
 // providers that support system prompts
 const CUSTOM_PROMPT_PROVIDERS = ["anthropic", "openai", "google", "perplexity"];
+// keyboard shortcut for submitting the form
+const SUBMIT_SHORTCUT = ["Meta", "Enter"];
 
 interface NewModelFormData {
     name: string;
@@ -40,6 +42,8 @@ export function NewPromptInner() {
         systemPrompt: "",
     });
 
+    const { name, baseModel, systemPrompt } = formData;
+
     const models = ModelsAPI.useModels();
     const createModelConfig = ModelsAPI.useCreateModelConfig();
 
@@ -55,37 +59,40 @@ export function NewPromptInner() {
         [models],
     );
 
-    // Cmd+Enter to submit
-    useShortcut(["meta", "enter"], () => {
-        void handleSubmit();
-    });
+    // Mutate functions are stable, the UseMutationResult object is not.
+    const createModelConfigMutate = createModelConfig.mutateAsync;
 
-    const handleSubmit = async (e?: React.FormEvent) => {
-        posthog?.capture("new_prompt_created");
-        e?.preventDefault();
-        if (!formData.name || !formData.baseModel) {
-            toast.error("Error", {
-                description: "Please fill in all required fields",
+    const handleSubmit = useCallback(
+        async (e?: React.FormEvent) => {
+            posthog?.capture("new_prompt_created");
+            e?.preventDefault();
+            if (!name || !baseModel) {
+                toast.error("Error", {
+                    description: "Please fill in all required fields",
+                });
+                return;
+            }
+
+            setIsSubmitting(true);
+            // custom_<uuid> instead of custom::<uuid>, because it's not an model id. we don't want to confuse 'custom' as a model provider.
+            const configId = `custom__${uuidv4()}`;
+
+            await createModelConfigMutate({
+                configId,
+                baseModel,
+                displayName: name,
+                systemPrompt,
             });
-            return;
-        }
 
-        setIsSubmitting(true);
-        // custom_<uuid> instead of custom::<uuid>, because it's not an model id. we don't want to confuse 'custom' as a model provider.
-        const configId = `custom__${uuidv4()}`;
+            toast.success("Success", {
+                description: "Custom system prompt created",
+            });
+            navigate("/prompts");
+        },
+        [name, baseModel, systemPrompt, createModelConfigMutate, navigate],
+    );
 
-        await createModelConfig.mutateAsync({
-            configId,
-            baseModel: formData.baseModel,
-            displayName: formData.name,
-            systemPrompt: formData.systemPrompt,
-        });
-
-        toast.success("Success", {
-            description: "Custom system prompt created",
-        });
-        navigate("/prompts");
-    };
+    useShortcut(SUBMIT_SHORTCUT, handleSubmit);
 
     return (
         <div className="container mx-14 my-14 mt-24">

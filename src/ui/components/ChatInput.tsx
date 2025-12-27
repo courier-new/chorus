@@ -22,7 +22,7 @@ import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { useMutation } from "@tanstack/react-query";
 import ToolsBox from "./ToolsBox";
-import { useShortcut } from "@ui/hooks/useShortcut";
+import { useConfigurableShortcut } from "@ui/hooks/useConfigurableShortcut";
 import {
     useAttachScreenshotEphemeral,
     useAttachUrl,
@@ -431,16 +431,20 @@ export function ChatInput({
         ],
     );
 
+    // Mutate functions are stable, the UseMutationResult object is not.
+    const updateSelectedModelConfigsCompareMutate =
+        updateSelectedModelConfigsCompare.mutateAsync;
+
     const clearCompareModelConfigs = useCallback(() => {
         void (async () => {
-            await updateSelectedModelConfigsCompare.mutateAsync({
+            await updateSelectedModelConfigsCompareMutate({
                 modelConfigs: [],
             });
             void posthog.capture("selected_model_configs_updated", {
                 selectedModelConfigs: [],
             });
         })();
-    }, [posthog, updateSelectedModelConfigsCompare]);
+    }, [posthog, updateSelectedModelConfigsCompareMutate]);
 
     // Update focus when dialog closes or chat id changes
     useEffect(() => {
@@ -455,35 +459,23 @@ export function ChatInput({
         }
     }, [inputRef, chatId, isDialogClosed]);
 
-    useShortcut(
-        ["meta", "j"],
-        () => {
-            if (isQuickChatWindow) return;
+    const toggleManageModelsCompareDialog = useCallback(() => {
+        if (isManageModelsCompareDialogOpen || isManageModelsReplyDialogOpen) {
+            dialogActions.closeDialog();
+        } else {
+            dialogActions.openDialog(MANAGE_MODELS_COMPARE_DIALOG_ID);
+        }
+    }, [isManageModelsCompareDialogOpen, isManageModelsReplyDialogOpen]);
 
-            if (
-                isManageModelsCompareDialogOpen ||
-                isManageModelsReplyDialogOpen
-            ) {
-                dialogActions.closeDialog();
-            } else {
-                dialogActions.openDialog(MANAGE_MODELS_COMPARE_DIALOG_ID);
-            }
-        },
-        {
-            isGlobal: true,
-        },
-    );
-    useShortcut(
-        ["meta", "shift", "backspace"],
-        () => {
-            if (!isQuickChatWindow) {
-                clearCompareModelConfigs();
-            }
-        },
-        {
-            enableOnDialogIds: [MANAGE_MODELS_COMPARE_DIALOG_ID],
-        },
-    );
+    useConfigurableShortcut("model-picker", toggleManageModelsCompareDialog, {
+        isEnabled: !isQuickChatWindow,
+        isGlobal: true,
+    });
+
+    useConfigurableShortcut("clear-models", clearCompareModelConfigs, {
+        isEnabled: !isQuickChatWindow,
+        enableOnDialogIds: [MANAGE_MODELS_COMPARE_DIALOG_ID],
+    });
 
     const [searchParams] = useSearchParams();
 
@@ -499,10 +491,12 @@ export function ChatInput({
         } else return !isReply;
     }, [focusedChatInputId, isReply, searchParams]);
 
-    useShortcut(["meta", "l"], () => {
-        if (isNextFocus) {
-            inputRef.current?.focus();
-        }
+    const focusInput = useCallback(() => {
+        inputRef.current?.focus();
+    }, [inputRef]);
+
+    useConfigurableShortcut("focus-input", focusInput, {
+        isEnabled: isNextFocus,
     });
 
     // Reset animation state after animation completes

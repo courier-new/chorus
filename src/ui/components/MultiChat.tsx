@@ -92,6 +92,7 @@ import * as Toolsets from "@core/chorus/Toolsets";
 import { SidebarTrigger } from "@ui/components/ui/sidebar";
 import { useSidebar } from "@ui/hooks/useSidebar";
 import { useShortcut } from "@ui/hooks/useShortcut";
+import { useConfigurableShortcut } from "@ui/hooks/useConfigurableShortcut";
 import { projectDisplayName, sendTauriNotification } from "@ui/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { ManageModelsBox } from "./manage-models/ManageModelsBox";
@@ -1684,6 +1685,10 @@ const MessageSetView = memo(
     },
 );
 
+const COPY_SHARE_URL_SHORTCUT = ["Enter"];
+const OPEN_SHARE_URL_SHORTCUT = ["Meta", "Enter"];
+const CLOSE_SHARE_URL_SHORTCUT = ["Escape"];
+
 // ----------------------------------
 // Main Component
 // ----------------------------------
@@ -1805,6 +1810,7 @@ export default function MultiChat() {
         messageSetsQuery.data && messageSetsQuery.data.length > 0
             ? messageSetsQuery.data[messageSetsQuery.data.length - 1]
             : undefined;
+    const currentMessageSetId = currentMessageSet?.id;
     const currentCompareBlock =
         currentMessageSet?.selectedBlockType === "compare"
             ? currentMessageSet.compareBlock
@@ -1897,44 +1903,22 @@ export default function MultiChat() {
         handleCopyShareUrl,
         handleOpenShareUrl,
         handleDeleteShare,
-        setShareUrl,
+        handleCloseShareUrl,
     } = useShareChat(chatId!);
 
     // Share dialog shortcuts
-    useShortcut(
-        ["enter"],
-        () => {
-            if (shareUrl) {
-                void handleCopyShareUrl();
-            }
-        },
-        {
-            enableOnDialogIds: [SHARE_CHAT_DIALOG_ID],
-            enableOnChatFocus: false,
-        },
-    );
+    useShortcut(COPY_SHARE_URL_SHORTCUT, handleCopyShareUrl, {
+        enableOnDialogIds: [SHARE_CHAT_DIALOG_ID],
+        enableOnChatFocus: false,
+    });
 
-    useShortcut(
-        ["meta", "enter"],
-        () => {
-            if (shareUrl) {
-                void handleOpenShareUrl();
-            }
-        },
-        {
-            enableOnDialogIds: [SHARE_CHAT_DIALOG_ID],
-        },
-    );
+    useShortcut(OPEN_SHARE_URL_SHORTCUT, handleOpenShareUrl, {
+        enableOnDialogIds: [SHARE_CHAT_DIALOG_ID],
+    });
 
-    useShortcut(
-        ["escape"],
-        () => {
-            setShareUrl(null);
-        },
-        {
-            enableOnDialogIds: [SHARE_CHAT_DIALOG_ID],
-        },
-    );
+    useShortcut(CLOSE_SHARE_URL_SHORTCUT, handleCloseShareUrl, {
+        enableOnDialogIds: [SHARE_CHAT_DIALOG_ID],
+    });
 
     const summarizeChat = MessageAPI.useSummarizeChat();
     const [summary, setSummary] = useState<string | null>(null);
@@ -1981,27 +1965,21 @@ export default function MultiChat() {
             return;
         }
 
-        await doShareChat(chatContainer.outerHTML);
+        try {
+            await doShareChat(chatContainer.outerHTML);
+        } catch (error) {
+            console.error("Error generating/copying share link:", error);
+            toast.error("Error", {
+                description: "Failed to generate or copy share link",
+            });
+        }
     }, [doShareChat]);
+
+    useConfigurableShortcut("share-chat", handleShareChat);
 
     const selectMessage = MessageAPI.useSelectMessage();
     const selectSynthesis = MessageAPI.useSelectSynthesis();
     const setReviewsEnabled = MessageAPI.useSetReviewsEnabled();
-    // const nextTools = API.useNextTools();
-
-    // function handleTabKey(isShiftPressed: boolean) {
-    //     if (currentMessageSet?.selectedBlockType === "tools") {
-    //         nextTools.mutate({
-    //             chatId: chatId!,
-    //             messageSetId: currentMessageSet.id,
-    //             toolsBlock: currentMessageSet.toolsBlock,
-    //             direction: isShiftPressed ? "prev" : "next",
-    //         });
-    //     }
-    // }
-
-    // useShortcut(["tab"], () => handleTabKey(false));
-    // useShortcut(["shift", "tab"], () => handleTabKey(true));
 
     const handleToggleVisionMode = useCallback(async () => {
         const hasPermissions = await checkScreenRecordingPermission();
@@ -2024,8 +2002,40 @@ export default function MultiChat() {
         }
     }, [appMetadata, setVisionModeEnabled]);
 
-    // Add keyboard shortcut handler
+    const handleSynthesizeChat = useCallback(() => {
+        if (!currentMessageSetId) return;
+        selectSynthesis.mutate({
+            chatId: chatId!,
+            messageSetId: currentMessageSetId,
+        });
+    }, [chatId, currentMessageSetId, selectSynthesis]);
+
+    useConfigurableShortcut("synthesize", handleSynthesizeChat, {
+        isEnabled: !!currentMessageSetId,
+    });
+
+    // Mutate functions are stable, the UseMutationResult object is not.
+    const setReviewsEnabledMutate = setReviewsEnabled.mutate;
+
+    const toggleReviews = useCallback(() => {
+        setReviewsEnabledMutate({
+            enabled: appMetadata["reviews_enabled"] !== "true",
+        });
+    }, [appMetadata, setReviewsEnabledMutate]);
+
+    useConfigurableShortcut("toggle-reviews", toggleReviews);
+
+    useConfigurableShortcut("open-in-main", handleOpenQuickChatInMainWindow, {
+        isEnabled: isQuickChatWindow,
+    });
+
+    useConfigurableShortcut("toggle-vision", handleToggleVisionMode, {
+        isEnabled: isQuickChatWindow,
+    });
+
+    // Non-configurable keyboard shortcuts (cmd+1-8, Escape for quick chat)
     useEffect(() => {
+        // eslint-disable-next-line @typescript-eslint/require-await
         const handleKeyDown = catchAsyncErrors(async (e: KeyboardEvent) => {
             if (e.metaKey && /^[1-8]$/.test(e.key)) {
                 // cmd + 1-8: select message at index
@@ -2055,42 +2065,8 @@ export default function MultiChat() {
                     messageId: message.id,
                     blockType: "compare",
                 });
-            } else if (e.metaKey && e.key === "s" && !e.shiftKey) {
-                e.preventDefault();
-                if (!currentMessageSet) return;
-                selectSynthesis.mutate({
-                    chatId: chatId!,
-                    messageSetId: currentMessageSet.id,
-                });
-            } else if (e.metaKey && e.shiftKey && e.key.toLowerCase() === "s") {
-                e.preventDefault();
-                try {
-                    await handleShareChat();
-                } catch (error) {
-                    console.error(
-                        "Error generating/copying share link:",
-                        error,
-                    );
-                    toast.error("Error", {
-                        description: "Failed to generate or copy share link",
-                    });
-                }
-            } else if (e.metaKey && e.shiftKey && e.key === "r") {
-                e.preventDefault();
-                setReviewsEnabled.mutate({
-                    enabled: appMetadata["reviews_enabled"] !== "true",
-                });
             }
 
-            // quick chat shortcuts -- note that rest of shortcuts are handled in AppContext.tsx
-            if (isQuickChatWindow && e.metaKey && e.key === "o") {
-                e.preventDefault();
-                void handleOpenQuickChatInMainWindow();
-            }
-            if (isQuickChatWindow && e.metaKey && e.key === "i") {
-                e.preventDefault();
-                await handleToggleVisionMode();
-            }
             if (isQuickChatWindow && e.key === "Escape") {
                 e.preventDefault();
                 void invoke("hide");
@@ -2104,15 +2080,7 @@ export default function MultiChat() {
         currentMessageSet,
         currentCompareBlock,
         isQuickChatWindow,
-        handleShareChat,
-        handleOpenQuickChatInMainWindow,
-        appMetadata,
         selectMessage,
-        selectSynthesis,
-        setReviewsEnabled,
-        setVisionModeEnabled,
-        // nextTools,
-        handleToggleVisionMode,
     ]);
 
     const scrollToLatestMessageSet = useCallback(() => {
@@ -2517,7 +2485,7 @@ export default function MultiChat() {
 
             <Dialog
                 id={SHARE_CHAT_DIALOG_ID}
-                onOpenChange={(open) => !open && setShareUrl(null)}
+                onOpenChange={(open) => !open && handleCloseShareUrl()}
             >
                 <DialogContent className="p-5">
                     <DialogHeader>
