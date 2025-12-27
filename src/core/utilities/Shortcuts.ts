@@ -319,6 +319,25 @@ function isModifier(part: string): part is ModifierKey {
 }
 
 /**
+ * Parse an untrusted binding string from Settings into an array of keys.
+ * @param binding - The untrusted binding string from Settings
+ * @returns An array of modifier keys and main keys
+ * @example
+ * ```ts
+ * parseBinding("Meta+Shift+K") // ["Meta", "Shift", "K"]
+ * parseBinding("Control") // ["Control"]
+ * parseBinding(0) // []
+ * ```
+ */
+export function parseBinding(binding: unknown): string[] {
+    if (!binding || typeof binding !== "string") {
+        return [];
+    }
+    return binding.split("+").map((part) => part.trim());
+}
+
+
+/**
  * Check if a KeyboardEvent matches a combo binding
  * @param event - The keyboard event
  * @param combo - The combo array (e.g., ["Meta", "Shift", "K"], ["Control", "Enter"], ["Shift", "Enter"])
