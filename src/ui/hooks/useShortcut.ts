@@ -3,26 +3,38 @@ import { matchesBinding } from "@core/utilities/Shortcuts";
 import { useInputStore } from "@core/infra/InputStore";
 import { useDialogStore } from "@core/infra/DialogStore";
 
+export type UseShortcutOptions = {
+    /**
+     * Defaults to true, keeps the shortcut enabled when the main chat input is
+     * focused
+     */
+    enableOnChatFocus?: boolean;
+    /**
+     * Defaults to [], list of open dialog IDs this shortcut will be enabled on
+     */
+    enableOnDialogIds?: string[] | null;
+    /**
+     * Defaults to true, use to enable or disable the shortcut conditionally
+     * based on application state, e.g. when a dialog is open
+     */
+    isEnabled?: boolean;
+    /**
+     * Defaults to false, use to enable this shortcut globally, overriding any
+     * other options "global" here means the scope the shortcut is declared in
+     * if its parent component is torn down, the shortcut will be removed
+     */
+    isGlobal?: boolean;
+};
+
 /**
  * Hook for mounting a keyboard shortcut.
- *
- * Options:
- * - enableOnChatFocus: defaults to true, keeps the shortcut enabled when the
- *   main chat input is focused
- * - enableOnDialogIds: defaults to [], list of open dialog IDs this shortcut
- *   will be enabled on
- * - isEnabled: defaults to true, use to enable or disable the shortcut
- *   conditionally based on application state, e.g. when a dialog is open
- * - isGlobal: defaults to false, use to enable this shortcut globally,
- *   overriding any other options "global" here means the scope the shortcut is
- *   declared in if its parent component is torn down, the shortcut will be
- *   removed
  *
  * @param combo - **Stable** array of modifier keys and main key (e.g., ["Meta",
  * "K"], ["Control", "Shift", "K"], ["Shift", "Enter"]
  * @param callback - **Stable** function reference to call when shortcut is
  * triggered
- * @param options - Context options for when the shortcut should fire
+ * @param options - Context options for when the shortcut should fire, see
+ * {@link UseShortcutOptions}
  */
 export function useShortcut(
     combo: string[],
@@ -32,12 +44,7 @@ export function useShortcut(
         enableOnDialogIds = [],
         isEnabled = true,
         isGlobal = false,
-    }: {
-        enableOnChatFocus?: boolean;
-        enableOnDialogIds?: string[] | null;
-        isEnabled?: boolean;
-        isGlobal?: boolean;
-    } = {},
+    }: UseShortcutOptions = {},
 ) {
     const focusedInputId = useInputStore.getState().focusedInputId;
     const activeDialogId = useDialogStore.getState().activeDialogId;
