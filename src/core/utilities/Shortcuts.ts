@@ -458,6 +458,23 @@ export function validateShortcut(binding: string[]): ValidationResult {
 }
 
 /**
+ * Detect conflicts with other configured shortcuts
+ */
+export function detectConflicts(
+    shortcutId: ShortcutId,
+    binding: string[],
+    allShortcuts: ShortcutsSettings,
+): ShortcutId[] {
+    return Object.entries(allShortcuts)
+        .filter(([id, config]) => {
+            if (id === shortcutId) return false;
+            if (!config || config.disabled) return false;
+            return bindingsEqual(parseBinding(config.combo), binding);
+        })
+        .map(([id]) => id as ShortcutId);
+}
+
+/**
  * Convert a binding string to a display string with symbols
  * e.g., "Meta+Shift+S" -> "⌘⇧S"
  * e.g., "Alt+KeyK" -> "⌥K"

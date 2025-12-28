@@ -63,6 +63,14 @@ export function useShortcutConfig(shortcutId: ShortcutId): {
 }
 
 /**
+ * Hook to get a shortcut's display string (e.g., "⌘K")
+ */
+export function useShortcutDisplay(shortcutId: ShortcutId): string {
+    const { combo, disabled } = useShortcutConfig(shortcutId);
+    return disabled ? "" : comboToDisplayString(combo);
+}
+
+/**
  * Hook to update a single shortcut's user configuration.
  */
 export function useUpdateShortcut() {
