@@ -19,7 +19,7 @@ import { useTheme } from "@ui/hooks/useTheme";
 import Settings, {
     SETTINGS_DIALOG_ID,
     type SettingsTabId,
-} from "./components/Settings";
+} from "./components/settings/Settings";
 import { SidebarProvider } from "./providers/SidebarProvider";
 import { AppSidebar } from "./components/AppSidebar";
 import { ThemeProvider } from "@ui/themes/theme-provider";
