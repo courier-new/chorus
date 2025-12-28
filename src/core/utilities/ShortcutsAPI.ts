@@ -61,3 +61,103 @@ export function useShortcutConfig(shortcutId: ShortcutId): {
         [config, shortcutId, defaultDefinition],
     );
 }
+
+/**
+ * Hook to update a single shortcut's user configuration.
+ */
+export function useUpdateShortcut() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async ({
+            shortcutId,
+            config,
+        }: {
+            shortcutId: ShortcutId;
+            config: ShortcutUserConfig;
+        }) => {
+            const settings = await settingsManager.get();
+
+            const updatedShortcuts: ShortcutsSettings = {
+                ...settings.shortcuts,
+                [shortcutId]: config,
+            };
+
+            const updatedSettings: Settings = {
+                ...settings,
+                shortcuts: updatedShortcuts,
+            };
+
+            await settingsManager.set(updatedSettings);
+            return updatedShortcuts;
+        },
+        onSuccess: () => {
+            void queryClient.invalidateQueries({
+                queryKey: shortcutsQueryKeys.all,
+            });
+        },
+    });
+}
+
+/**
+ * Hook to reset a single shortcut to its default
+ */
+export function useResetShortcut() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (shortcutId: ShortcutId) => {
+            console.log("Resetting shortcut", shortcutId);
+            const settings = await settingsManager.get();
+            const definition = DEFAULT_SHORTCUTS[shortcutId];
+
+            const updatedShortcuts: ShortcutsSettings = {
+                ...settings.shortcuts,
+                [shortcutId]: {
+                    combo: definition.defaultCombo,
+                    disabled: false,
+                },
+            };
+
+            const updatedSettings: Settings = {
+                ...settings,
+                shortcuts: updatedShortcuts,
+            };
+
+            await settingsManager.set(updatedSettings);
+            return updatedShortcuts;
+        },
+        onSuccess: () => {
+            void queryClient.invalidateQueries({
+                queryKey: shortcutsQueryKeys.all,
+            });
+        },
+    });
+}
+
+/**
+ * Hook to reset all shortcuts to their defaults
+ */
+export function useResetAllShortcuts() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async () => {
+            const settings = await settingsManager.get();
+            const defaultShortcuts = createDefaultShortcutsConfig();
+
+            const updatedSettings: Settings = {
+                ...settings,
+                shortcuts: defaultShortcuts,
+            };
+
+            await settingsManager.set(updatedSettings);
+            return defaultShortcuts;
+        },
+        onSuccess: () => {
+            void queryClient.invalidateQueries({
+                queryKey: shortcutsQueryKeys.all,
+            });
+        },
+    });
+}
