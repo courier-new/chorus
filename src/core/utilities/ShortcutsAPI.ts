@@ -8,8 +8,9 @@ import {
     DEFAULT_SHORTCUTS,
     createDefaultShortcutsConfig,
     comboToDisplayString,
-    bindingsEqual,
     ShortcutDefinition,
+    parseBinding,
+    bindingIsDefault,
 } from "./Shortcuts";
 
 const settingsManager = SettingsManager.getInstance();
@@ -54,9 +55,9 @@ export function useShortcutConfig(shortcutId: ShortcutId): {
             disabled: config?.disabled ?? false,
             isDefault:
                 !config ||
-                bindingsEqual(config.combo, defaultDefinition.defaultCombo),
+                bindingIsDefault(shortcutId, parseBinding(config.combo)),
             definition: defaultDefinition,
         }),
-        [config, defaultDefinition],
+        [config, shortcutId, defaultDefinition],
     );
 }

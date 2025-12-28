@@ -70,6 +70,7 @@ export interface ShortcutUserConfig {
 
 /** A collection of user-defined shortcut configurations */
 export type ShortcutsSettings = Record<ShortcutId, ShortcutUserConfig>;
+
 /** Default shortcuts registry */
 export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     // Navigation
@@ -307,6 +308,31 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     },
 };
 
+/** System-reserved shortcuts that cannot be used */
+export const RESERVED_SHORTCUTS: string[][] = [
+    ["Meta", "Q"], // Quit app (macOS)
+    ["Control", "Q"], // Quit app (Windows/Linux)
+    ["Meta", "W"], // Close window (macOS)
+    ["Control", "W"], // Close window (Windows/Linux)
+    ["Meta", "H"], // Hide app (macOS)
+    ["Meta", "M"], // Minimize (macOS)
+    ["Meta", "C"], // Copy (macOS)
+    ["Control", "C"], // Copy (Windows/Linux)
+    ["Meta", "V"], // Paste (macOS)
+    ["Control", "V"], // Paste (Windows/Linux)
+    ["Meta", "X"], // Cut (macOS)
+    ["Control", "X"], // Cut (Windows/Linux)
+    ["Meta", "Z"], // Undo (macOS)
+    ["Control", "Z"], // Undo (Windows/Linux)
+    ["Meta", "Shift", "Z"], // Redo (macOS)
+    ["Control", "Shift", "Z"], // Redo (Windows/Linux)
+    ["Meta", "A"], // Select all (macOS)
+    ["Control", "A"], // Select all (Windows/Linux)
+    ["Alt", "Tab"], // Window switch (Windows)
+    ["Meta", "Tab"], // App switcher (macOS)
+    ["Meta", "Space"], // Menu (macOS)
+];
+
 /** Modifier keys */
 const MODIFIER_KEYS = ["Meta", "Control", "Alt", "Shift"] as const;
 type ModifierKey = (typeof MODIFIER_KEYS)[number];
@@ -337,9 +363,140 @@ export function parseBinding(binding: unknown): string[] {
 }
 
 /**
+ * Normalize a binding (uppercase letters, sorted, with modifiers and main keys separated).
+ *
+ * @example
+ * ```ts
+ * normalizeBinding(["Meta", "Shift", "k"]) // { modifiers: ["Meta", "Shift"], mainKeys: ["K"] }
+ * normalizeBinding(["Control", "Enter"]) // { modifiers: ["Control"], mainKeys: ["Enter"] }
+ * ```
+ */
+function normalizeBinding(binding: string[]): {
+    modifiers: string[];
+    mainKeys: string[];
+} {
+    const modifiers = binding.filter((p) => isModifier(p)).sort();
+    const mainKeys = binding
+        .filter((p) => !isModifier(p))
+        .map((p) => (p.length === 1 ? p.toUpperCase() : p))
+        .sort();
+    return { modifiers, mainKeys };
+}
+
+/**
+ * Check if two bindings are equal
+ */
+function bindingsEqual(a: string[], b: string[]): boolean {
+    const { modifiers: modifiersA, mainKeys: mainKeysA } = normalizeBinding(a);
+    const { modifiers: modifiersB, mainKeys: mainKeysB } = normalizeBinding(b);
+    return (
+        modifiersA.join("+") === modifiersB.join("+") &&
+        mainKeysA.join("+") === mainKeysB.join("+")
+    );
+}
+
+/**
+ * Check if the binding is the default binding for the given shortcut id
+ */
+export function bindingIsDefault(id: ShortcutId, binding: string[]): boolean {
+    return bindingsEqual(
+        parseBinding(DEFAULT_SHORTCUTS[id].defaultCombo),
+        binding,
+    );
+}
+
+/**
+ * Check if a binding matches a reserved shortcut
+ */
+function isReservedShortcut(binding: string[]): boolean {
+    return RESERVED_SHORTCUTS.some((reserved) =>
+        bindingsEqual(binding, reserved),
+    );
+}
+
+/** A validation result for a keyboard shortcut binding */
+export interface ValidationResult {
+    valid: boolean;
+    error?: string;
+}
+
+/**
+ * Validate a keyboard shortcut binding
+ */
+export function validateShortcut(binding: string[]): ValidationResult {
+    if (binding.length === 0) {
+        return { valid: false, error: "Shortcut cannot be empty" };
+    }
+
+    const hasModifier = binding.some((p) => isModifier(p));
+    const mainKey = binding.find((p) => !isModifier(p));
+
+    // Shortcut requires at least one modifier and at least one main key
+    if (!hasModifier) {
+        return {
+            valid: false,
+            error: "Shortcut must include at least one modifier key (Meta, Control, Alt, or Shift)",
+        };
+    }
+
+    if (!mainKey) {
+        return {
+            valid: false,
+            error: "Shortcut must include at least one non-modifier key (Letter, Number, Symbol)",
+        };
+    }
+
+    // Check reserved shortcuts
+    if (isReservedShortcut(binding)) {
+        return {
+            valid: false,
+            error: "This shortcut is reserved by the system",
+        };
+    }
+
+    return { valid: true };
+}
+
+/**
+ * Convert a binding string to a display string with symbols
+ * e.g., "Meta+Shift+S" -> "⌘⇧S"
+ * e.g., "Alt+KeyK" -> "⌥K"
+ */
+export function comboToDisplayString(
+    binding: string,
+    withPlus = false,
+): string {
+    const symbolMap: Record<string, string> = {
+        meta: "⌘",
+        control: "⌃",
+        alt: "⌥",
+        shift: "⇧",
+        enter: "↵",
+        backspace: "⌫",
+        delete: "⌦",
+        escape: "⎋",
+        tab: "⇥",
+        space: "Space",
+        arrowup: "↑",
+        arrowdown: "↓",
+        arrowleft: "←",
+        arrowright: "→",
+    };
+
+    const { modifiers, mainKeys } = normalizeBinding(parseBinding(binding));
+
+    return [
+        ...modifiers.map((m) => symbolMap[m.toLowerCase()]),
+        ...mainKeys,
+    ].join(withPlus ? "+" : "");
+}
+
+/**
  * Gets the raw key from a keyboard event, without modifier states.
  */
-export function keyFromEvent(event: KeyboardEvent): string {
+export function keyFromEvent(
+    event: Pick<KeyboardEvent, "code" | "key">,
+): string {
     // We use e.code for keys and digits to get their raw keyboard value so
     // modifier keys can't affect their values (e.g., Alt+G gives "©" in
     // event.key, which is not what we want)
@@ -360,7 +517,7 @@ export function keyFromEvent(event: KeyboardEvent): string {
     if (event.code === "Equal") return "=";
     if (event.code === "Backquote") return "`";
 
-    return event.key.toUpperCase();
+    return event.key;
 }
 
 /**
