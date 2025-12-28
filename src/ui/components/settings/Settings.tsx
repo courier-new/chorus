@@ -1157,8 +1157,8 @@ export default function Settings({ tab = "general" }: SettingsProps) {
     const customBaseUrl = AppMetadataAPI.useCustomBaseUrl() || "";
     const setCustomBaseUrlMutation = AppMetadataAPI.useSetCustomBaseUrl();
 
-    const updateShortcut = useUpdateShortcut();
-    const resetShortcut = useResetShortcut();
+    const { mutate: updateShortcut } = useUpdateShortcut();
+    const { mutate: resetShortcut } = useResetShortcut();
 
     // Universal system prompt autosync
     const { draft: universalSystemPrompt, setDraft: setUniversalSystemPrompt } =
@@ -1240,27 +1240,24 @@ export default function Settings({ tab = "general" }: SettingsProps) {
         void loadSettings();
     }, [db, setMonoFont, setSansFont, settingsManager]);
 
-    // Mutate functions are stable, the UseMutationResult object is not.
-    const updateShortcutMutate = updateShortcut.mutate;
-
     const handleQuickChatShortcutChange = useCallback(
         (value: string) => {
-            updateShortcutMutate({
+            updateShortcut({
                 shortcutId: "ambient-chat",
                 config: { combo: value, disabled: false },
             });
         },
-        [updateShortcutMutate],
+        [updateShortcut],
     );
 
     const handleQuickChatEnabledChange = useCallback(
         (enabled: boolean) => {
-            updateShortcutMutate({
+            updateShortcut({
                 shortcutId: "ambient-chat",
                 config: { combo: quickChatShortcut, disabled: !enabled },
             });
         },
-        [quickChatShortcut, updateShortcutMutate],
+        [quickChatShortcut, updateShortcut],
     );
 
     const handleAutoConvertLongTextChange = async (enabled: boolean) => {
@@ -1310,13 +1307,10 @@ export default function Settings({ tab = "general" }: SettingsProps) {
         });
     };
 
-    // Mutate functions are stable, the UseMutationResult object is not.
-    const resetShortcutMutate = resetShortcut.mutate;
-
     const onDefaultQcShortcutClick = useCallback(() => {
-        resetShortcutMutate("ambient-chat");
+        resetShortcut("ambient-chat");
         setQuickChatShortcutForceReset((prev) => prev + 1);
-    }, [resetShortcutMutate]);
+    }, [resetShortcut]);
 
     const onLmStudioBaseUrlChange = async (
         e: React.ChangeEvent<HTMLInputElement>,

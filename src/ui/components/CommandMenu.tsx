@@ -59,7 +59,7 @@ export function CommandMenu() {
     const { data: searchResults = [], isLoading } =
         SearchAPI.useSearchMessages(debouncedSearchTerm);
 
-    const createProject = ProjectAPI.useCreateProject();
+    const { mutate: createProject } = ProjectAPI.useCreateProject();
 
     const ACTIONS = useMemo(
         () => [
@@ -86,9 +86,7 @@ export function CommandMenu() {
                 label: "New project",
                 icon: FolderPlusIcon,
                 shortcut: "⌘⇧N",
-                action: () => {
-                    createProject.mutate();
-                },
+                action: createProject,
             },
             {
                 id: "settings",

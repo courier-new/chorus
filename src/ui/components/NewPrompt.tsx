@@ -45,7 +45,7 @@ export function NewPromptInner() {
     const { name, baseModel, systemPrompt } = formData;
 
     const models = ModelsAPI.useModels();
-    const createModelConfig = ModelsAPI.useCreateModelConfig();
+    const { mutateAsync: createModelConfig } = ModelsAPI.useCreateModelConfig();
 
     const baseModelOptions = useMemo(
         () =>
@@ -58,9 +58,6 @@ export function NewPromptInner() {
                 .sort((a, b) => a.displayName.localeCompare(b.displayName)),
         [models],
     );
-
-    // Mutate functions are stable, the UseMutationResult object is not.
-    const createModelConfigMutate = createModelConfig.mutateAsync;
 
     const handleSubmit = useCallback(
         async (e?: React.FormEvent) => {
@@ -77,7 +74,7 @@ export function NewPromptInner() {
             // custom_<uuid> instead of custom::<uuid>, because it's not an model id. we don't want to confuse 'custom' as a model provider.
             const configId = `custom__${uuidv4()}`;
 
-            await createModelConfigMutate({
+            await createModelConfig({
                 configId,
                 baseModel,
                 displayName: name,
@@ -89,7 +86,7 @@ export function NewPromptInner() {
             });
             navigate("/prompts");
         },
-        [name, baseModel, systemPrompt, createModelConfigMutate, navigate],
+        [name, baseModel, systemPrompt, createModelConfig, navigate],
     );
 
     useShortcut(SUBMIT_SHORTCUT, handleSubmit);

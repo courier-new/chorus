@@ -168,7 +168,7 @@ export function ChatInput({
     const posthog = usePostHog();
 
     const addModelToCompareConfigs = MessageAPI.useAddModelToCompareConfigs();
-    const updateSelectedModelConfigsCompare =
+    const { mutateAsync: updateSelectedModelConfigsCompare } =
         MessageAPI.useUpdateSelectedModelConfigsCompare();
 
     const createMessageSetPair = MessageAPI.useCreateMessageSetPair();
@@ -387,7 +387,7 @@ export function ChatInput({
             const newModelConfigs = selectedModelConfigsCompare.data?.filter(
                 (m) => m.id !== modelConfigId,
             );
-            await updateSelectedModelConfigsCompare.mutateAsync({
+            await updateSelectedModelConfigsCompare({
                 modelConfigs: newModelConfigs ?? [],
             });
 
@@ -431,20 +431,16 @@ export function ChatInput({
         ],
     );
 
-    // Mutate functions are stable, the UseMutationResult object is not.
-    const updateSelectedModelConfigsCompareMutate =
-        updateSelectedModelConfigsCompare.mutateAsync;
-
     const clearCompareModelConfigs = useCallback(() => {
         void (async () => {
-            await updateSelectedModelConfigsCompareMutate({
+            await updateSelectedModelConfigsCompare({
                 modelConfigs: [],
             });
             void posthog.capture("selected_model_configs_updated", {
                 selectedModelConfigs: [],
             });
         })();
-    }, [posthog, updateSelectedModelConfigsCompareMutate]);
+    }, [posthog, updateSelectedModelConfigsCompare]);
 
     // Update focus when dialog closes or chat id changes
     useEffect(() => {

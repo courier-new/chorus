@@ -1979,7 +1979,7 @@ export default function MultiChat() {
 
     const selectMessage = MessageAPI.useSelectMessage();
     const selectSynthesis = MessageAPI.useSelectSynthesis();
-    const setReviewsEnabled = MessageAPI.useSetReviewsEnabled();
+    const { mutate: setReviewsEnabled } = MessageAPI.useSetReviewsEnabled();
 
     const handleToggleVisionMode = useCallback(async () => {
         const hasPermissions = await checkScreenRecordingPermission();
@@ -2014,14 +2014,11 @@ export default function MultiChat() {
         isEnabled: !!currentMessageSetId,
     });
 
-    // Mutate functions are stable, the UseMutationResult object is not.
-    const setReviewsEnabledMutate = setReviewsEnabled.mutate;
-
     const toggleReviews = useCallback(() => {
-        setReviewsEnabledMutate({
+        setReviewsEnabled({
             enabled: appMetadata["reviews_enabled"] !== "true",
         });
-    }, [appMetadata, setReviewsEnabledMutate]);
+    }, [appMetadata, setReviewsEnabled]);
 
     useConfigurableShortcut("toggle-reviews", toggleReviews);
 

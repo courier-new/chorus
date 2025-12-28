@@ -222,9 +222,10 @@ function ScopeSection({
 
 export function KeyboardShortcutsSettings() {
     const { data: shortcutsSettings, isLoading } = useShortcutsSettings();
-    const updateShortcut = useUpdateShortcut();
-    const resetShortcut = useResetShortcut();
-    const resetAllShortcuts = useResetAllShortcuts();
+    const { mutate: updateShortcut } = useUpdateShortcut();
+    const { mutate: resetShortcut } = useResetShortcut();
+    const { mutate: resetAllShortcuts, isPending: resetAllShortcutsPending } =
+        useResetAllShortcuts();
 
     const shortcutsByScopeInOrder = useMemo(
         () =>
@@ -238,24 +239,19 @@ export function KeyboardShortcutsSettings() {
         [],
     );
 
-    // Mutate functions are stable, the UseMutationResult object is not.
-    const updateShortcutMutate = updateShortcut.mutate;
-
     const handleUpdateShortcut = useCallback(
         (id: ShortcutId, combo: string, disabled: boolean) => {
-            updateShortcutMutate({
+            updateShortcut({
                 shortcutId: id,
                 config: { combo, disabled },
             });
         },
-        [updateShortcutMutate],
+        [updateShortcut],
     );
 
-    // Mutate functions are stable, the UseMutationResult object is not.
-    const resetAllShortcutsMutate = resetAllShortcuts.mutate;
     const handleResetAll = useCallback(
-        () => resetAllShortcutsMutate(),
-        [resetAllShortcutsMutate],
+        () => resetAllShortcuts(),
+        [resetAllShortcuts],
     );
 
     // Check if any shortcuts have been modified, for "Reset all" button.
@@ -311,7 +307,7 @@ export function KeyboardShortcutsSettings() {
                     variant="outline"
                     size="sm"
                     onClick={handleResetAll}
-                    disabled={!hasModifications || resetAllShortcuts.isPending}
+                    disabled={!hasModifications || resetAllShortcutsPending}
                 >
                     <RotateCcw />
                     Reset all
@@ -334,7 +330,7 @@ export function KeyboardShortcutsSettings() {
                         shortcuts={shortcuts}
                         shortcutsSettings={shortcutsSettings}
                         onUpdateShortcut={handleUpdateShortcut}
-                        onResetShortcut={resetShortcut.mutate}
+                        onResetShortcut={resetShortcut}
                     />
                 ))}
             </div>
