@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Input } from "./ui/input";
+import { Input } from "../ui/input";
 import { cn } from "@ui/lib/utils";
 import {
     ValidationResult,
