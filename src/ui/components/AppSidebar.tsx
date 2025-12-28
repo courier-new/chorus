@@ -809,7 +809,6 @@ function ChatListItem({ chat, isActive }: { chat: Chat; isActive: boolean }) {
     const isDeleteChatDialogOpen = useDialogStore(
         (state) => state.activeDialogId === deleteChatDialogId(chat.id),
     );
-    const deleteConfirmButtonRef = useRef<HTMLButtonElement>(null);
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const settings = useSettings();
 
@@ -854,15 +853,6 @@ function ChatListItem({ chat, isActive }: { chat: Chat; isActive: boolean }) {
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [isDeleteChatDialogOpen, chat.id]);
 
-    // Focus the confirm button when dialog opens
-    useEffect(() => {
-        if (isDeleteChatDialogOpen && deleteConfirmButtonRef.current) {
-            setTimeout(() => {
-                deleteConfirmButtonRef.current?.focus();
-            }, 50);
-        }
-    }, [isDeleteChatDialogOpen, chat.id]);
-
     const handleStartEdit = useCallback(() => {
         setIsEditingTitle(true);
     }, [setIsEditingTitle]);
@@ -896,10 +886,10 @@ function ChatListItem({ chat, isActive }: { chat: Chat; isActive: boolean }) {
             onStopEdit={handleStopEdit}
             onSubmitEdit={handleSubmitEdit}
             onDelete={handleOpenDeleteDialog}
+            isDeleteChatDialogOpen={isDeleteChatDialogOpen}
             onConfirmDelete={handleConfirmDelete}
             deleteIsPending={deleteChatIsPending}
             navigate={navigate}
-            deleteConfirmButtonRef={deleteConfirmButtonRef}
             chatCost={chat.totalCostUsd}
             showCost={showCost}
         />
@@ -918,10 +908,10 @@ type ChatListItemViewProps = {
     onStopEdit: () => void;
     onSubmitEdit: (newTitle: string) => Promise<void>;
     onDelete: () => void;
+    isDeleteChatDialogOpen: boolean;
     onConfirmDelete: () => void;
     deleteIsPending: boolean;
     navigate: MutableRefObject<NavigateFunction>;
-    deleteConfirmButtonRef: MutableRefObject<HTMLButtonElement | null>;
     chatCost?: number;
     showCost: boolean;
 };
@@ -939,22 +929,30 @@ const ChatListItemView = React.memo(
         onStopEdit,
         onSubmitEdit,
         onDelete,
+        isDeleteChatDialogOpen,
         onConfirmDelete,
         deleteIsPending,
         navigate,
-        deleteConfirmButtonRef,
         chatCost,
         showCost,
     }: ChatListItemViewProps) => {
+        // Use a callback ref to focus the delete confirm button when the dialog
+        // opens and the element is added to the DOM.
+        const deleteConfirmButtonRef = useCallback(
+            (node: HTMLButtonElement | null) => {
+                if (node && isDeleteChatDialogOpen) {
+                    setTimeout(() => {
+                        node.focus();
+                    }, 0);
+                }
+            },
+            [isDeleteChatDialogOpen],
+        );
+
         return (
             <div
                 key={chatId + "-sidebar"}
-                className={[
-                    deleteIsPending ? "opacity-50" : "",
-                    // chat.projectContextSummaryIsStale
-                    //     ? "border !border-red-500"
-                    //     : "", // for debugging
-                ].join(" ")}
+                className={[deleteIsPending ? "opacity-50" : ""].join(" ")}
             >
                 <Draggable id={chatId}>
                     <SidebarMenuButton
@@ -1069,12 +1067,9 @@ const ChatListItemView = React.memo(
                                 variant="outline"
                                 size="sm"
                                 onClick={() => dialogActions.closeDialog()}
-                                // for some reason tabIndex=2 or =0 isn't working
-                                // so I'm using -1 to ensure the Delete button gets focus
-                                tabIndex={-1}
                             >
                                 Cancel{" "}
-                                <span className="ml-1 text-sm text-muted-foreground/70">
+                                <span className="text-muted-foreground/70">
                                     Esc
                                 </span>
                             </Button>
@@ -1083,10 +1078,9 @@ const ChatListItemView = React.memo(
                                 variant="default"
                                 size="sm"
                                 onClick={onConfirmDelete}
-                                tabIndex={1}
                                 ref={deleteConfirmButtonRef}
                             >
-                                Delete <span className="ml-1 text-xs">⌘↵</span>
+                                Delete <span>⌘↵</span>
                             </Button>
                         </DialogFooter>
                     </DialogContent>
