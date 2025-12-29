@@ -468,7 +468,12 @@ export function detectConflicts(
     return Object.entries(allShortcuts)
         .filter(([id, config]) => {
             if (id === shortcutId) return false;
-            if (!config || config.disabled) return false;
+            if (
+                !config ||
+                config.disabled ||
+                !DEFAULT_SHORTCUTS[id as ShortcutId].visible
+            )
+                return false;
             return bindingsEqual(parseBinding(config.combo), binding);
         })
         .map(([id]) => id as ShortcutId);

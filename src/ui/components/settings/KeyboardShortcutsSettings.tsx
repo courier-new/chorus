@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { Button } from "../ui/button";
 import { Switch } from "../ui/switch";
 import { Separator } from "../ui/separator";
@@ -56,9 +56,10 @@ function ShortcutRow({
 }: ShortcutRowProps) {
     const [requiresRestart, setRequiresRestart] = useState(false);
     const { combo, disabled, isDefault } = useShortcutConfig(shortcutId);
+    const initialCombo = useRef<string>(combo);
 
     const conflictWarning = useMemo(() => {
-        if (!disabled) return undefined;
+        if (disabled) return undefined;
 
         const conflicts = detectConflicts(
             shortcutId,
@@ -76,14 +77,21 @@ function ShortcutRow({
     const onUpdate = useCallback(
         (newCombo: string, newDisabled: boolean) => {
             onUpdateProp?.(newCombo, newDisabled);
-            setRequiresRestart(DEFAULT_SHORTCUTS[shortcutId].requiresRestart);
+            setRequiresRestart(
+                initialCombo.current !== newCombo &&
+                    DEFAULT_SHORTCUTS[shortcutId].requiresRestart,
+            );
         },
         [onUpdateProp, shortcutId],
     );
 
     const onReset = useCallback(() => {
         onResetProp?.();
-        setRequiresRestart(DEFAULT_SHORTCUTS[shortcutId].requiresRestart);
+        setRequiresRestart(
+            initialCombo.current !==
+                DEFAULT_SHORTCUTS[shortcutId].defaultCombo &&
+                DEFAULT_SHORTCUTS[shortcutId].requiresRestart,
+        );
     }, [onResetProp, shortcutId]);
 
     return (
@@ -195,25 +203,29 @@ function ScopeSection({
             </CollapsibleTrigger>
             <CollapsibleContent>
                 <div className="pl-3 divide-y">
-                    {shortcuts.map((shortcut) => {
-                        return (
-                            <ShortcutRow
-                                key={shortcut.id}
-                                shortcutId={shortcut.id}
-                                label={shortcut.label}
-                                description={shortcut.description}
-                                onUpdate={(combo, disabled) => {
-                                    onUpdateShortcut?.(
-                                        shortcut.id,
-                                        combo,
-                                        disabled,
-                                    );
-                                }}
-                                onReset={() => onResetShortcut?.(shortcut.id)}
-                                allShortcuts={shortcutsSettings}
-                            />
-                        );
-                    })}
+                    {shortcuts
+                        .filter((shortcut) => shortcut.visible)
+                        .map((shortcut) => {
+                            return (
+                                <ShortcutRow
+                                    key={shortcut.id}
+                                    shortcutId={shortcut.id}
+                                    label={shortcut.label}
+                                    description={shortcut.description}
+                                    onUpdate={(combo, disabled) => {
+                                        onUpdateShortcut?.(
+                                            shortcut.id,
+                                            combo,
+                                            disabled,
+                                        );
+                                    }}
+                                    onReset={() =>
+                                        onResetShortcut?.(shortcut.id)
+                                    }
+                                    allShortcuts={shortcutsSettings}
+                                />
+                            );
+                        })}
                 </div>
             </CollapsibleContent>
         </Collapsible>
@@ -222,10 +234,22 @@ function ScopeSection({
 
 export function KeyboardShortcutsSettings() {
     const { data: shortcutsSettings, isLoading } = useShortcutsSettings();
-    const { mutate: updateShortcut } = useUpdateShortcut();
-    const { mutate: resetShortcut } = useResetShortcut();
-    const { mutate: resetAllShortcuts, isPending: resetAllShortcutsPending } =
-        useResetAllShortcuts();
+    const { mutateAsync: updateShortcut } = useUpdateShortcut();
+    const { mutateAsync: resetShortcut } = useResetShortcut();
+    const {
+        mutateAsync: resetAllShortcuts,
+        isPending: resetAllShortcutsPending,
+    } = useResetAllShortcuts();
+    const initialShortcuts = useRef<ShortcutsSettings | null>(
+        shortcutsSettings ?? null,
+    );
+    const dirtyShortcuts = useRef<Set<ShortcutId>>(new Set());
+
+    useEffect(() => {
+        if (initialShortcuts.current === null && shortcutsSettings) {
+            initialShortcuts.current = shortcutsSettings;
+        }
+    }, [shortcutsSettings]);
 
     const shortcutsByScopeInOrder = useMemo(
         () =>
@@ -240,21 +264,30 @@ export function KeyboardShortcutsSettings() {
     );
 
     const handleUpdateShortcut = useCallback(
-        (id: ShortcutId, combo: string, disabled: boolean) => {
-            updateShortcut({
+        async (id: ShortcutId, combo: string, disabled: boolean) => {
+            await updateShortcut({
                 shortcutId: id,
                 config: { combo, disabled },
             });
+            dirtyShortcuts.current.add(id);
         },
         [updateShortcut],
     );
 
-    const handleResetAll = useCallback(
-        () => resetAllShortcuts(),
-        [resetAllShortcuts],
+    const handleResetShortcut = useCallback(
+        async (id: ShortcutId) => {
+            await resetShortcut(id);
+            dirtyShortcuts.current.add(id);
+        },
+        [resetShortcut],
     );
 
-    // Check if any shortcuts have been modified, for "Reset all" button.
+    const handleResetAll = useCallback(async () => {
+        await resetAllShortcuts();
+        dirtyShortcuts.current.clear();
+    }, [resetAllShortcuts]);
+
+    // Check if any shortcuts have been modified from their defaults, for "Reset all" button.
     const hasModifications = Object.entries(shortcutsSettings ?? {}).some(
         ([id, config]) => {
             return (
@@ -264,19 +297,15 @@ export function KeyboardShortcutsSettings() {
         },
     );
 
-    // Check if any of the shortcuts require a restart to take effect.
-    const requiresRestart = Object.entries(shortcutsSettings ?? {}).some(
-        ([id, config]) => {
-            return (
-                !config.disabled &&
-                !bindingIsDefault(
-                    id as ShortcutId,
-                    parseBinding(config.combo),
-                ) &&
-                DEFAULT_SHORTCUTS[id as ShortcutId].requiresRestart
-            );
-        },
-    );
+    // Check if any of the shortcuts that have been touched since the initial
+    // load require a restart to take effect.
+    const requiresRestart = Array.from(dirtyShortcuts.current).some((id) => {
+        return (
+            initialShortcuts.current?.[id]?.combo !==
+                shortcutsSettings?.[id]?.combo &&
+            DEFAULT_SHORTCUTS[id].requiresRestart
+        );
+    });
 
     if (isLoading || !shortcutsSettings) {
         return (
@@ -330,7 +359,7 @@ export function KeyboardShortcutsSettings() {
                         shortcuts={shortcuts}
                         shortcutsSettings={shortcutsSettings}
                         onUpdateShortcut={handleUpdateShortcut}
-                        onResetShortcut={resetShortcut}
+                        onResetShortcut={handleResetShortcut}
                     />
                 ))}
             </div>
