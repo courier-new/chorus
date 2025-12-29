@@ -1518,11 +1518,6 @@ export default function Settings({ tab = "general" }: SettingsProps) {
                                                 <SelectItem
                                                     key={font.value}
                                                     value={font.value}
-                                                    onFocus={() =>
-                                                        void handleSansFontChange(
-                                                            font.value,
-                                                        )
-                                                    }
                                                 >
                                                     <span
                                                         className={`font-${font.value
