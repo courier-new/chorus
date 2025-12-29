@@ -689,10 +689,10 @@ export function AppSidebarInner() {
 
 function QuickChats({ chats }: { chats: Chat[] }) {
     const navigate = useNavigate();
-    const { data: settings } = useSettings();
     const convertQuickChatToRegularChat =
         ChatAPI.useConvertQuickChatToRegularChat();
     const settingsShortcut = useShortcutDisplay("settings");
+    const ambientChatShortcut = useShortcutDisplay("ambient-chat");
 
     const handleQuickChatConversion = async (
         e: React.MouseEvent,
@@ -791,12 +791,11 @@ function QuickChats({ chats }: { chats: Chat[] }) {
                                     ))}
                                 </SidebarGroupContent>
                             </SidebarGroup>
-                            {!chats.length && (
+                            {!chats.length && ambientChatShortcut && (
                                 <div className="px-2 py-2 text-sm text-muted-foreground">
                                     Start an Ambient Chat with{" "}
                                     <span className="text-sm">
-                                        {settings?.quickChat?.shortcut ||
-                                            "⌥Space"}
+                                        {ambientChatShortcut}
                                     </span>
                                 </div>
                             )}
