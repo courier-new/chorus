@@ -16,7 +16,7 @@ export function MessageCostDisplay({
     isStreaming,
     isQuickChatWindow,
 }: MessageCostDisplayProps) {
-    const settings = useSettings();
+    const { data: settings } = useSettings();
     const showCost = settings?.showCost ?? false;
 
     // Don't show cost in quick chat or while streaming

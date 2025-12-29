@@ -165,7 +165,7 @@ export function ChatInput({
 
     const placeholderText = isReply ? "Reply..." : "Ask me anything...";
 
-    const settings = useSettings();
+    const { data: settings } = useSettings();
 
     const posthog = usePostHog();
 

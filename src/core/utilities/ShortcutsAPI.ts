@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useEffect } from "react";
+import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { SettingsManager, Settings } from "./Settings";
 import {
     ShortcutId,
@@ -14,7 +15,26 @@ import {
 } from "./Shortcuts";
 
 const settingsManager = SettingsManager.getInstance();
-// Query keys
+
+/**
+ * We use a global, module-level listener for settings changes to ensure the
+ * Tauri event listener is only registered once across the app lifecycle. The
+ * listener invalidates the keyboard shortcuts settings queries when settings
+ * change externally from another part of the application.
+ */
+let settingsListener: Promise<UnlistenFn> | null = null;
+function initializeSettingsListener(
+    queryClient: ReturnType<typeof useQueryClient>,
+) {
+    if (settingsListener) return;
+    settingsListener = listen<Settings>("settings-changed", () => {
+        console.log("settings-changed for shortcutsAPI");
+        void queryClient.invalidateQueries({
+            queryKey: shortcutsQueryKeys.all,
+        });
+    });
+}
+
 export const shortcutsQueryKeys = {
     all: ["shortcuts"] as const,
     settings: () => [...shortcutsQueryKeys.all, "settings"] as const,
@@ -24,6 +44,14 @@ export const shortcutsQueryKeys = {
  * Hook to get all shortcuts settings
  */
 export function useShortcutsSettings() {
+    const queryClient = useQueryClient();
+
+    // Initialize the settings listener once, queryClient should be stable
+    // across the app lifecycle.
+    useEffect(() => {
+        initializeSettingsListener(queryClient);
+    }, [queryClient]);
+
     return useQuery({
         queryKey: shortcutsQueryKeys.settings(),
         queryFn: async (): Promise<ShortcutsSettings> => {

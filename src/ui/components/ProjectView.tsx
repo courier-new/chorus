@@ -544,7 +544,7 @@ const ProjectContextEditor = forwardRef<
     const { draft: contextText, setDraft: setContextText } =
         ProjectAPI.useAutoSyncProjectContextText(projectId);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
-    const settings = useSettings();
+    const { data: settings } = useSettings();
     const [pendingTemplate, setPendingTemplate] = useState<string | null>(null);
     const isReplaceContextDialogOpen = useDialogStore(
         (state) => state.activeDialogId === replaceContextDialogId(projectId),

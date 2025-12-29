@@ -262,7 +262,7 @@ function Project({ projectId }: { projectId: string }) {
     const toggleProjectIsCollapsed = useToggleProjectIsCollapsed();
     const projectsQuery = useQuery(projectQueries.list());
     const chatsQuery = useQuery(chatQueries.list());
-    const settings = useSettings();
+    const { data: settings } = useSettings();
     const location = useLocation();
     const currentChatId = location.pathname.split("/").pop()!; // well this is super hacky
     const projectIsActive = location.pathname.includes(projectId);
@@ -689,7 +689,7 @@ export function AppSidebarInner() {
 
 function QuickChats({ chats }: { chats: Chat[] }) {
     const navigate = useNavigate();
-    const settings = useSettings();
+    const { data: settings } = useSettings();
     const convertQuickChatToRegularChat =
         ChatAPI.useConvertQuickChatToRegularChat();
     const settingsShortcut = useShortcutDisplay("settings");
@@ -815,7 +815,7 @@ function ChatListItem({ chat, isActive }: { chat: Chat; isActive: boolean }) {
         (state) => state.activeDialogId === deleteChatDialogId(chat.id),
     );
     const [isEditingTitle, setIsEditingTitle] = useState(false);
-    const settings = useSettings();
+    const { data: settings } = useSettings();
 
     // no good very bad, but unfortunately necessary -- see https://github.com/remix-run/react-router/issues/7634#issuecomment-2184999343
     const navigate = useRef(useNavigate());

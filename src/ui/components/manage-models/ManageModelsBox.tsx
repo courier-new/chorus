@@ -364,7 +364,7 @@ export function ManageModelsBox({
     const updateSelectedModelConfigsCompare =
         MessageAPI.useUpdateSelectedModelConfigsCompare();
     const modelConfigs = ModelsAPI.useModelConfigs();
-    const settings = useSettings();
+    const { data: settings } = useSettings();
     const showCost = settings?.showCost ?? false;
 
     const selectedSingleModelConfig = useMemo(() => {
