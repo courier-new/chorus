@@ -204,7 +204,9 @@ function AppContent() {
     const currentChat = currentChatQuery.data;
 
     // Check if we're on a project view page
-    const currentProjectId = location.pathname.match(/^\/projects\/(.+)$/)?.[1];
+    const currentProjectId =
+        currentChat?.projectId ??
+        location.pathname.match(/^\/projects\/(.+)$/)?.[1];
 
     const toggleCommandMenu = useCallback(() => {
         if (isCommandMenuDialogOpen) {
@@ -546,9 +548,10 @@ function AppContent() {
         return () => clearInterval(updatesTimeout);
     }, [checkForUpdates]);
 
-    const getOrCreateNewChat = ChatAPI.useGetOrCreateNewChat();
-    const getOrCreateNewQuickChat = ChatAPI.useGetOrCreateNewQuickChat();
-    const createProject = ProjectAPI.useCreateProject();
+    const { mutate: getOrCreateNewChat } = ChatAPI.useGetOrCreateNewChat();
+    const { mutate: getOrCreateNewQuickChat } =
+        ChatAPI.useGetOrCreateNewQuickChat();
+    const { mutate: createProject } = ProjectAPI.useCreateProject();
 
     // Listen for menu events from Rust
     useEffect(() => {
@@ -570,11 +573,11 @@ function AppContent() {
 
                 // Use the appropriate function based on window type
                 if (isQuickChatWindow) {
-                    getOrCreateNewQuickChat.mutate();
+                    getOrCreateNewQuickChat();
                 } else {
-                    // Always create a default (non-project) chat when using Cmd+N
-                    getOrCreateNewChat.mutate({
-                        projectId: "default",
+                    // Create a new chat in the appropriate context
+                    getOrCreateNewChat({
+                        projectId: currentProjectId ?? "default",
                     });
                 }
             })();
@@ -601,7 +604,7 @@ function AppContent() {
                 if (isDialogOpen) {
                     dialogActions.closeDialog();
                 }
-                createProject.mutate();
+                createProject();
             })();
         });
 

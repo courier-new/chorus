@@ -561,7 +561,7 @@ export function AppSidebarInner() {
                                             className="size-4 text-muted-foreground group-hover/new-chat:text-foreground"
                                             strokeWidth={1.5}
                                         />
-                                        Start New Chat
+                                        Start new chat
                                     </span>
                                     {newChatShortcut && (
                                         <span className="text-xs hidden group-hover/new-chat:block text-muted-foreground">

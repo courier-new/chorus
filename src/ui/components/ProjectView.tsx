@@ -457,9 +457,7 @@ export default function ProjectView() {
                                     onClick={() => {
                                         if (projectId) {
                                             void getOrCreateNewChat.mutateAsync(
-                                                {
-                                                    projectId,
-                                                },
+                                                { projectId },
                                             );
                                         }
                                     }}
@@ -471,9 +469,11 @@ export default function ProjectView() {
                                         />{" "}
                                         New chat in project
                                     </span>
-                                    <span className="text-xs hidden group-hover/new-chat:block text-muted-foreground">
-                                        ⌘N
-                                    </span>
+                                    {newChatShortcut && (
+                                        <span className="text-xs hidden group-hover/new-chat:block text-muted-foreground">
+                                            {newChatShortcut}
+                                        </span>
+                                    )}
                                 </Button>
                             </div>
                         )}
