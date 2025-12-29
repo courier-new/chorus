@@ -57,6 +57,7 @@ function ShortcutRow({
     const [requiresRestart, setRequiresRestart] = useState(false);
     const { combo, disabled, isDefault } = useShortcutConfig(shortcutId);
     const initialCombo = useRef<string>(combo);
+    const initialDisabled = useRef<boolean>(disabled);
 
     const conflictWarning = useMemo(() => {
         if (disabled) return undefined;
@@ -78,7 +79,8 @@ function ShortcutRow({
         (newCombo: string, newDisabled: boolean) => {
             onUpdateProp?.(newCombo, newDisabled);
             setRequiresRestart(
-                initialCombo.current !== newCombo &&
+                (initialCombo.current !== newCombo ||
+                    initialDisabled.current !== newDisabled) &&
                     DEFAULT_SHORTCUTS[shortcutId].requiresRestart,
             );
         },
@@ -301,8 +303,10 @@ export function KeyboardShortcutsSettings() {
     // load require a restart to take effect.
     const requiresRestart = Array.from(dirtyShortcuts.current).some((id) => {
         return (
-            initialShortcuts.current?.[id]?.combo !==
-                shortcutsSettings?.[id]?.combo &&
+            (initialShortcuts.current?.[id]?.combo !==
+                shortcutsSettings?.[id]?.combo ||
+                initialShortcuts.current?.[id]?.disabled !==
+                    shortcutsSettings?.[id]?.disabled) &&
             DEFAULT_SHORTCUTS[id].requiresRestart
         );
     });
