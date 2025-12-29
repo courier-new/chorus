@@ -22,6 +22,7 @@ import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { useMutation } from "@tanstack/react-query";
 import ToolsBox from "./ToolsBox";
+import { useShortcutDisplay } from "@core/utilities/ShortcutsAPI";
 import { useConfigurableShortcut } from "@ui/hooks/useConfigurableShortcut";
 import {
     useAttachScreenshotEphemeral,
@@ -94,6 +95,7 @@ export function ChatInput({
     const modelConfigs = ModelsAPI.useModelConfigs();
     const appMetadata = useWaitForAppMetadata();
     const cautiousEnter = appMetadata["cautious_enter"] === "true";
+    const focusInputShortcut = useShortcutDisplay("focus-input");
 
     const { data: activeGroup } = ModelGroupsAPI.useActiveModelGroup();
 
@@ -590,10 +592,10 @@ export function ChatInput({
                     onBlur={() => inputActions.setFocusedInputId(null)}
                 />
 
-                {/* Helper text for Cmd+L */}
-                {isNextFocus && (
+                {/* Helper text for focus input shortcut */}
+                {isNextFocus && focusInputShortcut && (
                     <div className="absolute top-1 -right-1 p-1 text-sm text-muted-foreground/50 font-[350] bg-background/90 backdrop-blur-[1px] rounded-full px-2 py-1">
-                        ⌘L to focus
+                        {focusInputShortcut} to focus
                     </div>
                 )}
             </form>
@@ -791,10 +793,10 @@ export function ChatInput({
                 tabIndex={1} // should be first item to get focus
             />
 
-            {/* Helper text for Cmd+L */}
-            {isNextFocus && (
+            {/* Helper text for focus input shortcut */}
+            {isNextFocus && focusInputShortcut && (
                 <div className="absolute top-3 right-2 text-sm text-helper">
-                    ⌘L to focus
+                    {focusInputShortcut} to focus
                 </div>
             )}
         </div>

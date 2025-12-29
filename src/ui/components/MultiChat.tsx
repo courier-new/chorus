@@ -93,7 +93,7 @@ import { SidebarTrigger } from "@ui/components/ui/sidebar";
 import { useSidebar } from "@ui/hooks/useSidebar";
 import { useShortcut } from "@ui/hooks/useShortcut";
 import { useConfigurableShortcut } from "@ui/hooks/useConfigurableShortcut";
-import { projectDisplayName, sendTauriNotification } from "@ui/lib/utils";
+import { cn, projectDisplayName, sendTauriNotification } from "@ui/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { ManageModelsBox } from "./manage-models/ManageModelsBox";
 import RepliesDrawer from "./RepliesDrawer";
@@ -124,6 +124,7 @@ import {
     isPermissionGranted,
     requestPermission,
 } from "@tauri-apps/plugin-notification";
+import { useShortcutDisplay } from "@core/utilities/ShortcutsAPI";
 
 // ----------------------------------
 // Sub-components
@@ -1816,6 +1817,15 @@ export default function MultiChat() {
             ? currentMessageSet.compareBlock
             : undefined;
 
+    // Keyboard shortcuts
+    const toggleVisionShortcut = useShortcutDisplay("toggle-vision");
+    const openInMainShortcut = useShortcutDisplay("open-in-main");
+    const newChatShortcut = useShortcutDisplay("new-chat");
+    const navigateBackShortcut = useShortcutDisplay("navigate-back");
+    const navigateForwardShortcut = useShortcutDisplay("navigate-forward");
+    const findInPageShortcut = useShortcutDisplay("find-in-page");
+    const shareChatShortcut = useShortcutDisplay("share-chat");
+
     // ----------------------
     // Effects
     // ----------------------
@@ -2144,7 +2154,7 @@ export default function MultiChat() {
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <Button
-                                    className={`bg-transparent text-foreground px-3 rounded-full ${
+                                    className={`bg-transparent text-foreground px-3 ${
                                         appMetadata["vision_mode_enabled"] ===
                                         "true"
                                             ? "bg-accent-600 text-primary-foreground"
@@ -2157,25 +2167,26 @@ export default function MultiChat() {
                                     }
                                     tabIndex={-1}
                                 >
-                                    <span
-                                        className={`hover:text-foreground/75 ${
-                                            appMetadata[
-                                                "vision_mode_enabled"
-                                            ] === "true"
-                                                ? "text-foreground/80"
-                                                : "text-foreground/75"
-                                        }`}
-                                    >
-                                        <span className="text-sm font-mono">
-                                            ⌘I
-                                        </span>{" "}
-                                        {appMetadata["vision_mode_enabled"] ===
-                                            "true" && (
-                                            <span className="ml-1">
-                                                Vision Mode Enabled
-                                            </span>
-                                        )}
-                                    </span>
+                                    {toggleVisionShortcut && (
+                                        <span className="text-xs font-light">
+                                            {toggleVisionShortcut}
+                                        </span>
+                                    )}
+                                    {appMetadata["vision_mode_enabled"] ===
+                                        "true" && (
+                                        <span
+                                            className={cn(
+                                                "ml-1.5",
+                                                appMetadata[
+                                                    "vision_mode_enabled"
+                                                ] === "true"
+                                                    ? "text-foreground/80"
+                                                    : "text-foreground/75",
+                                            )}
+                                        >
+                                            Vision Mode Enabled
+                                        </span>
+                                    )}
                                     <MouseTrackingEye
                                         ref={eyeRef}
                                         canBlink={true}
@@ -2209,9 +2220,11 @@ export default function MultiChat() {
                                     }
                                     tabIndex={-1}
                                 >
-                                    <span className="text-[10px] text-foreground/75">
-                                        ⌘O
-                                    </span>
+                                    {openInMainShortcut && (
+                                        <span className="text-xs font-light">
+                                            {openInMainShortcut}
+                                        </span>
+                                    )}
                                     <PictureInPicture2Icon className="!w-3.5 !h-3.5" />
                                 </Button>
                             </TooltipTrigger>
@@ -2225,9 +2238,11 @@ export default function MultiChat() {
                                     onClick={() => createQuickChat.mutate()}
                                     tabIndex={-1}
                                 >
-                                    <span className="text-[10px] text-foreground/75">
-                                        ⌘N
-                                    </span>
+                                    {newChatShortcut && (
+                                        <span className="text-xs font-light">
+                                            {newChatShortcut}
+                                        </span>
+                                    )}
                                     <SquarePen className="!w-3.5 !h-3.5" />
                                 </Button>
                             </TooltipTrigger>
@@ -2264,10 +2279,9 @@ export default function MultiChat() {
                                 </Button>
                             </TooltipTrigger>
                             <TooltipContent side="bottom">
-                                Back{" "}
-                                <kbd>
-                                    <span>⌘</span>[
-                                </kbd>
+                                Back
+                                {navigateBackShortcut &&
+                                    ` (${navigateBackShortcut})`}
                             </TooltipContent>
                         </Tooltip>
                         <Tooltip>
@@ -2290,10 +2304,9 @@ export default function MultiChat() {
                                 </Button>
                             </TooltipTrigger>
                             <TooltipContent side="bottom">
-                                Forward{" "}
-                                <kbd>
-                                    <span>⌘</span>]
-                                </kbd>
+                                Forward
+                                {navigateForwardShortcut &&
+                                    ` (${navigateForwardShortcut})`}
                             </TooltipContent>
                         </Tooltip>
 
@@ -2334,7 +2347,9 @@ export default function MultiChat() {
                                             </Button>
                                         </TooltipTrigger>
                                         <TooltipContent>
-                                            Find (⌘F)
+                                            Find
+                                            {findInPageShortcut &&
+                                                ` (${findInPageShortcut})`}
                                         </TooltipContent>
                                     </Tooltip>
 
@@ -2386,7 +2401,9 @@ export default function MultiChat() {
                                             </Button>
                                         </TooltipTrigger>
                                         <TooltipContent>
-                                            Share (⌘⇧S)
+                                            Share
+                                            {shareChatShortcut &&
+                                                ` (${shareChatShortcut})`}
                                         </TooltipContent>
                                     </Tooltip>
                                 </>
@@ -2524,10 +2541,8 @@ export default function MultiChat() {
                                 ) : (
                                     <CopyIcon className="w-4 h-4" />
                                 )}
-                                <span className="ml-1">
-                                    {copiedUrl ? "Copied" : "Copy"}
-                                </span>
-                                <span className="ml-1 text-sm">↵</span>
+                                {copiedUrl ? "Copied" : "Copy"}
+                                <span>↵</span>
                             </Button>
                             <Button
                                 size="sm"
@@ -2535,8 +2550,7 @@ export default function MultiChat() {
                                 className="flex-1 sm:flex-initial"
                             >
                                 <ExternalLinkIcon className="w-4 h-4" />
-                                <span className="ml-1">Open</span>
-                                <span className="ml-1 text-sm">⌘↵</span>
+                                Open <span>⌘↵</span>
                             </Button>
                         </div>
                     </DialogFooter>

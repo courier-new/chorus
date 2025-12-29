@@ -255,9 +255,9 @@ x + y = \\frac{1}{2}
 \`\`\`
 
 If the user asks about Chorus, you can tell them:
-- They can select models in the model picker (⌘J).
-- They can give you access to tools in the tools picker (⌘T).
-- They can add MCP (Model Configuration Protocol) servers by opening settings (⌘,) and going to the "Connections" tab.
+- They can select models in the model picker.
+- They can give you access to tools in the tools picker.
+- They can add MCP (Model Configuration Protocol) servers by opening settings and going to the "Connections" tab.
 - If they need any help with the app, they can email humans@chorus.sh
 `;
 
@@ -291,7 +291,7 @@ The user has the option to enable these connections for you:
 
 ${toolsetInfo.map((info) => `- ${info.displayName}: ${info.description ?? "[No description]"} (${info.status.status === "running" ? "enabled" : "disabled"})`).join("\n")}
 
-If the user asks you to do something where another connection would be helpful to you (web browsing, files, terminal, documentation, etc.), and the connection is not enabled: try to solve their issue anyway, but remind them that they can enable the connection if they want to by pressing ⌘T.
+If the user asks you to do something where another connection would be helpful to you (web browsing, files, terminal, documentation, etc.), and the connection is not enabled: try to solve their issue anyway, but remind them that they can enable the connection if they want to by opening the tools box.
 
 Each time you use a tool, the user has to wait for it, so only use tools as needed to answer the user's question. Just because a tool is enabled doesn't mean you have to use it.
 </tools_instructions>

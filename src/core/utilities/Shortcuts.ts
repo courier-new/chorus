@@ -476,8 +476,17 @@ export function detectConflicts(
 
 /**
  * Convert a binding string to a display string with symbols
- * e.g., "Meta+Shift+S" -> "⌘⇧S"
- * e.g., "Alt+KeyK" -> "⌥K"
+ *
+ * @param binding - The binding string to convert
+ * @param withPlus - Whether to include the plus sign between modifiers and main keys
+ * @returns The display string
+ * @example
+ * ```ts
+ * comboToDisplayString("Meta+Shift+S") // "⌘⇧S"
+ * comboToDisplayString("Alt+K") // "⌥K"
+ * comboToDisplayString("Meta+Shift+S", true) // "⌘+⇧+S"
+ * comboToDisplayString("Alt+K", true) // "⌥+K"
+ * ```
  */
 export function comboToDisplayString(
     binding: string,

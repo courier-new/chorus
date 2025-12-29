@@ -17,6 +17,7 @@ import { v4 as uuidv4 } from "uuid";
 import { posthog } from "posthog-js";
 import * as ModelsAPI from "@core/chorus/api/ModelsAPI";
 import { useShortcut } from "@ui/hooks/useShortcut";
+import { useShortcutDisplay } from "@core/utilities/ShortcutsAPI";
 
 // providers that support system prompts
 const CUSTOM_PROMPT_PROVIDERS = ["anthropic", "openai", "google", "perplexity"];
@@ -35,6 +36,7 @@ export default function NewPrompt() {
 
 export function NewPromptInner() {
     const navigate = useNavigate();
+    const navigateBackShortcut = useShortcutDisplay("navigate-back");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [formData, setFormData] = useState<NewModelFormData>({
         name: "",
@@ -164,7 +166,10 @@ export function NewPromptInner() {
                             variant="outline"
                             onClick={() => navigate(-1)}
                         >
-                            Cancel <span className="text-sm">⌘[</span>
+                            Cancel
+                            {navigateBackShortcut && (
+                                <span>{navigateBackShortcut}</span>
+                            )}
                         </Button>
                         <Button type="submit" disabled={isSubmitting}>
                             {isSubmitting ? "Creating..." : "Save Prompt"}

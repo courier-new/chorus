@@ -20,6 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { emit } from "@tauri-apps/api/event";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { useConfigurableShortcut } from "@ui/hooks/useConfigurableShortcut";
+import { useShortcutDisplay } from "@core/utilities/ShortcutsAPI";
 import { dialogActions, useDialogStore } from "@core/infra/DialogStore";
 import * as ToolsetsAPI from "@core/chorus/api/ToolsetsAPI";
 import { useCallback } from "react";
@@ -243,6 +244,7 @@ function ToolsBox() {
     const toolsBoxIsOpen = useDialogStore(
         (state) => state.activeDialogId === TOOLS_BOX_DIALOG_ID,
     );
+    const toolsBoxShortcut = useShortcutDisplay("tools-box");
 
     const toggleToolsBox = useCallback(() => {
         if (toolsBoxIsOpen) {
@@ -306,9 +308,11 @@ function ToolsBox() {
                         ))}
                     </div>
                     <span className="pl-0.5">Tools</span>
-                    <span className="ml-1 text-muted-foreground font-light">
-                        ⌘T
-                    </span>
+                    {toolsBoxShortcut && (
+                        <span className="ml-1 text-muted-foreground font-light">
+                            {toolsBoxShortcut}
+                        </span>
+                    )}
                 </div>
             </button>
 

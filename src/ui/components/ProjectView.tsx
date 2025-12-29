@@ -50,6 +50,7 @@ import { Link } from "react-router-dom";
 import { SidebarTrigger } from "./ui/sidebar";
 import * as ProjectAPI from "@core/chorus/api/ProjectAPI";
 import * as ChatAPI from "@core/chorus/api/ChatAPI";
+import { useShortcutDisplay } from "@core/utilities/ShortcutsAPI";
 
 const deleteProjectDialogId = (projectId: string) =>
     `delete-project-dialog-${projectId}`;
@@ -66,6 +67,10 @@ export default function ProjectView() {
     const deleteConfirmButtonRef = useRef<HTMLButtonElement>(null);
     const contextEditorRef = useRef<ProjectContextEditorRef>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+
+    const navigateBackShortcut = useShortcutDisplay("navigate-back");
+    const navigateForwardShortcut = useShortcutDisplay("navigate-forward");
+    const newChatShortcut = useShortcutDisplay("new-chat");
 
     // Mutations
     const renameProject = ProjectAPI.useRenameProject();
@@ -187,10 +192,9 @@ export default function ProjectView() {
                             </Button>
                         </TooltipTrigger>
                         <TooltipContent side="bottom">
-                            Back{" "}
-                            <kbd>
-                                <span>⌘</span>[
-                            </kbd>
+                            Back
+                            {navigateBackShortcut &&
+                                ` (${navigateBackShortcut})`}
                         </TooltipContent>
                     </Tooltip>
                     <Tooltip>
@@ -209,10 +213,9 @@ export default function ProjectView() {
                             </Button>
                         </TooltipTrigger>
                         <TooltipContent side="bottom">
-                            Forward{" "}
-                            <kbd>
-                                <span>⌘</span>]
-                            </kbd>
+                            Forward
+                            {navigateForwardShortcut &&
+                                ` (${navigateForwardShortcut})`}
                         </TooltipContent>
                     </Tooltip>
 
@@ -258,10 +261,8 @@ export default function ProjectView() {
                             </Button>
                         </TooltipTrigger>
                         <TooltipContent side="bottom">
-                            New chat in project{" "}
-                            <kbd>
-                                <span>⌘</span>N
-                            </kbd>
+                            New chat in project
+                            {newChatShortcut && ` (${newChatShortcut})`}
                         </TooltipContent>
                     </Tooltip>
 

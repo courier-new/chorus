@@ -7,7 +7,6 @@ import {
     FolderOpenIcon,
     FolderPlusIcon,
     SquarePlusIcon,
-    ArrowBigUpIcon,
     EllipsisIcon,
 } from "lucide-react";
 import {
@@ -77,6 +76,7 @@ import { dialogActions, useDialogStore } from "@core/infra/DialogStore";
 import { projectQueries, useCreateProject } from "@core/chorus/api/ProjectAPI";
 import { chatQueries } from "@core/chorus/api/ChatAPI";
 import { useToggleProjectIsCollapsed } from "@core/chorus/api/ProjectAPI";
+import { useShortcutDisplay } from "@core/utilities/ShortcutsAPI";
 
 function isToday(date: Date) {
     const today = new Date();
@@ -130,7 +130,8 @@ function groupChatsByDate(chats: Chat[]) {
 }
 
 function EmptyProjectState() {
-    const createProject = useCreateProject();
+    const createProjectShortcut = useShortcutDisplay("new-project");
+    const { mutate: createProject } = useCreateProject();
     const { isOver, setNodeRef, active } = useDroppable({
         id: "empty-project-state",
     });
@@ -150,9 +151,7 @@ function EmptyProjectState() {
 
             <button
                 className="flex items-center justify-between w-full text-sidebar-muted-foreground hover:text-sidebar-accent-foreground group/create-project"
-                onClick={() => {
-                    createProject.mutate();
-                }}
+                onClick={() => createProject()}
             >
                 <div className="flex items-center">
                     <FolderPlusIcon
@@ -165,11 +164,8 @@ function EmptyProjectState() {
                             : "Create a project"}
                     </span>
                 </div>
-                <span>
-                    <kbd className="invisible group-hover/create-project:visible">
-                        <span>⌘</span>
-                        <ArrowBigUpIcon className="size-3.5" />N
-                    </kbd>
+                <span className="text-xs hidden group-hover/create-project:block text-muted-foreground">
+                    {createProjectShortcut}
                 </span>
             </button>
         </div>
@@ -177,10 +173,13 @@ function EmptyProjectState() {
 }
 
 function EmptyChatState() {
+    const newChatShortcut = useShortcutDisplay("new-chat");
     return (
         <div className="px-3">
             <div className="text-base text-muted-foreground">
-                <p className="flex items-center">⌘N to start your first chat</p>
+                <p className="flex items-center">
+                    {newChatShortcut} to start your first chat
+                </p>
             </div>
         </div>
     );
@@ -439,6 +438,7 @@ export function AppSidebarInner() {
     const currentChatId = location.pathname.split("/").pop()!; // well this is super hacky
     const updateChatProject = ProjectAPI.useSetChatProject();
     const getOrCreateNewChat = ChatAPI.useGetOrCreateNewChat();
+    const newChatShortcut = useShortcutDisplay("new-chat");
 
     const [showAllChats, setShowAllChats] = useState(false);
 
@@ -563,9 +563,11 @@ export function AppSidebarInner() {
                                         />
                                         Start New Chat
                                     </span>
-                                    <span className="text-xs hidden group-hover/new-chat:block text-muted-foreground">
-                                        ⌘N
-                                    </span>
+                                    {newChatShortcut && (
+                                        <span className="text-xs hidden group-hover/new-chat:block text-muted-foreground">
+                                            {newChatShortcut}
+                                        </span>
+                                    )}
                                 </button>
 
                                 {/* add new project */}
@@ -690,6 +692,7 @@ function QuickChats({ chats }: { chats: Chat[] }) {
     const settings = useSettings();
     const convertQuickChatToRegularChat =
         ChatAPI.useConvertQuickChatToRegularChat();
+    const settingsShortcut = useShortcutDisplay("settings");
 
     const handleQuickChatConversion = async (
         e: React.MouseEvent,
@@ -757,7 +760,9 @@ function QuickChats({ chats }: { chats: Chat[] }) {
                                         </button>
                                     </TooltipTrigger>
                                     <TooltipContent side="bottom">
-                                        Settings <kbd>⌘,</kbd>
+                                        Settings
+                                        {settingsShortcut &&
+                                            ` (${settingsShortcut})`}
                                     </TooltipContent>
                                 </Tooltip>
                             </div>
