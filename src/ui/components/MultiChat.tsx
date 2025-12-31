@@ -823,10 +823,16 @@ function ToolsMessageFullScreenDialogView({
     const [raw, setRaw] = useState(false);
 
     const modelConfigsQuery = ModelsAPI.useModelConfigs();
+    const isSynthesis = message.model.endsWith("::synthesize");
+    const baseModelId = isSynthesis
+        ? message.model.replace(/::synthesize$/, "")
+        : message.model;
     const modelConfig = modelConfigsQuery.data?.find(
-        (m) => m.id === message.model,
+        (m) => m.id === baseModelId,
     );
-    const modelName = modelConfig?.displayName;
+    const modelName = isSynthesis
+        ? `Synthesis (${modelConfig?.displayName ?? "Unknown"})`
+        : modelConfig?.displayName;
 
     const fullText = message.parts.map((p) => p.content).join("\n");
 
@@ -836,10 +842,20 @@ function ToolsMessageFullScreenDialogView({
             <DialogContent className="max-w-4xl max-h-[95vh] w-full overflow-auto">
                 <DialogTitle className="pt-2 px-3">
                     <div className="flex items-center justify-between">
-                        <h1 className="text-lg font-medium">{modelName}</h1>
+                        <div className="flex items-center gap-2">
+                            {isSynthesis ? (
+                                <MergeIcon size={14} className="-mt-[1px]" />
+                            ) : (
+                                <ProviderLogo
+                                    size="sm"
+                                    modelId={modelConfig?.modelId}
+                                />
+                            )}
+                            <h1 className="text-lg font-medium">{modelName}</h1>
+                        </div>
                         <div className="flex items-center gap-2.5">
                             <Tooltip>
-                                <TooltipTrigger asChild tabIndex={-1}>
+                                <TooltipTrigger asChild>
                                     <Toggle
                                         pressed={raw}
                                         onPressedChange={() => {
@@ -857,7 +873,7 @@ function ToolsMessageFullScreenDialogView({
                                 </TooltipContent>
                             </Tooltip>
                             <Tooltip>
-                                <TooltipTrigger asChild tabIndex={-1}>
+                                <TooltipTrigger asChild>
                                     <SimpleCopyButton text={fullText} />
                                 </TooltipTrigger>
                                 <TooltipContent
@@ -868,7 +884,7 @@ function ToolsMessageFullScreenDialogView({
                                 </TooltipContent>
                             </Tooltip>
                             <Tooltip>
-                                <TooltipTrigger asChild tabIndex={-1}>
+                                <TooltipTrigger asChild autoFocus>
                                     <button
                                         className="w-3 h-3"
                                         onClick={() =>
@@ -1184,8 +1200,11 @@ export function ToolsMessageView({
         return null;
     }
     const fullText = message.parts.map((p) => p.content).join("\n");
+    const baseModelId = isSynthesis
+        ? message.model.replace(/::synthesize$/, "")
+        : message.model;
     const modelConfig = modelConfigsQuery.data?.find(
-        (m) => m.id === message.model,
+        (m) => m.id === baseModelId,
     );
 
     const messageClasses = [
@@ -1264,17 +1283,39 @@ export function ToolsMessageView({
                                             : "text-muted-foreground"
                                     }`}
                                 >
-                                    {modelConfig && (
-                                        <div className="flex items-center gap-2 h-6">
-                                            <ProviderLogo
-                                                size="sm"
-                                                modelId={modelConfig.modelId}
-                                                className="-mt-[1px]"
-                                            />
-                                            <div className="text-sm">
+                                    {isSynthesis ? (
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <div className="flex items-center gap-2 h-6">
+                                                    <MergeIcon
+                                                        size={14}
+                                                        className="-mt-[1px]"
+                                                    />
+                                                    <div className="text-sm">
+                                                        Synthesis
+                                                    </div>
+                                                </div>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="bottom">
+                                                Synthesized with{" "}
                                                 {modelConfig?.displayName}
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    ) : (
+                                        modelConfig && (
+                                            <div className="flex items-center gap-2 h-6">
+                                                <ProviderLogo
+                                                    size="sm"
+                                                    modelId={
+                                                        modelConfig.modelId
+                                                    }
+                                                    className="-mt-[1px]"
+                                                />
+                                                <div className="text-sm">
+                                                    {modelConfig?.displayName}
+                                                </div>
                                             </div>
-                                        </div>
+                                        )
                                     )}
                                 </div>
                                 {!isOnlyMessage && (
@@ -2567,7 +2608,7 @@ export default function MultiChat() {
                             onClick={() => void handleDeleteShare()}
                             className="sm:mr-auto"
                         >
-                            <Trash2Icon className="w-4 h-4" />
+                            <TrashIcon className="w-4 h-4" />
                             Delete Link
                         </Button>
                         <div className="flex gap-2 w-full sm:w-auto">
