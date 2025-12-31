@@ -392,11 +392,14 @@ export function ManageModelsBox({
     // Model groups hooks
     const { data: activeGroupId = "NONE" } =
         ModelGroupsAPI.useActiveModelGroupId();
-    const clearActiveGroup = ModelGroupsAPI.useClearActiveModelGroup();
-    const addModelToActiveGroup = ModelGroupsAPI.useAddModelToActiveGroup();
-    const removeModelFromActiveGroup =
+    const { mutate: clearActiveGroup } =
+        ModelGroupsAPI.useClearActiveModelGroup();
+    const { mutate: addModelToActiveGroup } =
+        ModelGroupsAPI.useAddModelToActiveGroup();
+    const { mutate: removeModelFromActiveGroup } =
         ModelGroupsAPI.useRemoveModelFromActiveGroup();
-    const updateActiveGroupOrder = ModelGroupsAPI.useUpdateActiveGroupOrder();
+    const { mutate: updateActiveGroupOrder } =
+        ModelGroupsAPI.useUpdateActiveGroupOrder();
 
     const handleToggleModelConfig = useCallback(
         (id: string, shiftKey = false) => {
@@ -407,19 +410,19 @@ export function ManageModelsBox({
                 if (shiftKey) {
                     // Shift+click: Add/remove from active group
                     if (isCurrentlySelected) {
-                        void removeModelFromActiveGroup.mutateAsync({
+                        removeModelFromActiveGroup({
                             groupId: activeGroupId,
                             modelConfigId: id,
                         });
                     } else {
-                        void addModelToActiveGroup.mutateAsync({
+                        addModelToActiveGroup({
                             groupId: activeGroupId,
                             modelConfigId: id,
                         });
                     }
                 } else {
                     // Regular click: Detach from group
-                    void clearActiveGroup.mutateAsync();
+                    void clearActiveGroup();
                 }
             }
 
@@ -494,7 +497,7 @@ export function ManageModelsBox({
 
         // If there's an active group, update its order too
         if (activeGroupId !== "NONE") {
-            await updateActiveGroupOrder.mutateAsync({
+            updateActiveGroupOrder({
                 groupId: activeGroupId,
                 modelConfigIds: items.map((m) => m.id),
             });
@@ -507,13 +510,13 @@ export function ManageModelsBox({
                 if (activeGroupId !== "NONE") {
                     if (shiftKey) {
                         // Shift+click: Remove from group
-                        void removeModelFromActiveGroup.mutateAsync({
+                        removeModelFromActiveGroup({
                             groupId: activeGroupId,
                             modelConfigId: id,
                         });
                     } else {
                         // Regular click: Clear active group
-                        void clearActiveGroup.mutateAsync();
+                        clearActiveGroup();
                     }
                 }
                 mode.onToggleModelConfig(id);
@@ -527,7 +530,7 @@ export function ManageModelsBox({
             if (mode.type !== "default") return;
             if (activeGroupId !== "NONE") {
                 // Clear active group
-                void clearActiveGroup.mutateAsync();
+                clearActiveGroup();
             }
             e.preventDefault();
             mode.onClearModelConfigs();
