@@ -15,7 +15,7 @@ import { OpenAIImporter } from "@core/chorus/importers/OpenAIImporter";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { Upload, ExternalLink, FileJson, Check } from "lucide-react";
-import { cn } from "../lib/utils";
+import { cn } from "../../lib/utils";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { DialogDescription } from "@radix-ui/react-dialog";
 import posthog from "posthog-js";

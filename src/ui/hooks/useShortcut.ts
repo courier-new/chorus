@@ -1,85 +1,87 @@
-import { useEffect, useCallback } from "react";
-import { useDialogStore } from "@core/infra/DialogStore";
+import { useEffect, useMemo } from "react";
+import { matchesBinding } from "@core/utilities/Shortcuts";
 import { useInputStore } from "@core/infra/InputStore";
+import { useDialogStore } from "@core/infra/DialogStore";
 
-type ShortcutHandler = (event: KeyboardEvent) => void;
+export type UseShortcutOptions = {
+    /**
+     * Defaults to true, keeps the shortcut enabled when the main chat input is
+     * focused
+     */
+    enableOnChatFocus?: boolean;
+    /**
+     * Defaults to [], list of open dialog IDs this shortcut will be enabled on
+     */
+    enableOnDialogIds?: string[] | null;
+    /**
+     * Defaults to true, use to enable or disable the shortcut conditionally
+     * based on application state, e.g. when a dialog is open
+     */
+    isEnabled?: boolean;
+    /**
+     * Defaults to false, use to enable this shortcut globally, overriding any
+     * other options "global" here means the scope the shortcut is declared in
+     * if its parent component is torn down, the shortcut will be removed
+     */
+    isGlobal?: boolean;
+};
 
 /**
- * Hook for mounting a keyboard shortcut
- * Keyboard shortcuts are scoped to the current component's lifecycle.
- * By default, if a dialog is open, the shortcut will be disabled.
- * You can override this by setting the `isGlobal` option to true.
+ * Hook for mounting a keyboard shortcut.
+ *
+ * @param combo - **Stable** array of modifier keys and main key (e.g., ["Meta",
+ * "K"], ["Control", "Shift", "K"], ["Shift", "Enter"]
+ * @param callback - **Stable** function reference to call when shortcut is
+ * triggered
+ * @param options - Context options for when the shortcut should fire, see
+ * {@link UseShortcutOptions}
  */
 export function useShortcut(
     combo: string[],
     callback: () => void,
-    options?: {
-        // defaults to true
-        // keeps the shortcut enabled when the main chat input is focused
-        enableOnChatFocus?: boolean;
-        // defaults to []
-        // list of open dialog IDs this shortcut will be enabled on
-        enableOnDialogIds?: string[] | null;
-        // defaults to false
-        // use to enable this shortcut globally, overriding any other options
-        // "global" here means the scope the shortcut is declared in
-        // if its parent component is torn down, the shortcut will be removed
-        isGlobal?: boolean;
-    },
+    {
+        enableOnChatFocus = true,
+        enableOnDialogIds = [],
+        isEnabled = true,
+        isGlobal = false,
+    }: UseShortcutOptions = {},
 ) {
-    const keys = combo.map((key) => key.toLowerCase());
-    const isChatInputFocused = useInputStore((state) => state.focusedInputId);
+    const focusedInputId = useInputStore((state) => state.focusedInputId);
     const activeDialogId = useDialogStore((state) => state.activeDialogId);
-    const handler: ShortcutHandler = useCallback(
-        (event) => {
-            const enableOnChatFocus = options?.enableOnChatFocus ?? true;
-            const enableOnDialogIds = options?.enableOnDialogIds ?? [];
-            const isGlobal = options?.isGlobal ?? false;
-            if (!isGlobal) {
-                if (isChatInputFocused && !enableOnChatFocus) {
-                    return;
-                } else if (
-                    activeDialogId &&
-                    !enableOnDialogIds.includes(activeDialogId)
-                ) {
-                    return;
-                }
-            }
-            // Check if the pressed key matches the last key in our combo
-            const pressedKey = event.key.toLowerCase();
-            if (pressedKey !== keys[keys.length - 1]) {
-                return;
-            }
-            // Check if all modifier keys in our combo are pressed
-            const comboMatches = keys.slice(0, -1).every((key) => {
-                switch (key) {
-                    case "control":
-                        return event.ctrlKey;
-                    case "shift":
-                        return event.shiftKey;
-                    case "alt":
-                        return event.altKey;
-                    case "meta":
-                        return event.metaKey;
-                    default:
-                        return false;
-                }
-            });
-            // Check if any extra modifier keys are pressed
-            const hasExtraModifiers =
-                (!keys.includes("control") && event.ctrlKey) ||
-                (!keys.includes("shift") && event.shiftKey) ||
-                (!keys.includes("alt") && event.altKey) ||
-                (!keys.includes("meta") && event.metaKey);
-            if (comboMatches && !hasExtraModifiers) {
-                event.preventDefault();
-                callback();
-            }
-        },
-        [callback, keys, isChatInputFocused, activeDialogId, options],
-    );
+
+    const isShortcutEnabled = useMemo(() => {
+        if (!isEnabled) return false;
+        if (isGlobal) return true;
+        // Context guards
+        if (focusedInputId && !enableOnChatFocus) return false;
+        if (enableOnDialogIds?.length) {
+            return activeDialogId && enableOnDialogIds.includes(activeDialogId);
+        }
+        return true;
+    }, [
+        focusedInputId,
+        enableOnChatFocus,
+        activeDialogId,
+        enableOnDialogIds,
+        isEnabled,
+        isGlobal,
+    ]);
+
     useEffect(() => {
-        window.addEventListener("keydown", handler);
-        return () => window.removeEventListener("keydown", handler);
-    }, [handler]);
+        if (combo.length === 0 || !isShortcutEnabled) return;
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (!matchesBinding(event, Array.isArray(combo) ? combo : [combo]))
+                return;
+
+            event.preventDefault();
+            callback();
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+
+        return () => {
+            window.removeEventListener("keydown", handleKeyDown);
+        };
+    }, [combo, isShortcutEnabled, callback]);
 }

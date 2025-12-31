@@ -4,6 +4,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { BoxIcon } from "lucide-react";
 import { dialogActions } from "@core/infra/DialogStore";
 import { ModelGroup } from "@core/chorus/api/ModelGroupsAPI";
+import { useShortcutDisplay } from "@core/utilities/ShortcutsAPI";
 
 export function ManageModelsButtonCompare({
     activeGroup,
@@ -16,6 +17,7 @@ export function ManageModelsButtonCompare({
     dialogId: string;
     showShortcut?: boolean;
 }) {
+    const modelPickerShortcut = useShortcutDisplay("model-picker");
     return (
         <button
             className="inline-flex bg-muted items-center justify-center rounded-full h-7 pl-2 text-sm hover:bg-muted/80 px-3 py-1 ring-offset-background placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1 flex-shrink-0"
@@ -76,9 +78,9 @@ export function ManageModelsButtonCompare({
                     <span className="pl-0.5">Models</span>
                 )}
 
-                {showShortcut && (
+                {showShortcut && modelPickerShortcut && (
                     <span className="ml-1 text-muted-foreground font-light">
-                        ⌘J
+                        {modelPickerShortcut}
                     </span>
                 )}
             </div>

@@ -23,13 +23,8 @@ import { useNavigate } from "react-router-dom";
 import debounce from "lodash/debounce";
 import { DialogTitle } from "./ui/dialog";
 import { invoke } from "@tauri-apps/api/core";
-import { useSettings } from "./hooks/useSettings";
-import {
-    convertDate,
-    displayDate,
-    formatQuickChatShortcut,
-} from "@ui/lib/utils";
-import { SETTINGS_DIALOG_ID } from "./Settings";
+import { convertDate, displayDate } from "@ui/lib/utils";
+import { SETTINGS_DIALOG_ID } from "./settings/Settings";
 import { useQuery } from "@tanstack/react-query";
 import { dialogActions } from "@core/infra/DialogStore";
 import { Chat } from "@core/chorus/api/ChatAPI";
@@ -37,13 +32,13 @@ import * as ChatAPI from "@core/chorus/api/ChatAPI";
 import * as ModelsAPI from "@core/chorus/api/ModelsAPI";
 import * as SearchAPI from "@core/chorus/api/SearchAPI";
 import * as ProjectAPI from "@core/chorus/api/ProjectAPI";
+import { useShortcutDisplay } from "@core/utilities/ShortcutsAPI";
 
 export const COMMAND_MENU_DIALOG_ID = "command-menu";
 
 const SEARCH_CONTEXT_LENGTH = 100;
 
 export function CommandMenu() {
-    const settings = useSettings();
     const chatsQuery = useQuery(ChatAPI.chatQueries.list());
     const chats = (chatsQuery.data ?? []).filter(
         (chat: Chat) => !chat.isNewChat,
@@ -59,7 +54,14 @@ export function CommandMenu() {
     const { data: searchResults = [], isLoading } =
         SearchAPI.useSearchMessages(debouncedSearchTerm);
 
-    const createProject = ProjectAPI.useCreateProject();
+    const { mutate: createProject } = ProjectAPI.useCreateProject();
+
+    const newChatShortcut = useShortcutDisplay("new-chat");
+    const newProjectShortcut = useShortcutDisplay("new-project");
+    const settingsShortcut = useShortcutDisplay("settings");
+    const ambientChatShortcut = useShortcutDisplay("ambient-chat");
+    const navigateBackShortcut = useShortcutDisplay("navigate-back");
+    const navigateForwardShortcut = useShortcutDisplay("navigate-forward");
 
     const ACTIONS = useMemo(
         () => [
@@ -67,16 +69,14 @@ export function CommandMenu() {
                 id: "new-chat",
                 label: "New chat",
                 icon: Plus,
-                shortcut: "⌘N",
+                shortcut: newChatShortcut,
                 action: () => navigate("/"),
             },
             {
                 id: "ambient-chat",
                 label: "Ambient chat",
                 icon: ScanTextIcon,
-                shortcut: formatQuickChatShortcut(
-                    settings?.quickChat?.shortcut,
-                ),
+                shortcut: ambientChatShortcut,
                 action: () => {
                     void invoke("show");
                 },
@@ -85,41 +85,42 @@ export function CommandMenu() {
                 id: "new-project",
                 label: "New project",
                 icon: FolderPlusIcon,
-                shortcut: "⌘⇧N",
-                action: () => {
-                    createProject.mutate();
-                },
+                shortcut: newProjectShortcut,
+                action: createProject,
             },
             {
                 id: "settings",
                 label: "Settings",
                 icon: Settings,
-                shortcut: "⌘,",
+                shortcut: settingsShortcut,
                 keepOpen: true,
-                action: () => {
-                    dialogActions.openDialog(SETTINGS_DIALOG_ID);
-                },
+                action: () => dialogActions.openDialog(SETTINGS_DIALOG_ID),
             },
             {
                 id: "forward",
                 label: "Forward",
                 icon: ArrowRight,
-                shortcut: "⌘]",
-                action: () => {
-                    navigate(1);
-                },
+                shortcut: navigateForwardShortcut,
+                action: () => navigate(1),
             },
             {
                 id: "back",
                 label: "Back",
                 icon: ArrowLeft,
-                shortcut: "⌘[",
-                action: () => {
-                    navigate(-1);
-                },
+                shortcut: navigateBackShortcut,
+                action: () => navigate(-1),
             },
         ],
-        [navigate, settings, createProject],
+        [
+            navigate,
+            createProject,
+            newChatShortcut,
+            ambientChatShortcut,
+            newProjectShortcut,
+            settingsShortcut,
+            navigateBackShortcut,
+            navigateForwardShortcut,
+        ],
     );
 
     const debouncedSearch = useMemo(
@@ -295,9 +296,11 @@ export function CommandMenu() {
                                         >
                                             <item.icon className="mr-2 h-4 w-4" />
                                             {item.label}
-                                            <CommandShortcut>
-                                                {item.shortcut}
-                                            </CommandShortcut>
+                                            {item.shortcut && (
+                                                <CommandShortcut>
+                                                    {item.shortcut}
+                                                </CommandShortcut>
+                                            )}
                                         </CommandItem>
                                     ))}
                                 </CommandGroup>

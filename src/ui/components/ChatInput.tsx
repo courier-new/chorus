@@ -22,7 +22,8 @@ import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { useMutation } from "@tanstack/react-query";
 import ToolsBox from "./ToolsBox";
-import { useShortcut } from "@ui/hooks/useShortcut";
+import { useShortcutDisplay } from "@core/utilities/ShortcutsAPI";
+import { useConfigurableShortcut } from "@ui/hooks/useConfigurableShortcut";
 import {
     useAttachScreenshotEphemeral,
     useAttachUrl,
@@ -35,7 +36,7 @@ import { ChatSuggestions } from "./ChatSuggestions";
 import { ArrowUp, ChevronDownIcon } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { EmptyState } from "./EmptyState";
-import { handleInputPasteWithAttachments } from "@ui/lib/utils";
+import { cn, handleInputPasteWithAttachments } from "@ui/lib/utils";
 import { inputActions, useInputStore } from "@core/infra/InputStore";
 import { useSearchParams } from "react-router-dom";
 import * as ModelsAPI from "@core/chorus/api/ModelsAPI";
@@ -94,6 +95,7 @@ export function ChatInput({
     const modelConfigs = ModelsAPI.useModelConfigs();
     const appMetadata = useWaitForAppMetadata();
     const cautiousEnter = appMetadata["cautious_enter"] === "true";
+    const focusInputShortcut = useShortcutDisplay("focus-input");
 
     const { data: activeGroup } = ModelGroupsAPI.useActiveModelGroup();
 
@@ -163,12 +165,12 @@ export function ChatInput({
 
     const placeholderText = isReply ? "Reply..." : "Ask me anything...";
 
-    const settings = useSettings();
+    const { data: settings } = useSettings();
 
     const posthog = usePostHog();
 
     const addModelToCompareConfigs = MessageAPI.useAddModelToCompareConfigs();
-    const updateSelectedModelConfigsCompare =
+    const { mutateAsync: updateSelectedModelConfigsCompare } =
         MessageAPI.useUpdateSelectedModelConfigsCompare();
 
     const createMessageSetPair = MessageAPI.useCreateMessageSetPair();
@@ -387,7 +389,7 @@ export function ChatInput({
             const newModelConfigs = selectedModelConfigsCompare.data?.filter(
                 (m) => m.id !== modelConfigId,
             );
-            await updateSelectedModelConfigsCompare.mutateAsync({
+            await updateSelectedModelConfigsCompare({
                 modelConfigs: newModelConfigs ?? [],
             });
 
@@ -433,7 +435,7 @@ export function ChatInput({
 
     const clearCompareModelConfigs = useCallback(() => {
         void (async () => {
-            await updateSelectedModelConfigsCompare.mutateAsync({
+            await updateSelectedModelConfigsCompare({
                 modelConfigs: [],
             });
             void posthog.capture("selected_model_configs_updated", {
@@ -455,35 +457,23 @@ export function ChatInput({
         }
     }, [inputRef, chatId, isDialogClosed]);
 
-    useShortcut(
-        ["meta", "j"],
-        () => {
-            if (isQuickChatWindow) return;
+    const toggleManageModelsCompareDialog = useCallback(() => {
+        if (isManageModelsCompareDialogOpen || isManageModelsReplyDialogOpen) {
+            dialogActions.closeDialog();
+        } else {
+            dialogActions.openDialog(MANAGE_MODELS_COMPARE_DIALOG_ID);
+        }
+    }, [isManageModelsCompareDialogOpen, isManageModelsReplyDialogOpen]);
 
-            if (
-                isManageModelsCompareDialogOpen ||
-                isManageModelsReplyDialogOpen
-            ) {
-                dialogActions.closeDialog();
-            } else {
-                dialogActions.openDialog(MANAGE_MODELS_COMPARE_DIALOG_ID);
-            }
-        },
-        {
-            isGlobal: true,
-        },
-    );
-    useShortcut(
-        ["meta", "shift", "backspace"],
-        () => {
-            if (!isQuickChatWindow) {
-                clearCompareModelConfigs();
-            }
-        },
-        {
-            enableOnDialogIds: [MANAGE_MODELS_COMPARE_DIALOG_ID],
-        },
-    );
+    useConfigurableShortcut("model-picker", toggleManageModelsCompareDialog, {
+        isEnabled: !isQuickChatWindow,
+        isGlobal: true,
+    });
+
+    useConfigurableShortcut("clear-models", clearCompareModelConfigs, {
+        isEnabled: !isQuickChatWindow,
+        enableOnDialogIds: [MANAGE_MODELS_COMPARE_DIALOG_ID],
+    });
 
     const [searchParams] = useSearchParams();
 
@@ -499,10 +489,12 @@ export function ChatInput({
         } else return !isReply;
     }, [focusedChatInputId, isReply, searchParams]);
 
-    useShortcut(["meta", "l"], () => {
-        if (isNextFocus) {
-            inputRef.current?.focus();
-        }
+    const focusInput = useCallback(() => {
+        inputRef.current?.focus();
+    }, [inputRef]);
+
+    useConfigurableShortcut("focus-input", focusInput, {
+        isEnabled: isNextFocus,
     });
 
     // Reset animation state after animation completes
@@ -536,16 +528,19 @@ export function ChatInput({
 
     const defaultChatComposer = !isQuickChatWindow && (
         <div
-            className={
+            className={cn(
+                "focus-within:ring-1 bg-background",
                 isReply
-                    ? "bg-background mx-4 px-4 pt-1 border shadow-lg rounded-t-lg"
-                    : `bg-background border-t @3xl:px-4 px-7 @3xl:mx-auto @3xl:border-l
-                 @3xl:border-r @3xl:border-t @3xl:max-w-3xl pt-1 ${
-                     isNewChat && !isAnimatingToBottom
-                         ? "@3xl:rounded-lg border-t border-b @3xl:shadow-diffuse"
-                         : "@3xl:rounded-t-lg @3xl:shadow-lg @3xl:has-[:focus]:shadow-muted-foreground/10"
-                 }`
-            }
+                    ? "mx-4 px-4 pt-1 border shadow-lg rounded-t-lg"
+                    : "border-t @3xl:px-4 px-7 @3xl:mx-auto @3xl:border-l @3xl:border-r @3xl:border-t @3xl:max-w-3xl pt-1",
+                !isReply &&
+                    isNewChat &&
+                    !isAnimatingToBottom &&
+                    "@3xl:rounded-lg border-t border-b @3xl:shadow-diffuse @3xl:has-[:focus]:shadow-muted-foreground/30",
+                !isReply &&
+                    (!isNewChat || isAnimatingToBottom) &&
+                    "@3xl:rounded-t-lg @3xl:shadow-lg @3xl:has-[:focus]:shadow-muted-foreground/10 @3xl:has-[:focus]:shadow-muted-foreground/70",
+            )}
         >
             <AttachmentDropArea
                 attachments={attachmentsQuery.data ?? []}
@@ -584,7 +579,7 @@ export function ChatInput({
                     }}
                     placeholder={placeholderText}
                     className="ring-0
-                placeholder:text-muted-foreground/50 font-[350] focus:outline-none pt-2 px-1.5 select-text
+                placeholder:text-muted-foreground/50 font-[350] focus:outline-none focus:ring-0 pt-2 px-1.5 select-text
                 max-h-[60vh] overflow-y-auto my-2 rounded-none !p-0"
                     autoFocus
                     onFocus={() =>
@@ -597,10 +592,10 @@ export function ChatInput({
                     onBlur={() => inputActions.setFocusedInputId(null)}
                 />
 
-                {/* Helper text for Cmd+L */}
-                {isNextFocus && (
+                {/* Helper text for focus input shortcut */}
+                {isNextFocus && focusInputShortcut && (
                     <div className="absolute top-1 -right-1 p-1 text-sm text-muted-foreground/50 font-[350] bg-background/90 backdrop-blur-[1px] rounded-full px-2 py-1">
-                        ⌘L to focus
+                        {focusInputShortcut} to focus
                     </div>
                 )}
             </form>
@@ -798,10 +793,10 @@ export function ChatInput({
                 tabIndex={1} // should be first item to get focus
             />
 
-            {/* Helper text for Cmd+L */}
-            {isNextFocus && (
+            {/* Helper text for focus input shortcut */}
+            {isNextFocus && focusInputShortcut && (
                 <div className="absolute top-3 right-2 text-sm text-helper">
-                    ⌘L to focus
+                    {focusInputShortcut} to focus
                 </div>
             )}
         </div>

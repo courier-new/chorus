@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
     AlertDialog,
     AlertDialogContent,
@@ -22,6 +22,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toolPermissionsKeys } from "@core/chorus/api/ToolPermissionsAPI";
 import Lowlight from "react-lowlight";
 
+const ALLOW_SHORTCUT = ["Enter"];
+const DENY_SHORTCUT = ["Escape"];
+
 export const ToolPermissionDialog: React.FC = () => {
     const currentRequest = useToolPermissionStore(
         (state) => state.currentRequest,
@@ -34,7 +37,7 @@ export const ToolPermissionDialog: React.FC = () => {
         setSavePreference(false);
     }, [currentRequest]);
 
-    const handleAllow = () => {
+    const handleAllow = useCallback(() => {
         if (!currentRequest) return;
         void toolPermissionActions.resolveCurrentRequest(
             "allow",
@@ -48,9 +51,9 @@ export const ToolPermissionDialog: React.FC = () => {
                 queryKey: toolPermissionsKeys.toolPermissions(),
             });
         }
-    };
+    }, [currentRequest, savePreference, queryClient]);
 
-    const handleDeny = () => {
+    const handleDeny = useCallback(() => {
         if (!currentRequest) return;
         void toolPermissionActions.resolveCurrentRequest(
             "deny",
@@ -64,15 +67,15 @@ export const ToolPermissionDialog: React.FC = () => {
                 queryKey: toolPermissionsKeys.toolPermissions(),
             });
         }
-    };
+    }, [currentRequest, savePreference, queryClient]);
 
     // Only register shortcuts when there's an active request
-    useShortcut(["enter"], handleAllow, {
-        isGlobal: currentRequest !== null,
+    useShortcut(ALLOW_SHORTCUT, handleAllow, {
+        isEnabled: currentRequest !== null,
         enableOnChatFocus: false,
     });
-    useShortcut(["escape"], handleDeny, {
-        isGlobal: currentRequest !== null,
+    useShortcut(DENY_SHORTCUT, handleDeny, {
+        isEnabled: currentRequest !== null,
         enableOnChatFocus: false,
     });
 

@@ -7,7 +7,6 @@ import {
     FolderOpenIcon,
     FolderPlusIcon,
     SquarePlusIcon,
-    ArrowBigUpIcon,
     EllipsisIcon,
 } from "lucide-react";
 import {
@@ -77,6 +76,7 @@ import { dialogActions, useDialogStore } from "@core/infra/DialogStore";
 import { projectQueries, useCreateProject } from "@core/chorus/api/ProjectAPI";
 import { chatQueries } from "@core/chorus/api/ChatAPI";
 import { useToggleProjectIsCollapsed } from "@core/chorus/api/ProjectAPI";
+import { useShortcutDisplay } from "@core/utilities/ShortcutsAPI";
 
 function isToday(date: Date) {
     const today = new Date();
@@ -130,7 +130,8 @@ function groupChatsByDate(chats: Chat[]) {
 }
 
 function EmptyProjectState() {
-    const createProject = useCreateProject();
+    const createProjectShortcut = useShortcutDisplay("new-project");
+    const { mutate: createProject } = useCreateProject();
     const { isOver, setNodeRef, active } = useDroppable({
         id: "empty-project-state",
     });
@@ -150,9 +151,7 @@ function EmptyProjectState() {
 
             <button
                 className="flex items-center justify-between w-full text-sidebar-muted-foreground hover:text-sidebar-accent-foreground group/create-project"
-                onClick={() => {
-                    createProject.mutate();
-                }}
+                onClick={() => createProject()}
             >
                 <div className="flex items-center">
                     <FolderPlusIcon
@@ -165,11 +164,8 @@ function EmptyProjectState() {
                             : "Create a project"}
                     </span>
                 </div>
-                <span>
-                    <kbd className="invisible group-hover/create-project:visible">
-                        <span>⌘</span>
-                        <ArrowBigUpIcon className="size-3.5" />N
-                    </kbd>
+                <span className="text-xs hidden group-hover/create-project:block text-muted-foreground">
+                    {createProjectShortcut}
                 </span>
             </button>
         </div>
@@ -177,10 +173,13 @@ function EmptyProjectState() {
 }
 
 function EmptyChatState() {
+    const newChatShortcut = useShortcutDisplay("new-chat");
     return (
         <div className="px-3">
             <div className="text-base text-muted-foreground">
-                <p className="flex items-center">⌘N to start your first chat</p>
+                <p className="flex items-center">
+                    {newChatShortcut} to start your first chat
+                </p>
             </div>
         </div>
     );
@@ -263,7 +262,7 @@ function Project({ projectId }: { projectId: string }) {
     const toggleProjectIsCollapsed = useToggleProjectIsCollapsed();
     const projectsQuery = useQuery(projectQueries.list());
     const chatsQuery = useQuery(chatQueries.list());
-    const settings = useSettings();
+    const { data: settings } = useSettings();
     const location = useLocation();
     const currentChatId = location.pathname.split("/").pop()!; // well this is super hacky
     const projectIsActive = location.pathname.includes(projectId);
@@ -439,6 +438,7 @@ export function AppSidebarInner() {
     const currentChatId = location.pathname.split("/").pop()!; // well this is super hacky
     const updateChatProject = ProjectAPI.useSetChatProject();
     const getOrCreateNewChat = ChatAPI.useGetOrCreateNewChat();
+    const newChatShortcut = useShortcutDisplay("new-chat");
 
     const [showAllChats, setShowAllChats] = useState(false);
 
@@ -561,11 +561,13 @@ export function AppSidebarInner() {
                                             className="size-4 text-muted-foreground group-hover/new-chat:text-foreground"
                                             strokeWidth={1.5}
                                         />
-                                        Start New Chat
+                                        Start new chat
                                     </span>
-                                    <span className="text-xs hidden group-hover/new-chat:block text-muted-foreground">
-                                        ⌘N
-                                    </span>
+                                    {newChatShortcut && (
+                                        <span className="text-xs hidden group-hover/new-chat:block text-muted-foreground">
+                                            {newChatShortcut}
+                                        </span>
+                                    )}
                                 </button>
 
                                 {/* add new project */}
@@ -687,9 +689,10 @@ export function AppSidebarInner() {
 
 function QuickChats({ chats }: { chats: Chat[] }) {
     const navigate = useNavigate();
-    const settings = useSettings();
     const convertQuickChatToRegularChat =
         ChatAPI.useConvertQuickChatToRegularChat();
+    const settingsShortcut = useShortcutDisplay("settings");
+    const ambientChatShortcut = useShortcutDisplay("ambient-chat");
 
     const handleQuickChatConversion = async (
         e: React.MouseEvent,
@@ -757,7 +760,9 @@ function QuickChats({ chats }: { chats: Chat[] }) {
                                         </button>
                                     </TooltipTrigger>
                                     <TooltipContent side="bottom">
-                                        Settings <kbd>⌘,</kbd>
+                                        Settings
+                                        {settingsShortcut &&
+                                            ` (${settingsShortcut})`}
                                     </TooltipContent>
                                 </Tooltip>
                             </div>
@@ -786,12 +791,11 @@ function QuickChats({ chats }: { chats: Chat[] }) {
                                     ))}
                                 </SidebarGroupContent>
                             </SidebarGroup>
-                            {!chats.length && (
+                            {!chats.length && ambientChatShortcut && (
                                 <div className="px-2 py-2 text-sm text-muted-foreground">
                                     Start an Ambient Chat with{" "}
                                     <span className="text-sm">
-                                        {settings?.quickChat?.shortcut ||
-                                            "⌥Space"}
+                                        {ambientChatShortcut}
                                     </span>
                                 </div>
                             )}
@@ -809,9 +813,8 @@ function ChatListItem({ chat, isActive }: { chat: Chat; isActive: boolean }) {
     const isDeleteChatDialogOpen = useDialogStore(
         (state) => state.activeDialogId === deleteChatDialogId(chat.id),
     );
-    const deleteConfirmButtonRef = useRef<HTMLButtonElement>(null);
     const [isEditingTitle, setIsEditingTitle] = useState(false);
-    const settings = useSettings();
+    const { data: settings } = useSettings();
 
     // no good very bad, but unfortunately necessary -- see https://github.com/remix-run/react-router/issues/7634#issuecomment-2184999343
     const navigate = useRef(useNavigate());
@@ -854,15 +857,6 @@ function ChatListItem({ chat, isActive }: { chat: Chat; isActive: boolean }) {
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [isDeleteChatDialogOpen, chat.id]);
 
-    // Focus the confirm button when dialog opens
-    useEffect(() => {
-        if (isDeleteChatDialogOpen && deleteConfirmButtonRef.current) {
-            setTimeout(() => {
-                deleteConfirmButtonRef.current?.focus();
-            }, 50);
-        }
-    }, [isDeleteChatDialogOpen, chat.id]);
-
     const handleStartEdit = useCallback(() => {
         setIsEditingTitle(true);
     }, [setIsEditingTitle]);
@@ -896,10 +890,10 @@ function ChatListItem({ chat, isActive }: { chat: Chat; isActive: boolean }) {
             onStopEdit={handleStopEdit}
             onSubmitEdit={handleSubmitEdit}
             onDelete={handleOpenDeleteDialog}
+            isDeleteChatDialogOpen={isDeleteChatDialogOpen}
             onConfirmDelete={handleConfirmDelete}
             deleteIsPending={deleteChatIsPending}
             navigate={navigate}
-            deleteConfirmButtonRef={deleteConfirmButtonRef}
             chatCost={chat.totalCostUsd}
             showCost={showCost}
         />
@@ -918,10 +912,10 @@ type ChatListItemViewProps = {
     onStopEdit: () => void;
     onSubmitEdit: (newTitle: string) => Promise<void>;
     onDelete: () => void;
+    isDeleteChatDialogOpen: boolean;
     onConfirmDelete: () => void;
     deleteIsPending: boolean;
     navigate: MutableRefObject<NavigateFunction>;
-    deleteConfirmButtonRef: MutableRefObject<HTMLButtonElement | null>;
     chatCost?: number;
     showCost: boolean;
 };
@@ -939,22 +933,30 @@ const ChatListItemView = React.memo(
         onStopEdit,
         onSubmitEdit,
         onDelete,
+        isDeleteChatDialogOpen,
         onConfirmDelete,
         deleteIsPending,
         navigate,
-        deleteConfirmButtonRef,
         chatCost,
         showCost,
     }: ChatListItemViewProps) => {
+        // Use a callback ref to focus the delete confirm button when the dialog
+        // opens and the element is added to the DOM.
+        const deleteConfirmButtonRef = useCallback(
+            (node: HTMLButtonElement | null) => {
+                if (node && isDeleteChatDialogOpen) {
+                    setTimeout(() => {
+                        node.focus();
+                    }, 50);
+                }
+            },
+            [isDeleteChatDialogOpen],
+        );
+
         return (
             <div
                 key={chatId + "-sidebar"}
-                className={[
-                    deleteIsPending ? "opacity-50" : "",
-                    // chat.projectContextSummaryIsStale
-                    //     ? "border !border-red-500"
-                    //     : "", // for debugging
-                ].join(" ")}
+                className={[deleteIsPending ? "opacity-50" : ""].join(" ")}
             >
                 <Draggable id={chatId}>
                     <SidebarMenuButton
@@ -1069,12 +1071,9 @@ const ChatListItemView = React.memo(
                                 variant="outline"
                                 size="sm"
                                 onClick={() => dialogActions.closeDialog()}
-                                // for some reason tabIndex=2 or =0 isn't working
-                                // so I'm using -1 to ensure the Delete button gets focus
-                                tabIndex={-1}
                             >
                                 Cancel{" "}
-                                <span className="ml-1 text-sm text-muted-foreground/70">
+                                <span className="text-muted-foreground/70">
                                     Esc
                                 </span>
                             </Button>
@@ -1083,10 +1082,9 @@ const ChatListItemView = React.memo(
                                 variant="default"
                                 size="sm"
                                 onClick={onConfirmDelete}
-                                tabIndex={1}
                                 ref={deleteConfirmButtonRef}
                             >
-                                Delete <span className="ml-1 text-xs">⌘↵</span>
+                                Delete <span>⌘↵</span>
                             </Button>
                         </DialogFooter>
                     </DialogContent>

@@ -12,24 +12,6 @@ export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
 
-export function formatQuickChatShortcut(shortcut: string | undefined) {
-    return shortcut ? formatShortcut(shortcut) : "⌥Space";
-}
-
-export function formatShortcut(shortcut: string | undefined): string {
-    if (!shortcut) return "Alt+Space";
-
-    if (typeof shortcut === "string") {
-        return shortcut
-            .replace("Alt", "⌥")
-            .replace(/Command|Cmd/g, "⌘")
-            .replace("Shift", "⇧")
-            .replace(/\+/g, "");
-    }
-
-    return "Alt+Space";
-}
-
 /**
  * Formats a date string into a UTC date object
  * Sqlite stores dates without the 'Z', so even though dates are stored in UTC,

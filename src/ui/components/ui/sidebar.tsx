@@ -16,6 +16,7 @@ import {
 } from "@ui/components/ui/tooltip";
 import { useSidebar } from "@ui/hooks/useSidebar";
 import { SIDEBAR_WIDTH_MOBILE } from "../../providers/SidebarProvider";
+import { useShortcutDisplay } from "@core/utilities/ShortcutsAPI";
 
 const Sidebar = React.forwardRef<
     HTMLDivElement,
@@ -136,6 +137,7 @@ const SidebarTrigger = React.forwardRef<
     React.ComponentProps<typeof Button>
 >(({ className, onClick, ...props }, ref) => {
     const { toggleSidebar } = useSidebar();
+    const toggleSidebarShortcut = useShortcutDisplay("toggle-sidebar");
 
     return (
         <Tooltip>
@@ -159,9 +161,7 @@ const SidebarTrigger = React.forwardRef<
             </TooltipTrigger>
             <TooltipContent side="bottom">
                 Toggle Sidebar
-                <kbd>
-                    <span>⌘</span>B
-                </kbd>
+                {toggleSidebarShortcut && ` (${toggleSidebarShortcut})`}
             </TooltipContent>
         </Tooltip>
     );

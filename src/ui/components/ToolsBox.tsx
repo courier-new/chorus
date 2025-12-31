@@ -19,9 +19,11 @@ import { CommandGroup, CommandItem } from "./ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { emit } from "@tauri-apps/api/event";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
-import { useShortcut } from "@ui/hooks/useShortcut";
+import { useConfigurableShortcut } from "@ui/hooks/useConfigurableShortcut";
+import { useShortcutDisplay } from "@core/utilities/ShortcutsAPI";
 import { dialogActions, useDialogStore } from "@core/infra/DialogStore";
 import * as ToolsetsAPI from "@core/chorus/api/ToolsetsAPI";
+import { useCallback } from "react";
 
 export const TOOLS_BOX_DIALOG_ID = "tools-box";
 
@@ -242,20 +244,19 @@ function ToolsBox() {
     const toolsBoxIsOpen = useDialogStore(
         (state) => state.activeDialogId === TOOLS_BOX_DIALOG_ID,
     );
+    const toolsBoxShortcut = useShortcutDisplay("tools-box");
 
-    useShortcut(
-        ["meta", "t"],
-        () => {
-            if (toolsBoxIsOpen) {
-                dialogActions.closeDialog();
-            } else {
-                dialogActions.openDialog(TOOLS_BOX_DIALOG_ID);
-            }
-        },
-        {
-            isGlobal: true,
-        },
-    );
+    const toggleToolsBox = useCallback(() => {
+        if (toolsBoxIsOpen) {
+            dialogActions.closeDialog();
+        } else {
+            dialogActions.openDialog(TOOLS_BOX_DIALOG_ID);
+        }
+    }, [toolsBoxIsOpen]);
+
+    useConfigurableShortcut("tools-box", toggleToolsBox, {
+        enableOnDialogIds: [TOOLS_BOX_DIALOG_ID],
+    });
 
     const enabledToolsets =
         toolsets.data?.filter(
@@ -307,9 +308,11 @@ function ToolsBox() {
                         ))}
                     </div>
                     <span className="pl-0.5">Tools</span>
-                    <span className="ml-1 text-muted-foreground font-light">
-                        ⌘T
-                    </span>
+                    {toolsBoxShortcut && (
+                        <span className="ml-1 text-muted-foreground font-light">
+                            {toolsBoxShortcut}
+                        </span>
+                    )}
                 </div>
             </button>
 

@@ -2,7 +2,7 @@ import React from "react";
 import { TooltipProvider } from "@radix-ui/react-tooltip";
 import { cn } from "@ui/lib/utils";
 import { useIsMobile } from "@ui/components/hooks/use-mobile";
-import { useShortcut } from "@ui/hooks/useShortcut";
+import { useConfigurableShortcut } from "@ui/hooks/useConfigurableShortcut";
 import { SidebarContext, SidebarContexts } from "@ui/context/SidebarContext";
 
 export const SIDEBAR_COOKIE_NAME = "sidebar:state";
@@ -62,7 +62,7 @@ export const SidebarProvider = React.forwardRef<
         }, [isMobile, setOpen, setOpenMobile]);
 
         // Adds a keyboard shortcut to toggle the sidebar.
-        useShortcut(["meta", "b"], toggleSidebar);
+        useConfigurableShortcut("toggle-sidebar", toggleSidebar);
 
         // We add a state so that we can do data-state="expanded" or "collapsed".
         // This makes it easier to style the sidebar with Tailwind classes.

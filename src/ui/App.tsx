@@ -19,7 +19,7 @@ import { useTheme } from "@ui/hooks/useTheme";
 import Settings, {
     SETTINGS_DIALOG_ID,
     type SettingsTabId,
-} from "./components/Settings";
+} from "./components/settings/Settings";
 import { SidebarProvider } from "./providers/SidebarProvider";
 import { AppSidebar } from "./components/AppSidebar";
 import { ThemeProvider } from "@ui/themes/theme-provider";
@@ -67,7 +67,7 @@ import {
 } from "@tanstack/react-query";
 import { AppMetadataProvider } from "@ui/providers/AppMetadataProvider";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { useShortcut } from "./hooks/useShortcut";
+import { useConfigurableShortcut } from "./hooks/useConfigurableShortcut";
 import { Button } from "./components/ui/button";
 import { DatabaseProvider } from "./providers/DatabaseProvider";
 import { Alert, AlertTitle, AlertDescription } from "./components/ui/alert";
@@ -204,85 +204,80 @@ function AppContent() {
     const currentChat = currentChatQuery.data;
 
     // Check if we're on a project view page
-    const currentProjectId = location.pathname.match(/^\/projects\/(.+)$/)?.[1];
+    const currentProjectId =
+        currentChat?.projectId ??
+        location.pathname.match(/^\/projects\/(.+)$/)?.[1];
 
-    useShortcut(
-        ["meta", "k"],
-        () => {
-            if (isCommandMenuDialogOpen) {
-                dialogActions.closeDialog();
-            } else {
-                dialogActions.openDialog(COMMAND_MENU_DIALOG_ID);
-            }
-        },
-        {
-            isGlobal: true,
-        },
-    );
-
-    useShortcut(
-        ["meta", "="],
-        () => {
-            if (!isQuickChatWindow) {
-                const newZoomLevel = zoomLevel + 10;
-                setZoomLevel(newZoomLevel);
-            }
-        },
-        {
-            isGlobal: true,
-        },
-    );
-
-    useShortcut(
-        ["meta", "-"],
-        () => {
-            if (!isQuickChatWindow) {
-                const newZoomLevel = Math.max(10, zoomLevel - 10);
-                setZoomLevel(newZoomLevel);
-            }
-        },
-        {
-            isGlobal: true,
-        },
-    );
-
-    useShortcut(
-        ["meta", "0"],
-        () => {
-            if (!isQuickChatWindow) {
-                setZoomLevel(100);
-            }
-        },
-        {
-            isGlobal: true,
-        },
-    );
-
-    // these are not global since they're navigation based
-    // and we should block these out when a dialog is opened
-    useShortcut(["meta", "["], () => {
-        if (!isQuickChatWindow) {
-            navigate(-1);
+    const toggleCommandMenu = useCallback(() => {
+        if (isCommandMenuDialogOpen) {
+            dialogActions.closeDialog();
+        } else {
+            dialogActions.openDialog(COMMAND_MENU_DIALOG_ID);
         }
+    }, [isCommandMenuDialogOpen]);
+
+    useConfigurableShortcut("command-menu", toggleCommandMenu, {
+        isGlobal: true,
     });
 
-    useShortcut(["meta", "]"], () => {
-        if (!isQuickChatWindow) {
-            navigate(1);
-        }
+    const zoomIn = useCallback(() => {
+        setZoomLevel(zoomLevel + 10);
+    }, [zoomLevel, setZoomLevel]);
+
+    useConfigurableShortcut("zoom-in", zoomIn, {
+        isEnabled: !isQuickChatWindow,
+        isGlobal: true,
     });
 
-    useShortcut(["meta", "p"], () => {
-        if (!isQuickChatWindow) {
-            navigate("/prompts");
-        }
+    const zoomOut = useCallback(() => {
+        setZoomLevel(Math.max(10, zoomLevel - 10));
+    }, [zoomLevel, setZoomLevel]);
+
+    useConfigurableShortcut("zoom-out", zoomOut, {
+        isEnabled: !isQuickChatWindow,
+        isGlobal: true,
+    });
+
+    const zoomReset = useCallback(() => {
+        setZoomLevel(100);
+    }, [setZoomLevel]);
+
+    useConfigurableShortcut("zoom-reset", zoomReset, {
+        isEnabled: !isQuickChatWindow,
+        isGlobal: true,
+    });
+
+    const goBack = useCallback(() => {
+        navigate(-1);
+    }, [navigate]);
+
+    useConfigurableShortcut("navigate-back", goBack, {
+        isEnabled: !isQuickChatWindow && !isDialogOpen,
+        isGlobal: true,
+    });
+
+    const goForward = useCallback(() => {
+        navigate(1);
+    }, [navigate]);
+
+    useConfigurableShortcut("navigate-forward", goForward, {
+        isEnabled: !isQuickChatWindow && !isDialogOpen,
+        isGlobal: true,
+    });
+
+    const openPrompts = useCallback(() => {
+        navigate("/prompts");
+    }, [navigate]);
+
+    useConfigurableShortcut("prompts", openPrompts, {
+        isEnabled: !isQuickChatWindow && !isDialogOpen,
+        isGlobal: true,
     });
 
     const createGroupChat = ChatAPI.useCreateGroupChat();
-    useShortcut(["meta", "shift", "g"], () => {
-        if (!isQuickChatWindow && !isDialogOpen) {
-            createGroupChat.mutate();
-        }
+    useConfigurableShortcut("new-group-chat", createGroupChat.mutate, {
+        isEnabled: !isQuickChatWindow && !isDialogOpen,
+        isGlobal: true,
     });
 
     const handleDeepLink = useCallback(
@@ -553,9 +548,10 @@ function AppContent() {
         return () => clearInterval(updatesTimeout);
     }, [checkForUpdates]);
 
-    const getOrCreateNewChat = ChatAPI.useGetOrCreateNewChat();
-    const getOrCreateNewQuickChat = ChatAPI.useGetOrCreateNewQuickChat();
-    const createProject = ProjectAPI.useCreateProject();
+    const { mutate: getOrCreateNewChat } = ChatAPI.useGetOrCreateNewChat();
+    const { mutate: getOrCreateNewQuickChat } =
+        ChatAPI.useGetOrCreateNewQuickChat();
+    const { mutate: createProject } = ProjectAPI.useCreateProject();
 
     // Listen for menu events from Rust
     useEffect(() => {
@@ -577,11 +573,11 @@ function AppContent() {
 
                 // Use the appropriate function based on window type
                 if (isQuickChatWindow) {
-                    getOrCreateNewQuickChat.mutate();
+                    getOrCreateNewQuickChat();
                 } else {
-                    // Always create a default (non-project) chat when using Cmd+N
-                    getOrCreateNewChat.mutate({
-                        projectId: "default",
+                    // Create a new chat in the appropriate context
+                    getOrCreateNewChat({
+                        projectId: currentProjectId ?? "default",
                     });
                 }
             })();
@@ -608,7 +604,7 @@ function AppContent() {
                 if (isDialogOpen) {
                     dialogActions.closeDialog();
                 }
-                createProject.mutate();
+                createProject();
             })();
         });
 

@@ -93,6 +93,52 @@ fn parse_shortcut(shortcut_str: &str) -> Option<Shortcut> {
     Some(Shortcut::new(Some(modifiers), code))
 }
 
+/// Convert a settings combo format ("Meta+N") to Tauri menu accelerator format ("CmdOrCtrl+N")
+fn settings_combo_to_accelerator(combo: &str) -> String {
+    combo.replace("Meta", "CmdOrCtrl")
+}
+
+/// Read a shortcut accelerator from the settings store.
+/// Returns None if the shortcut is disabled, otherwise returns the accelerator string.
+fn get_shortcut_accelerator(
+    store: Option<&std::sync::Arc<tauri_plugin_store::Store<tauri::Wry>>>,
+    shortcut_id: &str,
+    default: &str,
+) -> Option<String> {
+    let shortcut_config = store.and_then(|s| s.get("settings")).and_then(|settings| {
+        settings
+            .as_object()
+            .and_then(|s| s.get("shortcuts"))
+            .and_then(|shortcuts| shortcuts.get(shortcut_id))
+            .cloned()
+    });
+
+    match shortcut_config {
+        Some(config) => {
+            // Check if the shortcut is disabled
+            let disabled = config
+                .as_object()
+                .and_then(|c| c.get("disabled"))
+                .and_then(|d| d.as_bool())
+                .unwrap_or(false);
+
+            if disabled {
+                return None;
+            }
+
+            // Get the combo, falling back to default
+            let combo = config
+                .as_object()
+                .and_then(|c| c.get("combo"))
+                .and_then(|c| c.as_str())
+                .unwrap_or(default);
+
+            Some(settings_combo_to_accelerator(combo))
+        }
+        None => Some(default.to_string()),
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(debug_assertions)] // only enable instrumentation in development builds
@@ -135,6 +181,13 @@ pub fn run() {
     let setup_fn = move |app: &mut tauri::App| {
         let handle = app.app_handle();
 
+        // Read shortcuts from settings store
+        let store = handle.store("settings").ok();
+        let settings_accel = get_shortcut_accelerator(store.as_ref(), "settings", "CmdOrCtrl+,");
+        let new_chat_accel = get_shortcut_accelerator(store.as_ref(), "new-chat", "CmdOrCtrl+N");
+        let new_project_accel =
+            get_shortcut_accelerator(store.as_ref(), "new-project", "CmdOrCtrl+Shift+N");
+
         // Create the application menu using Tauri v2 API
         let app_menu = SubmenuBuilder::new(app, "Chorus")
             .item(&MenuItem::with_id(
@@ -150,7 +203,7 @@ pub fn run() {
                 "settings",
                 "Settings",
                 true,
-                Some("CmdOrCtrl+,"),
+                settings_accel.as_deref(),
             )?)
             .separator()
             .item(&PredefinedMenuItem::hide(app, None)?)
@@ -192,14 +245,14 @@ pub fn run() {
                 "new-chat",
                 "New chat",
                 true,
-                Some("CmdOrCtrl+N"),
+                new_chat_accel.as_deref(),
             )?)
             .item(&MenuItem::with_id(
                 app,
                 "new-project",
                 "New project",
                 true,
-                Some("CmdOrCtrl+Shift+N"),
+                new_project_accel.as_deref(),
             )?)
             .separator()
             .item(&MenuItem::with_id(
@@ -207,7 +260,7 @@ pub fn run() {
                 "settings-shortcut",
                 "Settings",
                 true,
-                Some("CmdOrCtrl+,"),
+                settings_accel.as_deref(),
             )?)
             .build()?;
 
@@ -281,13 +334,11 @@ pub fn run() {
             })
             .build(app)?;
 
-        // Initialize the store
-        let store = handle.store("settings");
         let window = handle.get_webview_window(SPOTLIGHT_LABEL).unwrap();
 
         // Get theme mode from settings
         let is_dark_mode = store
-            .ok()
+            .as_ref()
             .and_then(|store| store.get("settings"))
             .and_then(|settings| {
                 settings
@@ -315,17 +366,17 @@ pub fn run() {
 
         use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut};
 
-        // Read the quickChat shortcut from the settings store.
-        let store = app.store("settings");
+        // Read the ambient-chat shortcut from the settings store.
         let quick_chat_shortcut = store
-            .ok()
+            .as_ref()
             .and_then(|store| store.get("settings"))
             .and_then(|settings| {
                 settings
                     .as_object()
-                    .and_then(|s| s.get("quickChat"))
-                    .and_then(|t| t.get("shortcut"))
-                    .and_then(|m| m.as_str().map(String::from))
+                    .and_then(|s| s.get("shortcuts"))
+                    .and_then(|shortcuts| shortcuts.get("ambient-chat"))
+                    .and_then(|config| config.get("combo"))
+                    .and_then(|c| c.as_str().map(String::from))
             })
             .unwrap_or("Alt+Space".to_string());
 
@@ -341,18 +392,20 @@ pub fn run() {
                     if event.state == ShortcutState::Pressed && event.id == shortcut.id() {
                         let panel = app.get_webview_panel(SPOTLIGHT_LABEL).unwrap();
                         let store = app.store("settings");
-                        let quick_chat_enabled = store
+                        // Check if the ambient-chat shortcut is disabled
+                        let quick_chat_disabled = store
                             .ok()
                             .and_then(|store| store.get("settings"))
                             .and_then(|settings| {
                                 settings
                                     .as_object()
-                                    .and_then(|s| s.get("quickChat"))
-                                    .and_then(|t| t.get("enabled"))
-                                    .and_then(|e| e.as_bool())
+                                    .and_then(|s| s.get("shortcuts"))
+                                    .and_then(|shortcuts| shortcuts.get("ambient-chat"))
+                                    .and_then(|config| config.get("disabled"))
+                                    .and_then(|d| d.as_bool())
                             })
-                            .unwrap_or(false); // Default to enabled if setting not found
-                        if quick_chat_enabled {
+                            .unwrap_or(false); // Default to enabled (not disabled)
+                        if !quick_chat_disabled {
                             if panel.is_visible() {
                                 panel.order_out(None);
                             } else {

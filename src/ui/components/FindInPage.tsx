@@ -7,8 +7,11 @@ import {
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
+import { useConfigurableShortcut } from "@ui/hooks/useConfigurableShortcut";
 import { useShortcut } from "@ui/hooks/useShortcut";
 import { Input } from "./ui/input";
+
+const CLOSE_SHORTCUT = ["Escape"];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function FindInPage({ dependencies = [] }: { dependencies?: any[] }) {
@@ -80,27 +83,25 @@ export function FindInPage({ dependencies = [] }: { dependencies?: any[] }) {
         }
     }, [searchResults, currentResult, navigateToResult]);
 
-    useShortcut(["meta", "f"], () => {
+    const showFindInPage = useCallback(() => {
         setIsVisible(true);
+    }, []);
+
+    useConfigurableShortcut("find-in-page", showFindInPage);
+
+    const hideFindInPage = useCallback(() => {
+        setIsVisible(false);
+        clearHighlights();
+    }, [clearHighlights]);
+
+    useShortcut(CLOSE_SHORTCUT, hideFindInPage, {
+        isEnabled: isVisible,
     });
 
-    useShortcut(["escape"], () => {
-        if (isVisible) {
-            setIsVisible(false);
-            clearHighlights();
-        }
-    });
+    useConfigurableShortcut("find-next", nextResult, { isEnabled: isVisible });
 
-    useShortcut(["meta", "g"], () => {
-        if (isVisible && searchResults > 0) {
-            nextResult();
-        }
-    });
-
-    useShortcut(["meta", "shift", "g"], () => {
-        if (isVisible && searchResults > 0) {
-            prevResult();
-        }
+    useConfigurableShortcut("find-previous", prevResult, {
+        isEnabled: isVisible,
     });
 
     // Focus input when visible

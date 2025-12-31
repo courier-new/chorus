@@ -59,6 +59,7 @@ export default tseslint.config(
                 "warn",
                 {
                     checksVoidReturn: {
+                        arguments: false,
                         attributes: false,
                     },
                     checksConditionals: true,
