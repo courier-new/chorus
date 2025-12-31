@@ -34,7 +34,13 @@ import {
     TrashIcon,
 } from "lucide-react";
 import { useAppContext } from "@ui/hooks/useAppContext";
-import { ChevronDownIcon, CopyIcon, CheckIcon, XIcon } from "lucide-react";
+import {
+    ChevronDownIcon,
+    CopyIcon,
+    CheckIcon,
+    XIcon,
+    MergeIcon,
+} from "lucide-react";
 import RetroSpinner from "./ui/retro-spinner";
 import { TooltipContent } from "./ui/tooltip";
 import { Tooltip } from "./ui/tooltip";
@@ -1569,6 +1575,21 @@ function ToolsBlockView({
     const addMessageToToolsBlock = MessageAPI.useAddMessageToToolsBlock(
         chatId!,
     );
+    const { mutate: selectSynthesis, isPending: isSelectingSynthesis } =
+        MessageAPI.useSelectSynthesis();
+
+    const synthesisShortcutDisplay = useShortcutDisplay("synthesize");
+
+    const synthesisMessage = toolsBlock.synthesis;
+    const canSynthesize =
+        toolsBlock.chatMessages.length >= 2 && !synthesisMessage;
+
+    // Include synthesis message if it exists, placing it first (left side)
+    const messagesToDisplay = [
+        ...(synthesisMessage ? [synthesisMessage] : []),
+        ...toolsBlock.chatMessages,
+    ];
+
     const handleAddModel = (modelId: string) => {
         // First add the model to the selected models list
         addModelToCompareConfigs.mutate({
@@ -1581,6 +1602,19 @@ function ToolsBlockView({
         });
     };
 
+    const handleSynthesize = useCallback(() => {
+        if (!canSynthesize) return;
+        selectSynthesis({
+            chatId: chatId!,
+            messageSetId,
+            blockType: "tools",
+        });
+    }, [canSynthesize, chatId, messageSetId, selectSynthesis]);
+
+    useConfigurableShortcut("synthesize", handleSynthesize, {
+        isEnabled: canSynthesize,
+    });
+
     return (
         <div
             ref={elementRef}
@@ -1592,7 +1626,29 @@ function ToolsBlockView({
             ${shouldShowScrollbar ? "is-scrolling" : ""}
             ${!isQuickChatWindow ? "px-10" : ""}`}
         >
-            {toolsBlock.chatMessages.map((message, _index) => (
+            {/* Synthesis button - only show when last row, not quick chat, and can synthesize */}
+            {isLastRow && !isQuickChatWindow && canSynthesize && (
+                <div className="flex items-start pt-2">
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <button
+                                className="w-14 flex-none text-sm text-muted-foreground hover:text-foreground rounded-md border-[0.090rem] py-[0.6rem] px-2 h-fit synthesis-border"
+                                onClick={handleSynthesize}
+                                disabled={isSelectingSynthesis}
+                            >
+                                <div className="flex flex-col items-center gap-1 py-1">
+                                    <MergeIcon className="font-medium w-3 h-3" />
+                                    Merge
+                                </div>
+                            </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            {`Synthesize all replies into one${synthesisShortcutDisplay && ` (${synthesisShortcutDisplay})`}`}
+                        </TooltipContent>
+                    </Tooltip>
+                </div>
+            )}
+            {messagesToDisplay.map((message, _index) => (
                 <div
                     key={message.id}
                     className={
@@ -1607,6 +1663,7 @@ function ToolsBlockView({
                         isLastRow={isLastRow}
                         isQuickChatWindow={isQuickChatWindow}
                         isOnlyMessage={toolsBlock.chatMessages.length === 1}
+                        isSynthesis={message.model.endsWith("::synthesize")}
                     />
                 </div>
             ))}
@@ -1887,7 +1944,6 @@ export default function MultiChat() {
         messageSetsQuery.data && messageSetsQuery.data.length > 0
             ? messageSetsQuery.data[messageSetsQuery.data.length - 1]
             : undefined;
-    const currentMessageSetId = currentMessageSet?.id;
     const currentCompareBlock =
         currentMessageSet?.selectedBlockType === "compare"
             ? currentMessageSet.compareBlock
@@ -2066,7 +2122,6 @@ export default function MultiChat() {
     useConfigurableShortcut("share-chat", handleShareChat);
 
     const selectMessage = MessageAPI.useSelectMessage();
-    const selectSynthesis = MessageAPI.useSelectSynthesis();
     const { mutate: setReviewsEnabled } = MessageAPI.useSetReviewsEnabled();
 
     const handleToggleVisionMode = useCallback(async () => {
@@ -2089,18 +2144,6 @@ export default function MultiChat() {
             setVisionModeEnabled.mutate(!visionModeEnabled);
         }
     }, [appMetadata, setVisionModeEnabled]);
-
-    const handleSynthesizeChat = useCallback(() => {
-        if (!currentMessageSetId) return;
-        selectSynthesis.mutate({
-            chatId: chatId!,
-            messageSetId: currentMessageSetId,
-        });
-    }, [chatId, currentMessageSetId, selectSynthesis]);
-
-    useConfigurableShortcut("synthesize", handleSynthesizeChat, {
-        isEnabled: !!currentMessageSetId,
-    });
 
     const toggleReviews = useCallback(() => {
         setReviewsEnabled({
