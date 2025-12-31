@@ -1211,13 +1211,16 @@ export function ToolsMessageView({
         "relative",
         !isQuickChatWindow && "rounded-md border-[0.090rem]",
         isQuickChatWindow ? "text-sm" : "bg-background",
+        // Border color: selected uses special, synthesis (non-selected) uses synthesis color, otherwise default
         !isQuickChatWindow && (message.selected || isReply)
             ? "!border-special"
-            : "",
+            : !isQuickChatWindow && isSynthesis
+              ? "synthesis-border"
+              : "",
         isLastRow && !isQuickChatWindow && !message.selected
             ? "cursor-pointer"
             : "",
-        !message.selected ? "opacity-70 hover:opacity-100" : "",
+        !message.selected ? "content-opacity-70" : "",
     ]
         .filter(Boolean)
         .join(" ");
@@ -1266,7 +1269,7 @@ export function ToolsMessageView({
                     >
                         {/* message header (model name + buttons) */}
                         <div
-                            className={`absolute left-0 right-0 -top-3 h-6
+                            className={`opacity-full absolute left-0 right-0 -top-3 h-6
                             flex items-center justify-between z-[5]
                             `}
                             onClick={(e) => {
