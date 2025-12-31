@@ -262,6 +262,75 @@ body {
     }
 }
 
+/* Synthesis wrapper animation - wraps both Merge button and synthesis message */
+.synthesis-wrapper-collapsed {
+    width: 3.5rem; /* w-14 = 3.5rem (button only) */
+}
+
+.synthesis-wrapper-expanded {
+    width: 450px; /* synthesis message width */
+}
+
+/* Expand animation (synthesis appearing) - fast start, slow finish */
+@keyframes synthesisWrapperExpand {
+    0% {
+        width: 3.5rem;
+        opacity: 0;
+    }
+    /* Reach ~90% of width (405px) and full opacity by 50% of time */
+    50% {
+        width: 405px;
+        opacity: 1;
+    }
+    /* Slow exponential ease for final 10% of width */
+    75% {
+        width: 435px;
+        opacity: 1;
+    }
+    90% {
+        width: 445px;
+        opacity: 1;
+    }
+    100% {
+        width: 450px;
+        opacity: 1;
+    }
+}
+
+.synthesis-wrapper-expand {
+    animation: synthesisWrapperExpand 400ms linear forwards;
+}
+
+/* Collapse animation (synthesis disappearing) - fast start, slow finish */
+@keyframes synthesisWrapperCollapse {
+    0% {
+        width: 450px;
+        opacity: 1;
+    }
+    /* Reach ~90% of collapse (to ~101px) by 50% of time */
+    50% {
+        width: 101px;
+        opacity: 0.5;
+    }
+    /* Slow exponential ease for final stretch */
+    75% {
+        width: 71px;
+        opacity: 0.25;
+    }
+    90% {
+        width: 61px;
+        opacity: 0.1;
+    }
+    100% {
+        width: 3.5rem;
+        opacity: 0;
+    }
+}
+
+.synthesis-wrapper-collapse {
+    animation: synthesisWrapperCollapse 400ms linear forwards;
+}
+
 @keyframes shimmer {
     0% {
         background-position: 200% 0;

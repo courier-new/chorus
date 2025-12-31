@@ -1,4 +1,12 @@
-import { useEffect, useRef, useState, useCallback, memo, useMemo } from "react";
+import {
+    useEffect,
+    useLayoutEffect,
+    useRef,
+    useState,
+    useCallback,
+    memo,
+    useMemo,
+} from "react";
 import React from "react";
 import {
     useParams,
@@ -1584,11 +1592,61 @@ function ToolsBlockView({
     const canSynthesize =
         toolsBlock.chatMessages.length >= 2 && !synthesisMessage;
 
-    // Include synthesis message if it exists, placing it first (left side)
-    const messagesToDisplay = [
-        ...(synthesisMessage ? [synthesisMessage] : []),
-        ...toolsBlock.chatMessages,
-    ];
+    // Track synthesis animation state
+    const prevSynthesisIdRef = useRef<string | undefined>(undefined);
+    const prevSynthesisMessageRef = useRef<Message | undefined>(undefined);
+    const [animatingOutSynthesis, setAnimatingOutSynthesis] = useState<
+        Message | undefined
+    >(undefined);
+    const [animationDirection, setAnimationDirection] = useState<
+        "in" | "out" | null
+    >(null);
+
+    useLayoutEffect(
+        function detectSynthesisAddition() {
+            const currentId = synthesisMessage?.id;
+            const prevId = prevSynthesisIdRef.current;
+
+            // If the previous synthesis ID was "NONE" and now we have a new ID,
+            // this indicates we just added synthesis and should animate in.
+            if (prevId === "NONE" && currentId !== undefined) {
+                setAnimationDirection("in");
+            }
+            // Update ref - we'll use "NONE" as a means to skip the first render
+            // (when there may have already been a synthesis message pre-existing,
+            // but it's undefined on initial render) and distinguish a synthesis
+            // message being added post-first-render.
+            prevSynthesisIdRef.current = currentId ?? "NONE";
+        },
+        [synthesisMessage?.id],
+    );
+
+    useLayoutEffect(
+        function detectSynthesisRemoval() {
+            const currentMessage = synthesisMessage;
+            const prevMessage = prevSynthesisMessageRef.current;
+
+            if (!currentMessage && prevMessage) {
+                setAnimatingOutSynthesis(prevMessage);
+                setAnimationDirection("out");
+            }
+
+            // Update ref whenever the current message changes - we'll use the
+            // previous message to snapshot the message contents while it's
+            // animating out, if the message is removed.
+            prevSynthesisMessageRef.current = currentMessage;
+        },
+        [synthesisMessage],
+    );
+
+    const handleAnimationEnd = useCallback(() => {
+        setAnimationDirection(null);
+        setAnimatingOutSynthesis(undefined);
+    }, []);
+
+    // Synthesis message to show (either current or snapshot of the message that
+    // is animating out)
+    const synthesisToShow = synthesisMessage ?? animatingOutSynthesis;
 
     const handleAddModel = (modelId: string) => {
         // First add the model to the selected models list
@@ -1611,14 +1669,15 @@ function ToolsBlockView({
         });
     }, [canSynthesize, chatId, messageSetId, selectSynthesis]);
 
+    // The keyboard shortcut targets the last row only.
     useConfigurableShortcut("synthesize", handleSynthesize, {
-        isEnabled: canSynthesize,
+        isEnabled: canSynthesize && isLastRow,
     });
 
     return (
         <div
             ref={elementRef}
-            className={`flex w-full h-fit pb-2 pr-5 gap-2 ${
+            className={`group/tools-row flex w-full h-fit pb-2 pr-5 gap-2 ${
                 // get horizontal scroll bars, plus hackily disable y scrolling
                 // because we're seeing scroll bars when we shouldn't
                 "overflow-x-auto scrollbar-on-scroll overflow-y-hidden"
@@ -1626,44 +1685,83 @@ function ToolsBlockView({
             ${shouldShowScrollbar ? "is-scrolling" : ""}
             ${!isQuickChatWindow ? "px-10" : ""}`}
         >
-            {/* Synthesis button - only show when last row, not quick chat, and can synthesize */}
-            {isLastRow && !isQuickChatWindow && canSynthesize && (
-                <div className="flex items-start pt-2">
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <button
-                                className="w-14 flex-none text-sm text-muted-foreground hover:text-foreground rounded-md border-[0.090rem] py-[0.6rem] px-2 h-fit synthesis-border"
-                                onClick={handleSynthesize}
-                                disabled={isSelectingSynthesis}
+            {/* Synthesis area - contains both Merge button and synthesis message in animated wrapper */}
+            {!isQuickChatWindow && (canSynthesize || synthesisToShow) && (
+                <div
+                    className={`overflow-hidden flex-shrink-0 ${
+                        synthesisToShow
+                            ? animationDirection === "out"
+                                ? "synthesis-wrapper-collapse"
+                                : animationDirection === "in"
+                                  ? "synthesis-wrapper-expand"
+                                  : ""
+                            : "synthesis-wrapper-collapsed"
+                    }`}
+                    onAnimationEnd={
+                        synthesisToShow ? handleAnimationEnd : undefined
+                    }
+                >
+                    <div className="flex gap-2">
+                        {/* Merge button - only rendered when no synthesis */}
+                        {!synthesisToShow && (
+                            <div
+                                className={`flex items-start pt-2 flex-shrink-0 transition-opacity ${
+                                    isLastRow
+                                        ? "opacity-100"
+                                        : "opacity-0 group-hover/tools-row:opacity-100 pointer-events-none group-hover/tools-row:pointer-events-auto"
+                                }`}
                             >
-                                <div className="flex flex-col items-center gap-1 py-1">
-                                    <MergeIcon className="font-medium w-3 h-3" />
-                                    Merge
-                                </div>
-                            </button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                            {`Synthesize all replies into one${synthesisShortcutDisplay && ` (${synthesisShortcutDisplay})`}`}
-                        </TooltipContent>
-                    </Tooltip>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <button
+                                            className="w-14 text-sm text-muted-foreground hover:text-foreground rounded-md border-[0.090rem] py-[0.6rem] px-2 h-fit synthesis-border"
+                                            onClick={handleSynthesize}
+                                            disabled={isSelectingSynthesis}
+                                        >
+                                            <div className="flex flex-col items-center gap-1 py-1">
+                                                <MergeIcon className="font-medium w-3 h-3" />
+                                                Merge
+                                            </div>
+                                        </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        {`Synthesize all replies into one${!!(synthesisShortcutDisplay && isLastRow) ? ` (${synthesisShortcutDisplay})` : ""}`}
+                                    </TooltipContent>
+                                </Tooltip>
+                            </div>
+                        )}
+
+                        {/* Synthesis message - fixed width */}
+                        {synthesisToShow && (
+                            <div className="w-[450px] min-w-[450px] flex-shrink-0">
+                                <ToolsMessageView
+                                    message={synthesisToShow}
+                                    isLastRow={isLastRow}
+                                    isQuickChatWindow={isQuickChatWindow}
+                                    isOnlyMessage={false}
+                                    isSynthesis={true}
+                                />
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
-            {messagesToDisplay.map((message, _index) => (
+            {/* Non-synthesis messages */}
+            {toolsBlock.chatMessages.map((message) => (
                 <div
                     key={message.id}
                     className={
                         isQuickChatWindow
                             ? "w-full max-w-prose"
-                            : `w-full flex-1 min-w-[450px] max-w-[550px]`
+                            : "w-full flex-1 min-w-[450px] max-w-[550px]"
                     }
                 >
                     <ToolsMessageView
                         message={message}
-                        // shortcutNumber={isLastRow ? index + 1 : undefined}
                         isLastRow={isLastRow}
                         isQuickChatWindow={isQuickChatWindow}
                         isOnlyMessage={toolsBlock.chatMessages.length === 1}
-                        isSynthesis={message.model.endsWith("::synthesize")}
+                        isSynthesis={false}
                     />
                 </div>
             ))}
