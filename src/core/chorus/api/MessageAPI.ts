@@ -2197,6 +2197,7 @@ export function useStreamSynthesis() {
             const conversation = llmConversationForSynthesis(
                 messageSets,
                 blockType,
+                messageSetId,
             );
 
             await streamMessagePart.mutateAsync({

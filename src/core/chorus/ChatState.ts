@@ -159,6 +159,7 @@ export type CompareBlock = {
 export type ToolsBlock = {
     type: "tools";
     chatMessages: Message[];
+    synthesis: Message | undefined;
 };
 export type BrainstormBlock = {
     type: "brainstorm";
@@ -322,6 +323,28 @@ ${message.text}
     ];
 }
 
+function encodeToolsBlockForSynthesis(block: ToolsBlock): LLMMessage[] {
+    const result: LLMMessage[] = [
+        {
+            role: "user",
+            content: `${Prompts.SYNTHESIS_INTERJECTION}
+
+${block.chatMessages
+    .map((message) => {
+        // For tools block messages, content is in parts
+        const messageContent = message.parts.map((p) => p.content).join("\n\n");
+        return `<perspective sender="${message.model}">
+${messageContent}
+</perspective>`;
+    })
+    .join("\n\n")}`,
+            attachments: [],
+        },
+    ];
+
+    return result;
+}
+
 function blockIsEmptyTools(block: ToolsBlock): boolean {
     return block.chatMessages.length === 0;
 }
@@ -463,12 +486,29 @@ export function llmConversation(messageSets: MessageSetDetail[]): LLMMessage[] {
 
 export function llmConversationForSynthesis(
     messageSets: MessageSetDetail[],
+    blockType: "compare" | "tools" = "compare",
+    targetMessageSetId?: string,
 ): LLMMessage[] {
-    const finalCompareBlock = messageSets[messageSets.length - 1].compareBlock;
+    // Find the target message set by ID, or fall back to the last one
+    const targetIndex = targetMessageSetId
+        ? messageSets.findIndex((ms) => ms.id === targetMessageSetId)
+        : messageSets.length - 1;
+    const targetMessageSet = messageSets[targetIndex];
 
-    const synthesisMessages = finalCompareBlock
-        ? encodeCompareBlockForSynthesis(finalCompareBlock)
-        : [];
+    if (!targetMessageSet) {
+        return [];
+    }
 
-    return [...llmConversation(messageSets.slice(0, -1)), ...synthesisMessages];
+    const synthesisMessages =
+        blockType === "compare" && targetMessageSet.compareBlock
+            ? encodeCompareBlockForSynthesis(targetMessageSet.compareBlock)
+            : blockType === "tools" && targetMessageSet.toolsBlock
+              ? encodeToolsBlockForSynthesis(targetMessageSet.toolsBlock)
+              : [];
+
+    // Include conversation history up to (but not including) the target message set
+    return [
+        ...llmConversation(messageSets.slice(0, targetIndex)),
+        ...synthesisMessages,
+    ];
 }
