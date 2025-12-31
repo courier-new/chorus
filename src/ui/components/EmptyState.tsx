@@ -1,5 +1,5 @@
 import { SplitIcon } from "lucide-react";
-import { useMemo, useRef } from "react";
+import { useMemo } from "react";
 import { useShortcutDisplay } from "@core/utilities/ShortcutsAPI";
 
 const useEmptyStateShortcuts = () => {
@@ -73,8 +73,11 @@ const useEmptyStateTips = () => {
 export function EmptyState() {
     const tips = useEmptyStateTips();
 
-    const tipIndex = useRef(Math.floor(Math.random() * tips.length));
-    const randomTip = tips[tipIndex.current];
+    const randomTipIndex = useMemo(
+        () => Math.floor(Math.random() * tips.length),
+        [tips.length],
+    );
+    const randomTip = tips[randomTipIndex];
 
     return (
         <div className="absolute bottom-0 left-0 right-0 pb-8 flex justify-center">

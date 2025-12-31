@@ -947,7 +947,7 @@ const ChatListItemView = React.memo(
                 if (node && isDeleteChatDialogOpen) {
                     setTimeout(() => {
                         node.focus();
-                    }, 0);
+                    }, 50);
                 }
             },
             [isDeleteChatDialogOpen],

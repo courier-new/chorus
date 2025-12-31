@@ -28,7 +28,6 @@ function initializeSettingsListener(
 ) {
     if (settingsListener) return;
     settingsListener = listen<Settings>("settings-changed", () => {
-        console.log("settings-changed for shortcutsAPI");
         void queryClient.invalidateQueries({
             queryKey: shortcutsQueryKeys.all,
         });
@@ -146,7 +145,6 @@ export function useResetShortcut() {
 
     return useMutation({
         mutationFn: async (shortcutId: ShortcutId) => {
-            console.log("Resetting shortcut", shortcutId);
             const settings = await settingsManager.get();
             const definition = DEFAULT_SHORTCUTS[shortcutId];
 

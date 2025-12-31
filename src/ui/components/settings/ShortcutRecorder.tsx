@@ -48,7 +48,6 @@ export default function ShortcutRecorder({
 
     // If forceReset or value changes externally (e.g. reset button), reset the display
     useEffect(() => {
-        console.log("Resetting shortcut recorder");
         setRecording(false);
         setDisplayValue(comboToDisplayString(value, true));
         setValidationError(undefined);

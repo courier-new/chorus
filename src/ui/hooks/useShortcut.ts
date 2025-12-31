@@ -46,16 +46,17 @@ export function useShortcut(
         isGlobal = false,
     }: UseShortcutOptions = {},
 ) {
-    const focusedInputId = useInputStore.getState().focusedInputId;
-    const activeDialogId = useDialogStore.getState().activeDialogId;
+    const focusedInputId = useInputStore((state) => state.focusedInputId);
+    const activeDialogId = useDialogStore((state) => state.activeDialogId);
 
     const isShortcutEnabled = useMemo(() => {
         if (!isEnabled) return false;
         if (isGlobal) return true;
         // Context guards
         if (focusedInputId && !enableOnChatFocus) return false;
-        if (activeDialogId && !enableOnDialogIds?.includes(activeDialogId))
-            return false;
+        if (enableOnDialogIds?.length) {
+            return activeDialogId && enableOnDialogIds.includes(activeDialogId);
+        }
         return true;
     }, [
         focusedInputId,

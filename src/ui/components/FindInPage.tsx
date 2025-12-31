@@ -94,7 +94,9 @@ export function FindInPage({ dependencies = [] }: { dependencies?: any[] }) {
         clearHighlights();
     }, [clearHighlights]);
 
-    useShortcut(CLOSE_SHORTCUT, hideFindInPage);
+    useShortcut(CLOSE_SHORTCUT, hideFindInPage, {
+        isEnabled: isVisible,
+    });
 
     useConfigurableShortcut("find-next", nextResult, { isEnabled: isVisible });
 

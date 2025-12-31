@@ -25,7 +25,6 @@ function initializeSettingsListener(
 ) {
     if (settingsListener) return;
     settingsListener = listen<Settings>("settings-changed", () => {
-        console.log("settings-changed for useSettings");
         void queryClient.invalidateQueries({
             queryKey: settingsQueryKeys.all,
         });

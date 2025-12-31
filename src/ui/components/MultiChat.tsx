@@ -1920,10 +1920,12 @@ export default function MultiChat() {
     useShortcut(COPY_SHARE_URL_SHORTCUT, handleCopyShareUrl, {
         enableOnDialogIds: [SHARE_CHAT_DIALOG_ID],
         enableOnChatFocus: false,
+        isEnabled: !!shareUrl,
     });
 
     useShortcut(OPEN_SHARE_URL_SHORTCUT, handleOpenShareUrl, {
         enableOnDialogIds: [SHARE_CHAT_DIALOG_ID],
+        isEnabled: !!shareUrl,
     });
 
     useShortcut(CLOSE_SHARE_URL_SHORTCUT, handleCloseShareUrl, {

@@ -168,7 +168,6 @@ interface ScopeSectionProps {
     title: string;
     shortcutsSettings: ShortcutsSettings;
     shortcuts: ShortcutDefinition[];
-    scope: ShortcutScope;
     onUpdateShortcut?: (
         id: ShortcutId,
         combo: string,
@@ -183,7 +182,6 @@ function ScopeSection({
     shortcutsSettings,
     onUpdateShortcut,
     onResetShortcut,
-    scope,
 }: ScopeSectionProps) {
     const [isOpen, setIsOpen] = useState(true);
 
@@ -193,7 +191,7 @@ function ScopeSection({
                 <h3 className="font-semibold text-base">
                     {title}{" "}
                     <span className="text-muted-foreground font-normal">
-                        ({shortcuts.length + (scope === "quick-chat" ? 1 : 0)})
+                        ({shortcuts.length})
                     </span>
                 </h3>
                 <ChevronDown
@@ -358,7 +356,6 @@ export function KeyboardShortcutsSettings() {
                 {shortcutsByScopeInOrder.map(({ scope, label, shortcuts }) => (
                     <ScopeSection
                         key={scope}
-                        scope={scope}
                         title={label}
                         shortcuts={shortcuts}
                         shortcutsSettings={shortcutsSettings}

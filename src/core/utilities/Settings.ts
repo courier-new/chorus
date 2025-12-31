@@ -79,7 +79,7 @@ export class SettingsManager {
                     ...createDefaultShortcutsConfig(),
                     "ambient-chat": {
                         combo: quickChatShortcut,
-                        disabled: quickChatEnabled,
+                        disabled: !quickChatEnabled,
                     },
                 },
             };
