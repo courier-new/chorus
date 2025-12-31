@@ -1374,10 +1374,7 @@ export function ToolsMessageView({
                                                         }
                                                     }}
                                                 >
-                                                    <RefreshCcwIcon
-                                                        strokeWidth={1.5}
-                                                        className="w-3.5 h-3.5"
-                                                    />
+                                                    <RefreshCcwIcon className="w-3.5 h-3.5" />
                                                 </button>
                                             </TooltipTrigger>
                                             <TooltipContent>
@@ -1395,7 +1392,7 @@ export function ToolsMessageView({
                                                         branchChat.mutate()
                                                     }
                                                 >
-                                                    <SplitIcon className="w-3 h-3" />
+                                                    <SplitIcon className="w-3.5 h-3.5" />
                                                 </button>
                                             </TooltipTrigger>
                                             <TooltipContent>
@@ -1436,7 +1433,7 @@ export function ToolsMessageView({
 
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <span>
+                                            <span className="flex items-center">
                                                 <SimpleCopyButton
                                                     className="hover:text-foreground"
                                                     text={fullText}
@@ -1449,15 +1446,12 @@ export function ToolsMessageView({
 
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <span>
+                                            <span className="flex items-center">
                                                 <ToolsMessageFullScreenDialogView
                                                     message={message}
                                                 >
                                                     <button className="hover:text-foreground">
-                                                        <Maximize2Icon
-                                                            strokeWidth={1.5}
-                                                            className="w-3.5 h-3.5"
-                                                        />
+                                                        <Maximize2Icon className="w-3.5 h-3.5" />
                                                     </button>
                                                 </ToolsMessageFullScreenDialogView>
                                             </span>
