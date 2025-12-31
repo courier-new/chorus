@@ -1,7 +1,11 @@
 import { useEffect } from "react";
-import { Settings, SettingsManager } from "@core/utilities/Settings";
+import {
+    Settings,
+    SettingsManager,
+    DEFAULT_SYNTHESIS_MODEL_CONFIG_ID,
+} from "@core/utilities/Settings";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 const settingsManager = SettingsManager.getInstance();
 
@@ -52,3 +56,71 @@ export const settingsQueryKeys = {
     all: ["settings"] as const,
     settings: () => [...settingsQueryKeys.all, "settings"] as const,
 };
+
+/**
+ * Hook to get the synthesis model config ID
+ */
+export function useSynthesisModelConfigId() {
+    const { data: settings } = useSettings();
+    return (
+        settings?.synthesis.modelConfigId ?? DEFAULT_SYNTHESIS_MODEL_CONFIG_ID
+    );
+}
+
+/**
+ * Hook to set the synthesis model config ID
+ */
+export function useSetSynthesisModelConfigId() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey: ["setSynthesisModelConfigId"] as const,
+        mutationFn: async (modelConfigId: string) => {
+            const currentSettings = await settingsManager.get();
+            await settingsManager.set({
+                ...currentSettings,
+                synthesis: {
+                    ...currentSettings.synthesis,
+                    modelConfigId,
+                },
+            });
+        },
+        onSuccess: () => {
+            void queryClient.invalidateQueries({
+                queryKey: settingsQueryKeys.all,
+            });
+        },
+    });
+}
+
+/**
+ * Hook to get the synthesis prompt
+ */
+export function useSynthesisPrompt() {
+    const { data: settings } = useSettings();
+    return settings?.synthesis.prompt ?? undefined;
+}
+
+/**
+ * Hook to set the synthesis prompt
+ */
+export function useSetSynthesisPrompt() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey: ["setSynthesisPrompt"] as const,
+        mutationFn: async (prompt: string | undefined) => {
+            const currentSettings = await settingsManager.get();
+            await settingsManager.set({
+                ...currentSettings,
+                synthesis: {
+                    ...currentSettings.synthesis,
+                    prompt,
+                },
+            });
+        },
+        onSuccess: () => {
+            void queryClient.invalidateQueries({
+                queryKey: settingsQueryKeys.all,
+            });
+        },
+    });
+}

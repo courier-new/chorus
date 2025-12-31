@@ -2,6 +2,9 @@ import { getStore } from "@core/infra/Store";
 import { emit } from "@tauri-apps/api/event";
 import { createDefaultShortcutsConfig, ShortcutsSettings } from "./Shortcuts";
 
+export const DEFAULT_SYNTHESIS_MODEL_CONFIG_ID =
+    "openrouter::openai/gpt-oss-120b";
+
 export interface Settings {
     defaultEditor: string;
     sansFont: string;
@@ -23,6 +26,10 @@ export interface Settings {
         modelConfigId?: string;
         /** @deprecated Use the "ambient-chat" shortcut instead */
         shortcut?: string;
+    };
+    synthesis: {
+        modelConfigId: string;
+        prompt?: string;
     };
     lmStudioBaseUrl?: string;
     cautiousEnter?: boolean;
@@ -71,6 +78,9 @@ export class SettingsManager {
                 quickChat: {
                     modelConfigId: "anthropic::claude-sonnet-4-5-20250929",
                 },
+                synthesis: {
+                    modelConfigId: DEFAULT_SYNTHESIS_MODEL_CONFIG_ID,
+                },
                 // If we're accessing shortcut settings for the first time and
                 // they are not yet set, we will initialize them with the
                 // defaults but ensure we preserve quick chat from the previous
@@ -93,6 +103,10 @@ export class SettingsManager {
             return {
                 ...defaultSettings,
                 ...settings,
+                synthesis: {
+                    ...defaultSettings.synthesis,
+                    ...settings.synthesis,
+                },
                 shortcuts: {
                     ...defaultSettings.shortcuts,
                     ...settings.shortcuts,
@@ -110,6 +124,9 @@ export class SettingsManager {
                 apiKeys: {},
                 quickChat: {
                     modelConfigId: "anthropic::claude-3-5-sonnet-latest",
+                },
+                synthesis: {
+                    modelConfigId: DEFAULT_SYNTHESIS_MODEL_CONFIG_ID,
                 },
                 shortcuts: createDefaultShortcutsConfig(),
             };
