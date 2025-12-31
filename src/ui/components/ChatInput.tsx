@@ -172,6 +172,8 @@ export function ChatInput({
     const addModelToCompareConfigs = MessageAPI.useAddModelToCompareConfigs();
     const { mutateAsync: updateSelectedModelConfigsCompare } =
         MessageAPI.useUpdateSelectedModelConfigsCompare();
+    const { mutate: clearActiveGroup } =
+        ModelGroupsAPI.useClearActiveModelGroup();
 
     const createMessageSetPair = MessageAPI.useCreateMessageSetPair();
     const createMessage = MessageAPI.useCreateMessage();
@@ -438,11 +440,12 @@ export function ChatInput({
             await updateSelectedModelConfigsCompare({
                 modelConfigs: [],
             });
-            void posthog.capture("selected_model_configs_updated", {
+            clearActiveGroup();
+            posthog.capture("selected_model_configs_updated", {
                 selectedModelConfigs: [],
             });
         })();
-    }, [posthog, updateSelectedModelConfigsCompare]);
+    }, [posthog, updateSelectedModelConfigsCompare, clearActiveGroup]);
 
     // Update focus when dialog closes or chat id changes
     useEffect(() => {
