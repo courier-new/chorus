@@ -1383,11 +1383,13 @@ export function ToolsMessageView({
 
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <SimpleCopyButton
-                                                className="hover:text-foreground"
-                                                text={fullText}
-                                                size="sm"
-                                            />
+                                            <span>
+                                                <SimpleCopyButton
+                                                    className="hover:text-foreground"
+                                                    text={fullText}
+                                                    size="sm"
+                                                />
+                                            </span>
                                         </TooltipTrigger>
                                         <TooltipContent>Copy</TooltipContent>
                                     </Tooltip>
