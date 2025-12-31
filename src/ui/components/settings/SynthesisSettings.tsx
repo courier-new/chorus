@@ -42,7 +42,7 @@ export function SynthesisSettings() {
         useSetSynthesisModelConfigId();
     const synthesisPromptFromSettings = useSynthesisPrompt();
     const { mutateAsync: setSynthesisPrompt } = useSetSynthesisPrompt();
-    const { combo: synthesisShortcut, disabled: synthesisDisabled } =
+    const { combo: shortcut, disabled: shortcutDisabled } =
         useShortcutConfig("synthesize");
     const { mutate: updateShortcut } = useUpdateShortcut();
     const { mutate: resetShortcut } = useResetShortcut();
@@ -127,10 +127,10 @@ export function SynthesisSettings() {
         (enabled: boolean) => {
             updateShortcut({
                 shortcutId: "synthesize",
-                config: { combo: synthesisShortcut, disabled: !enabled },
+                config: { combo: shortcut, disabled: !enabled },
             });
         },
-        [synthesisShortcut, updateShortcut],
+        [shortcut, updateShortcut],
     );
 
     const onResetShortcutClick = useCallback(() => {
@@ -160,12 +160,12 @@ export function SynthesisSettings() {
                         <p className="text-sm text-muted-foreground">
                             Synthesize a response with{" "}
                             <span className="font-mono">
-                                {comboToDisplayString(synthesisShortcut, true)}
+                                {comboToDisplayString(shortcut, true)}
                             </span>
                         </p>
                     </div>
                     <Switch
-                        checked={!synthesisDisabled}
+                        checked={!shortcutDisabled}
                         onCheckedChange={handleShortcutEnabledChange}
                     />
                 </div>
@@ -183,14 +183,16 @@ export function SynthesisSettings() {
 
                     <div className="flex items-start justify-between gap-2">
                         <ShortcutRecorder
+                            disabled={shortcutDisabled}
                             className="w-full flex-1"
-                            value={synthesisShortcut}
+                            value={shortcut}
                             onChange={handleShortcutChange}
                             onValidate={validateShortcut}
                             forceReset={shortcutForceReset}
                         />
                         <Button
                             className="gap-1"
+                            disabled={shortcutDisabled}
                             variant="secondary"
                             size="xs"
                             onClick={onResetShortcutClick}

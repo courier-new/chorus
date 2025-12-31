@@ -1808,6 +1808,7 @@ export default function Settings({ tab = "general" }: SettingsProps) {
                                     <div className="flex items-start justify-between gap-2">
                                         <ShortcutRecorder
                                             className="w-full flex-1"
+                                            disabled={quickChatDisabled}
                                             value={quickChatShortcut}
                                             onChange={
                                                 handleQuickChatShortcutChange
@@ -1819,6 +1820,7 @@ export default function Settings({ tab = "general" }: SettingsProps) {
                                         />
                                         <Button
                                             className="gap-1"
+                                            disabled={quickChatDisabled}
                                             variant="secondary"
                                             size="xs"
                                             onClick={onDefaultQcShortcutClick}
@@ -1829,6 +1831,7 @@ export default function Settings({ tab = "general" }: SettingsProps) {
 
                                         <Button
                                             variant="default"
+                                            disabled={quickChatDisabled}
                                             size="xs"
                                             onClick={() => {
                                                 const validation =
