@@ -31,7 +31,7 @@ import {
     ChevronRightIcon,
     FolderOpenIcon,
     ReplyIcon,
-    Trash2Icon,
+    TrashIcon,
 } from "lucide-react";
 import { useAppContext } from "@ui/hooks/useAppContext";
 import { ChevronDownIcon, CopyIcon, CheckIcon, XIcon } from "lucide-react";
@@ -1136,12 +1136,14 @@ export function ToolsMessageView({
     isLastRow,
     isOnlyMessage,
     isReply = false,
+    isSynthesis = false,
 }: {
     message: Message;
     isQuickChatWindow: boolean;
     isLastRow: boolean;
     isOnlyMessage: boolean;
     isReply?: boolean;
+    isSynthesis?: boolean;
 }) {
     const navigate = useNavigate();
     // const [raw, setRaw] = useState(false);
@@ -1167,6 +1169,8 @@ export function ToolsMessageView({
         blockType: "tools",
         replyToId: message.id,
     });
+    const { mutate: deselectSynthesis, isPending: isDeselectingSynthesis } =
+        MessageAPI.useDeselectSynthesis();
     const modelConfigsQuery = ModelsAPI.useModelConfigs();
     // // Set stream start time when streaming begins
     // useEffect(() => {
@@ -1206,6 +1210,14 @@ export function ToolsMessageView({
             replyToMessage.mutate();
         }
     }
+
+    const onRemoveSynthesis = useCallback(() => {
+        deselectSynthesis({
+            chatId: message.chatId,
+            messageSetId: message.messageSetId,
+            blockType: "tools",
+        });
+    }, [deselectSynthesis, message.chatId, message.messageSetId]);
 
     return (
         <div id={`message-${message.id}`} className={"flex w-full select-none"}>
@@ -1414,23 +1426,46 @@ export function ToolsMessageView({
                                         </TooltipContent>
                                     </Tooltip>
 
-                                    {!isQuickChatWindow && !isReply && (
+                                    {isSynthesis ? (
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <button
                                                     className="hover:text-foreground"
-                                                    onClick={onReplyClick}
+                                                    onClick={onRemoveSynthesis}
+                                                    disabled={
+                                                        isDeselectingSynthesis
+                                                    }
                                                 >
-                                                    <ReplyIcon
+                                                    <TrashIcon
                                                         strokeWidth={1.5}
                                                         className="w-3.5 h-3.5"
                                                     />
                                                 </button>
                                             </TooltipTrigger>
                                             <TooltipContent>
-                                                Reply to this message
+                                                Remove synthesis
                                             </TooltipContent>
                                         </Tooltip>
+                                    ) : (
+                                        !isQuickChatWindow &&
+                                        !isReply && (
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <button
+                                                        className="hover:text-foreground"
+                                                        onClick={onReplyClick}
+                                                    >
+                                                        <ReplyIcon
+                                                            strokeWidth={1.5}
+                                                            className="w-3.5 h-3.5"
+                                                        />
+                                                    </button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    Reply to this message
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        )
                                     )}
                                 </div>
                             </div>
@@ -1441,9 +1476,10 @@ export function ToolsMessageView({
                             isQuickChatWindow={isQuickChatWindow}
                         />
 
-                        {/* Reply button at bottom overlapping border (only show if there are no replies) */}
+                        {/* Reply button at bottom overlapping border (only show if there are no replies and not synthesis) */}
                         {!isQuickChatWindow &&
                             !isReply &&
+                            !isSynthesis &&
                             !message.replyChatId && (
                                 <div className="absolute bottom-0 left-3 transform translate-y-1/2 z-10">
                                     <button
