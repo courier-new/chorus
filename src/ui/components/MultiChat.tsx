@@ -1,4 +1,12 @@
-import { useEffect, useRef, useState, useCallback, memo, useMemo } from "react";
+import {
+    useEffect,
+    useLayoutEffect,
+    useRef,
+    useState,
+    useCallback,
+    memo,
+    useMemo,
+} from "react";
 import React from "react";
 import {
     useParams,
@@ -31,10 +39,16 @@ import {
     ChevronRightIcon,
     FolderOpenIcon,
     ReplyIcon,
-    Trash2Icon,
+    TrashIcon,
 } from "lucide-react";
 import { useAppContext } from "@ui/hooks/useAppContext";
-import { ChevronDownIcon, CopyIcon, CheckIcon, XIcon } from "lucide-react";
+import {
+    ChevronDownIcon,
+    CopyIcon,
+    CheckIcon,
+    XIcon,
+    MergeIcon,
+} from "lucide-react";
 import RetroSpinner from "./ui/retro-spinner";
 import { TooltipContent } from "./ui/tooltip";
 import { Tooltip } from "./ui/tooltip";
@@ -823,10 +837,16 @@ function ToolsMessageFullScreenDialogView({
     const [raw, setRaw] = useState(false);
 
     const modelConfigsQuery = ModelsAPI.useModelConfigs();
+    const isSynthesis = message.model.endsWith("::synthesize");
+    const baseModelId = isSynthesis
+        ? message.model.replace(/::synthesize$/, "")
+        : message.model;
     const modelConfig = modelConfigsQuery.data?.find(
-        (m) => m.id === message.model,
+        (m) => m.id === baseModelId,
     );
-    const modelName = modelConfig?.displayName;
+    const modelName = isSynthesis
+        ? `Synthesis (${modelConfig?.displayName ?? "Unknown"})`
+        : modelConfig?.displayName;
 
     const fullText = message.parts.map((p) => p.content).join("\n");
 
@@ -836,10 +856,20 @@ function ToolsMessageFullScreenDialogView({
             <DialogContent className="max-w-4xl max-h-[95vh] w-full overflow-auto">
                 <DialogTitle className="pt-2 px-3">
                     <div className="flex items-center justify-between">
-                        <h1 className="text-lg font-medium">{modelName}</h1>
+                        <div className="flex items-center gap-2">
+                            {isSynthesis ? (
+                                <MergeIcon size={14} className="-mt-[1px]" />
+                            ) : (
+                                <ProviderLogo
+                                    size="sm"
+                                    modelId={modelConfig?.modelId}
+                                />
+                            )}
+                            <h1 className="text-lg font-medium">{modelName}</h1>
+                        </div>
                         <div className="flex items-center gap-2.5">
                             <Tooltip>
-                                <TooltipTrigger asChild tabIndex={-1}>
+                                <TooltipTrigger asChild>
                                     <Toggle
                                         pressed={raw}
                                         onPressedChange={() => {
@@ -857,7 +887,7 @@ function ToolsMessageFullScreenDialogView({
                                 </TooltipContent>
                             </Tooltip>
                             <Tooltip>
-                                <TooltipTrigger asChild tabIndex={-1}>
+                                <TooltipTrigger asChild>
                                     <SimpleCopyButton text={fullText} />
                                 </TooltipTrigger>
                                 <TooltipContent
@@ -868,7 +898,7 @@ function ToolsMessageFullScreenDialogView({
                                 </TooltipContent>
                             </Tooltip>
                             <Tooltip>
-                                <TooltipTrigger asChild tabIndex={-1}>
+                                <TooltipTrigger asChild autoFocus>
                                     <button
                                         className="w-3 h-3"
                                         onClick={() =>
@@ -1136,12 +1166,14 @@ export function ToolsMessageView({
     isLastRow,
     isOnlyMessage,
     isReply = false,
+    isSynthesis = false,
 }: {
     message: Message;
     isQuickChatWindow: boolean;
     isLastRow: boolean;
     isOnlyMessage: boolean;
     isReply?: boolean;
+    isSynthesis?: boolean;
 }) {
     const navigate = useNavigate();
     // const [raw, setRaw] = useState(false);
@@ -1154,6 +1186,7 @@ export function ToolsMessageView({
         message.messageSetId,
         message.id,
     );
+    const { mutate: restartSynthesis } = MessageAPI.useRestartSynthesis();
     const branchChat = MessageAPI.useBranchChat({
         chatId: message.chatId,
         messageSetId: message.messageSetId,
@@ -1167,6 +1200,8 @@ export function ToolsMessageView({
         blockType: "tools",
         replyToId: message.id,
     });
+    const { mutate: deselectSynthesis, isPending: isDeselectingSynthesis } =
+        MessageAPI.useDeselectSynthesis();
     const modelConfigsQuery = ModelsAPI.useModelConfigs();
     // // Set stream start time when streaming begins
     // useEffect(() => {
@@ -1180,21 +1215,27 @@ export function ToolsMessageView({
         return null;
     }
     const fullText = message.parts.map((p) => p.content).join("\n");
+    const baseModelId = isSynthesis
+        ? message.model.replace(/::synthesize$/, "")
+        : message.model;
     const modelConfig = modelConfigsQuery.data?.find(
-        (m) => m.id === message.model,
+        (m) => m.id === baseModelId,
     );
 
     const messageClasses = [
         "relative",
         !isQuickChatWindow && "rounded-md border-[0.090rem]",
         isQuickChatWindow ? "text-sm" : "bg-background",
+        // Border color: selected uses special, synthesis (non-selected) uses synthesis color, otherwise default
         !isQuickChatWindow && (message.selected || isReply)
             ? "!border-special"
-            : "",
+            : !isQuickChatWindow && isSynthesis
+              ? "synthesis-border"
+              : "",
         isLastRow && !isQuickChatWindow && !message.selected
             ? "cursor-pointer"
             : "",
-        !message.selected ? "opacity-70 hover:opacity-100" : "",
+        !message.selected ? "content-opacity-70" : "",
     ]
         .filter(Boolean)
         .join(" ");
@@ -1206,6 +1247,14 @@ export function ToolsMessageView({
             replyToMessage.mutate();
         }
     }
+
+    const onRemoveSynthesis = useCallback(() => {
+        deselectSynthesis({
+            chatId: message.chatId,
+            messageSetId: message.messageSetId,
+            blockType: "tools",
+        });
+    }, [deselectSynthesis, message.chatId, message.messageSetId]);
 
     return (
         <div id={`message-${message.id}`} className={"flex w-full select-none"}>
@@ -1235,7 +1284,7 @@ export function ToolsMessageView({
                     >
                         {/* message header (model name + buttons) */}
                         <div
-                            className={`absolute left-0 right-0 -top-3 h-6
+                            className={`opacity-full absolute left-0 right-0 -top-3 h-6
                             flex items-center justify-between z-[5]
                             `}
                             onClick={(e) => {
@@ -1252,17 +1301,39 @@ export function ToolsMessageView({
                                             : "text-muted-foreground"
                                     }`}
                                 >
-                                    {modelConfig && (
-                                        <div className="flex items-center gap-2 h-6">
-                                            <ProviderLogo
-                                                size="sm"
-                                                modelId={modelConfig.modelId}
-                                                className="-mt-[1px]"
-                                            />
-                                            <div className="text-sm">
+                                    {isSynthesis ? (
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <div className="flex items-center gap-2 h-6">
+                                                    <MergeIcon
+                                                        size={14}
+                                                        className="-mt-[1px]"
+                                                    />
+                                                    <div className="text-sm">
+                                                        Synthesis
+                                                    </div>
+                                                </div>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="bottom">
+                                                Synthesized with{" "}
                                                 {modelConfig?.displayName}
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    ) : (
+                                        modelConfig && (
+                                            <div className="flex items-center gap-2 h-6">
+                                                <ProviderLogo
+                                                    size="sm"
+                                                    modelId={
+                                                        modelConfig.modelId
+                                                    }
+                                                    className="-mt-[1px]"
+                                                />
+                                                <div className="text-sm">
+                                                    {modelConfig?.displayName}
+                                                </div>
                                             </div>
-                                        </div>
+                                        )
                                     )}
                                 </div>
                                 {!isOnlyMessage && (
@@ -1312,7 +1383,14 @@ export function ToolsMessageView({
                                                     disabled={!modelConfig}
                                                     className="hover:text-foreground"
                                                     onClick={() => {
-                                                        if (modelConfig) {
+                                                        if (isSynthesis) {
+                                                            restartSynthesis({
+                                                                chatId: message.chatId,
+                                                                messageSetId: message.messageSetId,
+                                                                messageId: message.id,
+                                                                blockType: "tools",
+                                                            });
+                                                        } else if (modelConfig) {
                                                             restartMessage.mutate(
                                                                 {
                                                                     modelConfig,
@@ -1321,10 +1399,7 @@ export function ToolsMessageView({
                                                         }
                                                     }}
                                                 >
-                                                    <RefreshCcwIcon
-                                                        strokeWidth={1.5}
-                                                        className="w-3.5 h-3.5"
-                                                    />
+                                                    <RefreshCcwIcon className="w-3.5 h-3.5" />
                                                 </button>
                                             </TooltipTrigger>
                                             <TooltipContent>
@@ -1342,7 +1417,7 @@ export function ToolsMessageView({
                                                         branchChat.mutate()
                                                     }
                                                 >
-                                                    <SplitIcon className="w-3 h-3" />
+                                                    <SplitIcon className="w-3.5 h-3.5" />
                                                 </button>
                                             </TooltipTrigger>
                                             <TooltipContent>
@@ -1383,26 +1458,25 @@ export function ToolsMessageView({
 
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <SimpleCopyButton
-                                                className="hover:text-foreground"
-                                                text={fullText}
-                                                size="sm"
-                                            />
+                                            <span className="flex items-center">
+                                                <SimpleCopyButton
+                                                    className="hover:text-foreground"
+                                                    text={fullText}
+                                                    size="sm"
+                                                />
+                                            </span>
                                         </TooltipTrigger>
                                         <TooltipContent>Copy</TooltipContent>
                                     </Tooltip>
 
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <span>
+                                            <span className="flex items-center">
                                                 <ToolsMessageFullScreenDialogView
                                                     message={message}
                                                 >
                                                     <button className="hover:text-foreground">
-                                                        <Maximize2Icon
-                                                            strokeWidth={1.5}
-                                                            className="w-3.5 h-3.5"
-                                                        />
+                                                        <Maximize2Icon className="w-3.5 h-3.5" />
                                                     </button>
                                                 </ToolsMessageFullScreenDialogView>
                                             </span>
@@ -1412,23 +1486,46 @@ export function ToolsMessageView({
                                         </TooltipContent>
                                     </Tooltip>
 
-                                    {!isQuickChatWindow && !isReply && (
+                                    {isSynthesis ? (
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <button
                                                     className="hover:text-foreground"
-                                                    onClick={onReplyClick}
+                                                    onClick={onRemoveSynthesis}
+                                                    disabled={
+                                                        isDeselectingSynthesis
+                                                    }
                                                 >
-                                                    <ReplyIcon
+                                                    <TrashIcon
                                                         strokeWidth={1.5}
                                                         className="w-3.5 h-3.5"
                                                     />
                                                 </button>
                                             </TooltipTrigger>
                                             <TooltipContent>
-                                                Reply to this message
+                                                Remove synthesis
                                             </TooltipContent>
                                         </Tooltip>
+                                    ) : (
+                                        !isQuickChatWindow &&
+                                        !isReply && (
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <button
+                                                        className="hover:text-foreground"
+                                                        onClick={onReplyClick}
+                                                    >
+                                                        <ReplyIcon
+                                                            strokeWidth={1.5}
+                                                            className="w-3.5 h-3.5"
+                                                        />
+                                                    </button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    Reply to this message
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        )
                                     )}
                                 </div>
                             </div>
@@ -1439,9 +1536,10 @@ export function ToolsMessageView({
                             isQuickChatWindow={isQuickChatWindow}
                         />
 
-                        {/* Reply button at bottom overlapping border (only show if there are no replies) */}
+                        {/* Reply button at bottom overlapping border (only show if there are no replies and not synthesis) */}
                         {!isQuickChatWindow &&
                             !isReply &&
+                            !isSynthesis &&
                             !message.replyChatId && (
                                 <div className="absolute bottom-0 left-3 transform translate-y-1/2 z-10">
                                     <button
@@ -1493,6 +1591,71 @@ function ToolsBlockView({
     const addMessageToToolsBlock = MessageAPI.useAddMessageToToolsBlock(
         chatId!,
     );
+    const { mutate: selectSynthesis, isPending: isSelectingSynthesis } =
+        MessageAPI.useSelectSynthesis();
+
+    const synthesisShortcutDisplay = useShortcutDisplay("synthesize");
+
+    const synthesisMessage = toolsBlock.synthesis;
+    const canSynthesize =
+        toolsBlock.chatMessages.length >= 2 && !synthesisMessage;
+
+    // Track synthesis animation state
+    const prevSynthesisIdRef = useRef<string | undefined>(undefined);
+    const prevSynthesisMessageRef = useRef<Message | undefined>(undefined);
+    const [animatingOutSynthesis, setAnimatingOutSynthesis] = useState<
+        Message | undefined
+    >(undefined);
+    const [animationDirection, setAnimationDirection] = useState<
+        "in" | "out" | null
+    >(null);
+
+    useLayoutEffect(
+        function detectSynthesisAddition() {
+            const currentId = synthesisMessage?.id;
+            const prevId = prevSynthesisIdRef.current;
+
+            // If the previous synthesis ID was "NONE" and now we have a new ID,
+            // this indicates we just added synthesis and should animate in.
+            if (prevId === "NONE" && currentId !== undefined) {
+                setAnimationDirection("in");
+            }
+            // Update ref - we'll use "NONE" as a means to skip the first render
+            // (when there may have already been a synthesis message pre-existing,
+            // but it's undefined on initial render) and distinguish a synthesis
+            // message being added post-first-render.
+            prevSynthesisIdRef.current = currentId ?? "NONE";
+        },
+        [synthesisMessage?.id],
+    );
+
+    useLayoutEffect(
+        function detectSynthesisRemoval() {
+            const currentMessage = synthesisMessage;
+            const prevMessage = prevSynthesisMessageRef.current;
+
+            if (!currentMessage && prevMessage) {
+                setAnimatingOutSynthesis(prevMessage);
+                setAnimationDirection("out");
+            }
+
+            // Update ref whenever the current message changes - we'll use the
+            // previous message to snapshot the message contents while it's
+            // animating out, if the message is removed.
+            prevSynthesisMessageRef.current = currentMessage;
+        },
+        [synthesisMessage],
+    );
+
+    const handleAnimationEnd = useCallback(() => {
+        setAnimationDirection(null);
+        setAnimatingOutSynthesis(undefined);
+    }, []);
+
+    // Synthesis message to show (either current or snapshot of the message that
+    // is animating out)
+    const synthesisToShow = synthesisMessage ?? animatingOutSynthesis;
+
     const handleAddModel = (modelId: string) => {
         // First add the model to the selected models list
         addModelToCompareConfigs.mutate({
@@ -1505,10 +1668,24 @@ function ToolsBlockView({
         });
     };
 
+    const handleSynthesize = useCallback(() => {
+        if (!canSynthesize) return;
+        selectSynthesis({
+            chatId: chatId!,
+            messageSetId,
+            blockType: "tools",
+        });
+    }, [canSynthesize, chatId, messageSetId, selectSynthesis]);
+
+    // The keyboard shortcut targets the last row only.
+    useConfigurableShortcut("synthesize", handleSynthesize, {
+        isEnabled: canSynthesize && isLastRow,
+    });
+
     return (
         <div
             ref={elementRef}
-            className={`flex w-full h-fit pb-2 pr-5 gap-2 ${
+            className={`group/tools-row flex w-full h-fit pb-2 pr-5 gap-2 ${
                 // get horizontal scroll bars, plus hackily disable y scrolling
                 // because we're seeing scroll bars when we shouldn't
                 "overflow-x-auto scrollbar-on-scroll overflow-y-hidden"
@@ -1516,21 +1693,83 @@ function ToolsBlockView({
             ${shouldShowScrollbar ? "is-scrolling" : ""}
             ${!isQuickChatWindow ? "px-10" : ""}`}
         >
-            {toolsBlock.chatMessages.map((message, _index) => (
+            {/* Synthesis area - contains both Merge button and synthesis message in animated wrapper */}
+            {!isQuickChatWindow && (canSynthesize || synthesisToShow) && (
+                <div
+                    className={`overflow-hidden flex-shrink-0 ${
+                        synthesisToShow
+                            ? animationDirection === "out"
+                                ? "synthesis-wrapper-collapse"
+                                : animationDirection === "in"
+                                  ? "synthesis-wrapper-expand"
+                                  : ""
+                            : "synthesis-wrapper-collapsed"
+                    }`}
+                    onAnimationEnd={
+                        synthesisToShow ? handleAnimationEnd : undefined
+                    }
+                >
+                    <div className="flex gap-2">
+                        {/* Merge button - only rendered when no synthesis */}
+                        {!synthesisToShow && (
+                            <div
+                                className={`flex items-start pt-2 flex-shrink-0 transition-opacity ${
+                                    isLastRow
+                                        ? "opacity-100"
+                                        : "opacity-0 group-hover/tools-row:opacity-100 pointer-events-none group-hover/tools-row:pointer-events-auto"
+                                }`}
+                            >
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <button
+                                            className="w-14 text-sm text-muted-foreground hover:text-foreground rounded-md border-[0.090rem] py-[0.6rem] px-2 h-fit synthesis-border"
+                                            onClick={handleSynthesize}
+                                            disabled={isSelectingSynthesis}
+                                        >
+                                            <div className="flex flex-col items-center gap-1 py-1">
+                                                <MergeIcon className="font-medium w-3 h-3" />
+                                                Merge
+                                            </div>
+                                        </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        {`Synthesize all replies into one${!!(synthesisShortcutDisplay && isLastRow) ? ` (${synthesisShortcutDisplay})` : ""}`}
+                                    </TooltipContent>
+                                </Tooltip>
+                            </div>
+                        )}
+
+                        {/* Synthesis message - fixed width */}
+                        {synthesisToShow && (
+                            <div className="w-[450px] min-w-[450px] flex-shrink-0">
+                                <ToolsMessageView
+                                    message={synthesisToShow}
+                                    isLastRow={isLastRow}
+                                    isQuickChatWindow={isQuickChatWindow}
+                                    isOnlyMessage={false}
+                                    isSynthesis={true}
+                                />
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+            {/* Non-synthesis messages */}
+            {toolsBlock.chatMessages.map((message) => (
                 <div
                     key={message.id}
                     className={
                         isQuickChatWindow
                             ? "w-full max-w-prose"
-                            : `w-full flex-1 min-w-[450px] max-w-[550px]`
+                            : "w-full flex-1 min-w-[450px] max-w-[550px]"
                     }
                 >
                     <ToolsMessageView
                         message={message}
-                        // shortcutNumber={isLastRow ? index + 1 : undefined}
                         isLastRow={isLastRow}
                         isQuickChatWindow={isQuickChatWindow}
                         isOnlyMessage={toolsBlock.chatMessages.length === 1}
+                        isSynthesis={false}
                     />
                 </div>
             ))}
@@ -1811,7 +2050,6 @@ export default function MultiChat() {
         messageSetsQuery.data && messageSetsQuery.data.length > 0
             ? messageSetsQuery.data[messageSetsQuery.data.length - 1]
             : undefined;
-    const currentMessageSetId = currentMessageSet?.id;
     const currentCompareBlock =
         currentMessageSet?.selectedBlockType === "compare"
             ? currentMessageSet.compareBlock
@@ -1990,7 +2228,6 @@ export default function MultiChat() {
     useConfigurableShortcut("share-chat", handleShareChat);
 
     const selectMessage = MessageAPI.useSelectMessage();
-    const selectSynthesis = MessageAPI.useSelectSynthesis();
     const { mutate: setReviewsEnabled } = MessageAPI.useSetReviewsEnabled();
 
     const handleToggleVisionMode = useCallback(async () => {
@@ -2013,18 +2250,6 @@ export default function MultiChat() {
             setVisionModeEnabled.mutate(!visionModeEnabled);
         }
     }, [appMetadata, setVisionModeEnabled]);
-
-    const handleSynthesizeChat = useCallback(() => {
-        if (!currentMessageSetId) return;
-        selectSynthesis.mutate({
-            chatId: chatId!,
-            messageSetId: currentMessageSetId,
-        });
-    }, [chatId, currentMessageSetId, selectSynthesis]);
-
-    useConfigurableShortcut("synthesize", handleSynthesizeChat, {
-        isEnabled: !!currentMessageSetId,
-    });
 
     const toggleReviews = useCallback(() => {
         setReviewsEnabled({
@@ -2529,7 +2754,7 @@ export default function MultiChat() {
                             onClick={() => void handleDeleteShare()}
                             className="sm:mr-auto"
                         >
-                            <Trash2Icon className="w-4 h-4" />
+                            <TrashIcon className="w-4 h-4" />
                             Delete Link
                         </Button>
                         <div className="flex gap-2 w-full sm:w-auto">

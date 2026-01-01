@@ -40,6 +40,10 @@ import {
     getCustomBaseUrl,
 } from "./AppMetadataAPI";
 import {
+    useSynthesisModelConfigId,
+    useSynthesisPrompt,
+} from "@ui/components/hooks/useSettings";
+import {
     calculateCost,
     updateChatAndProjectCosts,
     fetchOpenRouterCost,
@@ -241,8 +245,16 @@ export async function fetchMessageSets(chatId: string) {
             (m) => m.blockType === "brainstorm",
         );
         const toolsBlockMessages = messageSetMessages
-            .filter((m) => m.blockType === "tools")
+            .filter(
+                (m) =>
+                    m.blockType === "tools" &&
+                    !m.model.endsWith("::synthesize"),
+            )
             .sort((a, b) => (a.level ?? 0) - (b.level ?? 0));
+
+        const toolsSynthesisMessage = messageSetMessages.find(
+            (m) => m.blockType === "tools" && m.model.endsWith("::synthesize"),
+        );
 
         const userBlock: UserBlock = {
             type: "user",
@@ -277,6 +289,7 @@ export async function fetchMessageSets(chatId: string) {
         const toolsBlock: ToolsBlock = {
             type: "tools",
             chatMessages: toolsBlockMessages,
+            synthesis: toolsSynthesisMessage,
         };
 
         const messageSetContent: MessageSetDetail = {
@@ -1055,12 +1068,24 @@ export function useStreamMessagePart() {
                             if (!messageSet) {
                                 return;
                             }
-                            const message =
-                                messageSet.toolsBlock.chatMessages.find(
-                                    (m) =>
-                                        m.id === messageId &&
-                                        m.streamingToken === streamingToken,
-                                );
+                            // Identify the message to update via the streaming
+                            // token, first checking the synthesis message.
+                            let message: Message | undefined;
+                            if (
+                                messageSet.toolsBlock.synthesis?.id ===
+                                    messageId &&
+                                messageSet.toolsBlock.synthesis
+                                    ?.streamingToken === streamingToken
+                            ) {
+                                message = messageSet.toolsBlock.synthesis;
+                            } else {
+                                message =
+                                    messageSet.toolsBlock.chatMessages.find(
+                                        (m) =>
+                                            m.id === messageId &&
+                                            m.streamingToken === streamingToken,
+                                    );
+                            }
                             if (!message) {
                                 return;
                             }
@@ -1326,6 +1351,7 @@ export function useStreamMessagePart() {
 export function useStreamMessageLegacy() {
     const queryClient = useQueryClient();
     const getProjectContext = useGetProjectContextLLMMessage();
+    const createMessagePart = useCreateMessagePart();
 
     // overall strategy: mutation is long-running, handles the entire stream
     // it makes optimistic cache updates along the way
@@ -1372,6 +1398,20 @@ export function useStreamMessageLegacy() {
             const projectContext = await getProjectContext(project.id, chatId);
             const llmConversation = [...projectContext, ...conversationRaw];
 
+            // Create a single message part (level 0) for double-writing
+            await createMessagePart.mutateAsync({
+                messagePart: {
+                    chatId,
+                    messageId,
+                    level: 0,
+                    content: "",
+                    toolCalls: [],
+                    toolResults: undefined,
+                },
+                messageSetId,
+                streamingToken,
+            });
+
             // streamPromise will be resolved when streaming completes
             let resolveStreamPromise: () => void;
             let rejectStreamPromise: (reason?: unknown) => void;
@@ -1392,19 +1432,45 @@ export function useStreamMessageLegacy() {
             ) => {
                 queryClient.setQueryData(
                     messageKeys.messageSets(chatId),
-                    (old: MessageSetDetail[]) =>
-                        updateMessageSets({
-                            messageSets: old,
-                            predicate: (ms) => ms.id === messageSetId,
-                            update: (ms) =>
-                                updateMessageText({
-                                    messageSet: ms,
-                                    predicate: (message) =>
-                                        message.id === messageId &&
-                                        message.streamingToken ===
-                                            streamingToken,
-                                    update: (message) => ({ ...message, text }),
-                                }),
+                    (old: MessageSetDetail[] | undefined) =>
+                        produce(old, (draft) => {
+                            if (draft === undefined) return;
+                            const messageSet = draft.find(
+                                (ms) => ms.id === messageSetId,
+                            );
+                            if (!messageSet) return;
+
+                            // Check toolsBlock.synthesis
+                            if (
+                                messageSet.toolsBlock.synthesis?.id ===
+                                    messageId &&
+                                messageSet.toolsBlock.synthesis
+                                    ?.streamingToken === streamingToken
+                            ) {
+                                messageSet.toolsBlock.synthesis.text = text;
+                                return;
+                            }
+
+                            // Also check compareBlock.synthesis for backwards compatibility
+                            if (
+                                messageSet.compareBlock.synthesis?.id ===
+                                    messageId &&
+                                messageSet.compareBlock.synthesis
+                                    ?.streamingToken === streamingToken
+                            ) {
+                                messageSet.compareBlock.synthesis.text = text;
+                                return;
+                            }
+
+                            // Check chatBlock for legacy support
+                            if (
+                                messageSet.chatBlock.message?.id ===
+                                    messageId &&
+                                messageSet.chatBlock.message?.streamingToken ===
+                                    streamingToken
+                            ) {
+                                messageSet.chatBlock.message.text = text;
+                            }
                         }),
                 );
             };
@@ -1423,11 +1489,28 @@ export function useStreamMessageLegacy() {
                 UpdateQueue.getInstance().addUpdate(
                     streamKey,
                     priority,
-                    async () =>
+                    async () => {
+                        // Double-write: update both message.text and message_parts.content
                         await db.execute(
                             "UPDATE messages SET text = $1 WHERE id = $2 AND streaming_token = $3",
                             [partialResponse, messageId, streamingToken],
-                        ),
+                        );
+                        await db.execute(
+                            `UPDATE message_parts SET content = $1
+                             FROM messages
+                             WHERE message_parts.message_id = messages.id
+                             AND message_parts.chat_id = $2
+                             AND message_parts.message_id = $3
+                             AND message_parts.level = 0
+                             AND messages.streaming_token = $4`,
+                            [
+                                partialResponse,
+                                chatId,
+                                messageId,
+                                streamingToken,
+                            ],
+                        );
+                    },
                 );
             };
 
@@ -1498,6 +1581,7 @@ export function useStreamMessageLegacy() {
                         ? actualPromptTokens + actualCompletionTokens
                         : (usageData?.total_tokens ?? null);
 
+                // Double-write: update both message.text and message_parts.content
                 await db.execute(
                     `UPDATE messages
                     SET streaming_token = NULL, state = 'idle', text = ?,
@@ -1512,6 +1596,13 @@ export function useStreamMessageLegacy() {
                         messageId,
                         streamingToken,
                     ],
+                );
+                await db.execute(
+                    `UPDATE message_parts SET content = $1
+                     WHERE chat_id = $2
+                     AND message_id = $3
+                     AND level = 0`,
+                    [finalText, chatId, messageId],
                 );
 
                 // Update chat and project costs if we have usage data
@@ -1708,9 +1799,18 @@ export function useCreateMessagePart() {
                             );
                             return;
                         }
-                        const message = messageSet.toolsBlock.chatMessages.find(
-                            (m) => m.id === variables.messagePart.messageId,
-                        );
+                        // Identify the message to update via the message ID,
+                        let message: Message | undefined;
+                        if (
+                            messageSet.toolsBlock.synthesis?.id ===
+                            variables.messagePart.messageId
+                        ) {
+                            message = messageSet.toolsBlock.synthesis;
+                        } else {
+                            message = messageSet.toolsBlock.chatMessages.find(
+                                (m) => m.id === variables.messagePart.messageId,
+                            );
+                        }
                         if (!message) {
                             console.warn(
                                 "[createMessagePart] message not found",
@@ -1978,56 +2078,191 @@ export function useSelectAndPopulateBlock(
 }
 
 /**
- * Precondition: no other messages are selected
+ * Helper function that performs the actual synthesis streaming for an existing message
+ * Used by both useStreamSynthesis (new synthesis) and useRestartSynthesis (regenerate)
+ */
+async function streamSynthesisForMessage({
+    chatId,
+    messageSetId,
+    messageId,
+    streamingToken,
+    blockType,
+    queryClient,
+    getMessageSets,
+    createMessagePart,
+    streamMessagePart,
+    forceRefreshMessageSets,
+    synthesisModelConfigId,
+    synthesisPrompt,
+}: {
+    chatId: string;
+    messageSetId: string;
+    messageId: string;
+    streamingToken: string;
+    blockType: "compare" | "tools";
+    queryClient: ReturnType<typeof useQueryClient>;
+    getMessageSets: ReturnType<typeof useGetMessageSets>;
+    createMessagePart: ReturnType<typeof useCreateMessagePart>;
+    streamMessagePart: ReturnType<typeof useStreamMessagePart>;
+    forceRefreshMessageSets: ReturnType<typeof useForceRefreshMessageSets>;
+    synthesisModelConfigId: string;
+    synthesisPrompt: string | undefined;
+}) {
+    // Get the base model config
+    const baseModelConfig = (
+        await queryClient.ensureQueryData(modelConfigQueries.listConfigs())
+    ).find((m) => m.modelId === synthesisModelConfigId);
+
+    if (!baseModelConfig) {
+        throw new Error(
+            `Synthesis model config not found: ${synthesisModelConfigId}`,
+        );
+    }
+
+    // Create a custom model config with the synthesis prompt
+    const modelConfig = {
+        ...baseModelConfig,
+        modelId: `${baseModelConfig.modelId}::synthesize`,
+        systemPrompt: synthesisPrompt || Prompts.SYNTHESIS_SYSTEM_PROMPT,
+    };
+
+    await forceRefreshMessageSets(chatId);
+
+    // Invalidate chatIsLoading now that the streaming message exists
+    await queryClient.invalidateQueries(chatIsLoadingQueries.detail(chatId));
+
+    // Create the message part
+    await createMessagePart.mutateAsync({
+        messagePart: {
+            chatId,
+            messageId,
+            level: 0,
+            content: "",
+            toolCalls: [],
+            toolResults: undefined,
+        },
+        messageSetId,
+        streamingToken,
+    });
+
+    const messageSets = await getMessageSets(chatId);
+    const conversation = llmConversationForSynthesis(
+        messageSets,
+        blockType,
+        messageSetId,
+    );
+
+    await streamMessagePart.mutateAsync({
+        chatId,
+        messageSetId,
+        messageId,
+        partLevel: 0,
+        conversation,
+        modelConfig,
+        streamingToken,
+        tools: [], // Synthesis doesn't use tools
+    });
+
+    // Set message to idle since synthesis has no additional parts
+    await db.execute(
+        `UPDATE messages
+        SET streaming_token = NULL, state = 'idle'
+        WHERE id = $1 AND streaming_token = $2`,
+        [messageId, streamingToken],
+    );
+}
+
+/**
+ * Precondition: no other messages are selected (for compare mode)
  */
 export function useStreamSynthesis() {
     const queryClient = useQueryClient();
     const getMessageSets = useGetMessageSets();
     const createMessage = useCreateMessage();
-    const streamMessageText = useStreamMessageLegacy();
+    const createMessagePart = useCreateMessagePart();
+    const streamMessagePart = useStreamMessagePart();
+    const forceRefreshMessageSets = useForceRefreshMessageSets();
+    const synthesisModelConfigId = useSynthesisModelConfigId();
+    const synthesisPrompt = useSynthesisPrompt();
 
     return useMutation({
         mutationKey: ["streamSynthesis"] as const,
+        onMutate: async (variables) => {
+            // Invalidate to show loading state in sidebar
+            await queryClient.invalidateQueries(
+                chatIsLoadingQueries.detail(variables.chatId),
+            );
+        },
         mutationFn: async ({
             chatId,
             messageSetId,
+            blockType = "compare",
         }: {
             chatId: string;
             messageSetId: string;
+            blockType?: "compare" | "tools";
         }) => {
             const messageSets = await getMessageSets(chatId);
-            if (
-                messageSets
-                    .find((m) => m.id === messageSetId)
-                    ?.compareBlock?.messages.some(
-                        (m) => m.model === "chorus::synthesize",
+            const messageSet = messageSets.find((m) => m.id === messageSetId);
+
+            // Check if synthesis already exists
+            if (blockType === "compare") {
+                if (
+                    messageSet?.compareBlock?.messages.some((m) =>
+                        m.model.endsWith("::synthesize"),
                     )
-            ) {
-                console.debug(
-                    "Skipping synthesis because it already exists",
-                    messageSetId,
-                );
-                return;
+                ) {
+                    console.debug(
+                        "Skipping synthesis because it already exists",
+                        messageSetId,
+                    );
+                    return;
+                }
+            } else if (blockType === "tools") {
+                if (messageSet?.toolsBlock?.synthesis) {
+                    console.debug(
+                        "Skipping synthesis because it already exists",
+                        messageSetId,
+                    );
+                    return;
+                }
             }
 
-            const modelConfig = (
+            // Get the base model config
+            const baseModelConfig = (
                 await queryClient.ensureQueryData(
                     modelConfigQueries.listConfigs(),
                 )
-            ).find((m) => m.id === "chorus::synthesize")!;
-            if (!modelConfig) {
-                throw new Error("Synthesis model config not found");
+            ).find((m) => m.modelId === synthesisModelConfigId);
+
+            if (!baseModelConfig) {
+                throw new Error(
+                    `Synthesis model config not found: ${synthesisModelConfigId}`,
+                );
             }
 
-            posthog.capture("synthesize_created");
+            // Create a custom model config with the synthesis prompt
+            const modelConfig = {
+                ...baseModelConfig,
+                modelId: `${baseModelConfig.modelId}::synthesize`,
+                systemPrompt:
+                    synthesisPrompt || Prompts.SYNTHESIS_SYSTEM_PROMPT,
+            };
+
+            posthog.capture("synthesize_created", {
+                blockType,
+                model: synthesisModelConfigId,
+            });
 
             const result = await createMessage.mutateAsync({
                 message: createAIMessage({
                     chatId,
                     messageSetId,
-                    blockType: "compare",
-                    model: "chorus::synthesize",
-                    selected: true, // auto-select the synthesis response
+                    blockType,
+                    model: modelConfig.modelId,
+                    // For compare mode: auto-select (replaces other responses)
+                    // For tools mode: don't select (appears alongside)
+                    selected: blockType === "compare",
                 }),
                 options: {
                     mode: "unique_model",
@@ -2035,22 +2270,33 @@ export function useStreamSynthesis() {
             });
             const { messageId, streamingToken } = result!;
 
-            const conversation = llmConversationForSynthesis(messageSets);
-
-            await streamMessageText.mutateAsync({
+            // Stream the synthesis message
+            await streamSynthesisForMessage({
                 chatId,
                 messageSetId,
                 messageId,
-                conversation,
-                modelConfig,
                 streamingToken,
-                messageType: "vanilla",
+                blockType,
+                queryClient,
+                getMessageSets,
+                createMessagePart,
+                streamMessagePart,
+                forceRefreshMessageSets,
+                synthesisModelConfigId,
+                synthesisPrompt,
             });
         },
         onSuccess: async (_data, variables, _context) => {
             await queryClient.invalidateQueries({
                 queryKey: messageKeys.messageSets(variables.chatId),
             });
+        },
+        onSettled: async (_data, _error, variables) => {
+            // Invalidate chatIsLoading to update sidebar loading indicator
+            // This runs regardless of success/error/early return
+            await queryClient.invalidateQueries(
+                chatIsLoadingQueries.detail(variables.chatId),
+            );
         },
     });
 }
@@ -2063,16 +2309,22 @@ export function useSelectSynthesis() {
         mutationKey: ["selectSynthesis"] as const,
         mutationFn: async ({
             messageSetId,
+            blockType = "compare",
         }: {
             chatId: string;
             messageSetId: string;
+            blockType?: "compare" | "tools";
         }) => {
-            await db.execute(
-                `UPDATE messages SET selected = (
-                    CASE WHEN model = $2 THEN 1 ELSE 0 END
-                ) WHERE message_set_id = $1 AND block_type = 'compare'`,
-                [messageSetId, "chorus::synthesize"],
-            );
+            // For compare mode: deselect all messages except synthesis
+            // For tools mode: no SQL update needed (synthesis just appears alongside)
+            if (blockType === "compare") {
+                await db.execute(
+                    `UPDATE messages SET selected = (
+                        CASE WHEN model = $2 THEN 1 ELSE 0 END
+                    ) WHERE message_set_id = $1 AND block_type = 'compare'`,
+                    [messageSetId, "chorus::synthesize"],
+                );
+            }
         },
         onSuccess: async (_data, variables, _context) => {
             // invalidate to trigger re-fetch
@@ -2084,6 +2336,7 @@ export function useSelectSynthesis() {
             await streamSynthesis.mutateAsync({
                 chatId: variables.chatId,
                 messageSetId: variables.messageSetId,
+                blockType: variables.blockType,
             });
         },
     });
@@ -2293,30 +2546,124 @@ export function useDeselectSynthesis() {
         mutationKey: ["deselectSynthesis"] as const,
         mutationFn: async ({
             messageSetId,
+            blockType = "compare",
         }: {
             chatId: string;
             messageSetId: string;
+            blockType?: "compare" | "tools";
         }) => {
-            const result = await db.execute(
-                `
-        WITH to_select AS (
-            SELECT id
-            FROM messages
-            WHERE message_set_id = $1 AND model <> $2
-            LIMIT 1
-        )
-        UPDATE messages SET selected = (
-            CASE WHEN id = (SELECT id FROM to_select) THEN 1 ELSE 0 END
-        ) WHERE message_set_id = $1 AND block_type = 'compare'
-        `,
-                [messageSetId, "chorus::synthesize"],
-            );
-            return result.rowsAffected > 0;
+            if (blockType === "tools") {
+                // For tools mode: delete the synthesis message
+                await db.execute(
+                    `DELETE FROM messages WHERE message_set_id = $1 AND block_type = 'tools' AND model LIKE '%::synthesize'`,
+                    [messageSetId],
+                );
+            } else {
+                // For compare mode: reselect first non-synthesis message
+                const result = await db.execute(
+                    `
+            WITH to_select AS (
+                SELECT id
+                FROM messages
+                WHERE message_set_id = $1 AND model <> $2
+                LIMIT 1
+            )
+            UPDATE messages SET selected = (
+                CASE WHEN id = (SELECT id FROM to_select) THEN 1 ELSE 0 END
+            ) WHERE message_set_id = $1 AND block_type = 'compare'
+            `,
+                    [messageSetId, "chorus::synthesize"],
+                );
+                return result.rowsAffected > 0;
+            }
         },
         onSuccess: async (_data, variables, _context) => {
             await queryClient.invalidateQueries({
                 queryKey: messageKeys.messageSets(variables.chatId),
             });
+        },
+    });
+}
+
+/**
+ * Restarts synthesis by clearing the existing synthesis message and re-streaming with synthesis prompt
+ */
+export function useRestartSynthesis() {
+    const queryClient = useQueryClient();
+    const getMessageSets = useGetMessageSets();
+    const createMessagePart = useCreateMessagePart();
+    const streamMessagePart = useStreamMessagePart();
+    const forceRefreshMessageSets = useForceRefreshMessageSets();
+    const synthesisModelConfigId = useSynthesisModelConfigId();
+    const synthesisPrompt = useSynthesisPrompt();
+
+    return useMutation({
+        mutationKey: ["restartSynthesis"] as const,
+        mutationFn: async ({
+            chatId,
+            messageSetId,
+            messageId,
+            blockType = "tools",
+        }: {
+            chatId: string;
+            messageSetId: string;
+            messageId: string;
+            blockType?: "compare" | "tools";
+        }) => {
+            // Lock and clear the synthesis message
+            const streamingToken = uuidv4();
+            const lockResult = await db.execute(
+                `UPDATE messages
+                SET streaming_token = $1, state = 'streaming'
+                WHERE id = $2 AND state = 'idle' AND streaming_token IS NULL`,
+                [streamingToken, messageId],
+            );
+
+            if (lockResult.rowsAffected === 0) {
+                console.error(
+                    "Not restarting synthesis because lock could not be acquired",
+                );
+                return undefined;
+            }
+
+            // Delete message parts
+            await db.execute(
+                `DELETE FROM message_parts WHERE message_id = $1`,
+                [messageId],
+            );
+
+            // Invalidate to show loading state
+            await queryClient.invalidateQueries({
+                queryKey: messageKeys.messageSets(chatId),
+            });
+
+            // Stream the synthesis message using the shared helper
+            await streamSynthesisForMessage({
+                chatId,
+                messageSetId,
+                messageId,
+                streamingToken,
+                blockType,
+                queryClient,
+                getMessageSets,
+                createMessagePart,
+                streamMessagePart,
+                forceRefreshMessageSets,
+                synthesisModelConfigId,
+                synthesisPrompt,
+            });
+        },
+        onSuccess: async (_data, variables, _context) => {
+            await queryClient.invalidateQueries({
+                queryKey: messageKeys.messageSets(variables.chatId),
+            });
+        },
+        onSettled: async (_data, _error, variables) => {
+            // Invalidate chatIsLoading to update sidebar loading indicator
+            // This runs regardless of success/error
+            await queryClient.invalidateQueries(
+                chatIsLoadingQueries.detail(variables.chatId),
+            );
         },
     });
 }
@@ -3008,79 +3355,6 @@ export function useForceRefreshMessageSets() {
             queryFn: () => fetchMessageSets(chatId),
         });
     };
-}
-
-// ------------------------------------------------------------------------------------------------
-// Helpers for making optimistic updates
-// ------------------------------------------------------------------------------------------------
-
-/**
- * This function MUST be updated whenever blocks change!!!
- */
-function updateMessageText({
-    messageSet,
-    predicate,
-    update,
-}: {
-    messageSet: MessageSetDetail;
-    predicate: (message: Message) => boolean;
-    update: (message: Message) => Message;
-}): MessageSetDetail {
-    const tryUpdateMessage = (message: Message) => {
-        if (predicate(message)) {
-            return update(message);
-        }
-        return message;
-    };
-
-    const tryUpdateMessageOption = (message: Message | undefined) => {
-        if (message) {
-            return tryUpdateMessage(message);
-        }
-        return message;
-    };
-
-    return {
-        ...messageSet,
-        userBlock: {
-            ...messageSet.userBlock,
-            message: tryUpdateMessageOption(messageSet.userBlock.message),
-        },
-        chatBlock: {
-            ...messageSet.chatBlock,
-            message: tryUpdateMessageOption(messageSet.chatBlock.message),
-            reviews: messageSet.chatBlock.reviews.map(tryUpdateMessage),
-        },
-        compareBlock: {
-            ...messageSet.compareBlock,
-            messages: messageSet.compareBlock.messages.map(tryUpdateMessage),
-            synthesis: tryUpdateMessageOption(
-                messageSet.compareBlock.synthesis,
-            ),
-        },
-        brainstormBlock: {
-            ...messageSet.brainstormBlock,
-            ideaMessages:
-                messageSet.brainstormBlock.ideaMessages.map(tryUpdateMessage),
-        },
-        toolsBlock: {
-            ...messageSet.toolsBlock,
-            chatMessages:
-                messageSet.toolsBlock.chatMessages.map(tryUpdateMessage),
-        },
-    };
-}
-
-function updateMessageSets({
-    messageSets,
-    predicate,
-    update,
-}: {
-    messageSets: MessageSetDetail[];
-    predicate: (messageSet: MessageSetDetail) => boolean;
-    update: (messageSet: MessageSetDetail) => MessageSetDetail;
-}) {
-    return messageSets.map((ms) => (predicate(ms) ? update(ms) : ms));
 }
 
 // TODO-GC: this relies on getUserMessageSets

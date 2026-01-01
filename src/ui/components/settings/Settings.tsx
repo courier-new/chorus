@@ -28,6 +28,7 @@ import {
     Fullscreen,
     ShieldCheckIcon,
     RotateCcw,
+    MergeIcon,
 } from "lucide-react";
 import {
     User2,
@@ -85,6 +86,7 @@ import ImportChatDialog from "./ImportChatDialog";
 import { dialogActions } from "@core/infra/DialogStore";
 import * as AppMetadataAPI from "@core/chorus/api/AppMetadataAPI";
 import { PermissionsTab } from "./PermissionsTab";
+import { SynthesisSettings } from "./SynthesisSettings";
 import { cn } from "@ui/lib/utils";
 import {
     comboToDisplayString,
@@ -1103,6 +1105,7 @@ export type SettingsTabId =
     | "general"
     | "import"
     | "system-prompt"
+    | "synthesis"
     | "api-keys"
     | "quick-chat"
     | "keyboard-shortcuts"
@@ -1120,6 +1123,7 @@ const TABS: Record<SettingsTabId, TabConfig> = {
     general: { label: "General", icon: User2 },
     import: { label: "Import", icon: Import },
     "system-prompt": { label: "System Prompt", icon: FileText },
+    synthesis: { label: "Synthesis", icon: MergeIcon },
     "api-keys": { label: "API Keys", icon: Key },
     "quick-chat": { label: "Ambient Chat", icon: Fullscreen },
     "keyboard-shortcuts": { label: "Keyboard Shortcuts", icon: Keyboard },
@@ -1709,6 +1713,8 @@ export default function Settings({ tab = "general" }: SettingsProps) {
                         </div>
                     )}
 
+                    {activeTab === "synthesis" && <SynthesisSettings />}
+
                     {activeTab === "api-keys" && (
                         <div className="space-y-6">
                             <div>
@@ -1802,6 +1808,7 @@ export default function Settings({ tab = "general" }: SettingsProps) {
                                     <div className="flex items-start justify-between gap-2">
                                         <ShortcutRecorder
                                             className="w-full flex-1"
+                                            disabled={quickChatDisabled}
                                             value={quickChatShortcut}
                                             onChange={
                                                 handleQuickChatShortcutChange
@@ -1813,6 +1820,7 @@ export default function Settings({ tab = "general" }: SettingsProps) {
                                         />
                                         <Button
                                             className="gap-1"
+                                            disabled={quickChatDisabled}
                                             variant="secondary"
                                             size="xs"
                                             onClick={onDefaultQcShortcutClick}
@@ -1823,6 +1831,7 @@ export default function Settings({ tab = "general" }: SettingsProps) {
 
                                         <Button
                                             variant="default"
+                                            disabled={quickChatDisabled}
                                             size="xs"
                                             onClick={() => {
                                                 const validation =

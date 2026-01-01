@@ -2,6 +2,76 @@
 @tailwind components;
 @tailwind utilities;
 
+/* CSS custom property for animating border angle */
+@property --border-angle {
+    syntax: "<angle>";
+    initial-value: 0deg;
+    inherits: false;
+}
+
+@keyframes rotateBorder {
+    from {
+        --border-angle: 0deg;
+    }
+    to {
+        --border-angle: 360deg;
+    }
+}
+
+/* Utility class to apply opacity only to content, not borders */
+.content-opacity-70 > *:not(.opacity-full) {
+    opacity: 0.7;
+    transition: opacity 150ms;
+}
+
+.content-opacity-70:hover > *:not(.opacity-full) {
+    opacity: 1;
+}
+
+.synthesis-border {
+    position: relative;
+    background: hsl(var(--background));
+    border-color: transparent !important;
+}
+
+.synthesis-border::before {
+    content: "";
+    position: absolute;
+    inset: -1.5px;
+    border-radius: inherit;
+    padding: 1.5px;
+    background: conic-gradient(
+        from var(--border-angle, 0deg),
+        /* Secondary dimmer accent centered at 0%/100% (bottom) */
+            hsl(30 51% 72% / 0.55) 0%,
+        hsl(30 47% 63% / 0.5) 2%,
+        hsl(30 47% 63% / 0.3) 6%,
+        hsl(30 47% 63% / 0.15) 12%,
+        /* Transition to primary */ hsl(30 47% 63% / 0.2) 25%,
+        hsl(30 47% 63% / 0.3) 40%,
+        /* Primary bright accent centered at 50% (top) */ hsl(30 47% 63%) 48%,
+        hsl(30 51% 72%) 50%,
+        hsl(30 47% 63%) 52%,
+        /* Transition back */ hsl(30 47% 63% / 0.3) 60%,
+        hsl(30 47% 63% / 0.2) 75%,
+        hsl(30 47% 63% / 0.15) 88%,
+        /* Fade into secondary */ hsl(30 47% 63% / 0.3) 94%,
+        hsl(30 47% 63% / 0.5) 98%,
+        hsl(30 51% 72% / 0.55) 100%
+    );
+    -webkit-mask:
+        linear-gradient(#fff 0 0) content-box,
+        linear-gradient(#fff 0 0);
+    mask:
+        linear-gradient(#fff 0 0) content-box,
+        linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: rotateBorder 12s linear infinite;
+    pointer-events: none;
+    will-change: background;
+}
+
 .sidebar-label {
     @apply text-[10px] uppercase tracking-wider font-geist-mono;
 }
@@ -190,6 +260,75 @@ body {
         transform: translateX(-50%) scale(1);
         opacity: 0.8;
     }
+}
+
+/* Synthesis wrapper animation - wraps both Merge button and synthesis message */
+.synthesis-wrapper-collapsed {
+    width: 3.5rem; /* w-14 = 3.5rem (button only) */
+}
+
+.synthesis-wrapper-expanded {
+    width: 450px; /* synthesis message width */
+}
+
+/* Expand animation (synthesis appearing) - fast start, slow finish */
+@keyframes synthesisWrapperExpand {
+    0% {
+        width: 3.5rem;
+        opacity: 0;
+    }
+    /* Reach ~90% of width (405px) and full opacity by 50% of time */
+    50% {
+        width: 405px;
+        opacity: 1;
+    }
+    /* Slow exponential ease for final 10% of width */
+    75% {
+        width: 435px;
+        opacity: 1;
+    }
+    90% {
+        width: 445px;
+        opacity: 1;
+    }
+    100% {
+        width: 450px;
+        opacity: 1;
+    }
+}
+
+.synthesis-wrapper-expand {
+    animation: synthesisWrapperExpand 400ms linear forwards;
+}
+
+/* Collapse animation (synthesis disappearing) - fast start, slow finish */
+@keyframes synthesisWrapperCollapse {
+    0% {
+        width: 450px;
+        opacity: 1;
+    }
+    /* Reach ~90% of collapse (to ~101px) by 50% of time */
+    50% {
+        width: 101px;
+        opacity: 0.5;
+    }
+    /* Slow exponential ease for final stretch */
+    75% {
+        width: 71px;
+        opacity: 0.25;
+    }
+    90% {
+        width: 61px;
+        opacity: 0.1;
+    }
+    100% {
+        width: 3.5rem;
+        opacity: 0;
+    }
+}
+
+.synthesis-wrapper-collapse {
+    animation: synthesisWrapperCollapse 400ms linear forwards;
 }
 
 @keyframes shimmer {

@@ -191,8 +191,13 @@ export class ProviderOpenRouter implements IProvider {
             tools ?? [],
         );
 
+        // Reconstruct the final text from all chunks
+        const finalText = chunks
+            .map((chunk) => chunk.choices[0]?.delta?.content ?? "")
+            .join("");
+
         await onComplete(
-            undefined,
+            finalText || undefined,
             toolCalls.length > 0 ? toolCalls : undefined,
             usageData,
         );
