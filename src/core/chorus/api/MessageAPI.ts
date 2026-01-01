@@ -34,7 +34,11 @@ import { db } from "../DB";
 import { draftKeys } from "./DraftAPI";
 import { updateSavedModelConfigChat } from "./ModelConfigChatAPI";
 import { chatIsLoadingQueries, chatQueries } from "./ChatAPI";
-import { appMetadataKeys, getApiKeys, getCustomBaseUrl } from "./AppMetadataAPI";
+import {
+    appMetadataKeys,
+    getApiKeys,
+    getCustomBaseUrl,
+} from "./AppMetadataAPI";
 import {
     useSynthesisModelConfigId,
     useSynthesisPrompt,
@@ -2074,6 +2078,101 @@ export function useSelectAndPopulateBlock(
 }
 
 /**
+ * Helper function that performs the actual synthesis streaming for an existing message
+ * Used by both useStreamSynthesis (new synthesis) and useRestartSynthesis (regenerate)
+ */
+async function streamSynthesisForMessage({
+    chatId,
+    messageSetId,
+    messageId,
+    streamingToken,
+    blockType,
+    queryClient,
+    getMessageSets,
+    createMessagePart,
+    streamMessagePart,
+    forceRefreshMessageSets,
+    synthesisModelConfigId,
+    synthesisPrompt,
+}: {
+    chatId: string;
+    messageSetId: string;
+    messageId: string;
+    streamingToken: string;
+    blockType: "compare" | "tools";
+    queryClient: ReturnType<typeof useQueryClient>;
+    getMessageSets: ReturnType<typeof useGetMessageSets>;
+    createMessagePart: ReturnType<typeof useCreateMessagePart>;
+    streamMessagePart: ReturnType<typeof useStreamMessagePart>;
+    forceRefreshMessageSets: ReturnType<typeof useForceRefreshMessageSets>;
+    synthesisModelConfigId: string;
+    synthesisPrompt: string | undefined;
+}) {
+    // Get the base model config
+    const baseModelConfig = (
+        await queryClient.ensureQueryData(modelConfigQueries.listConfigs())
+    ).find((m) => m.modelId === synthesisModelConfigId);
+
+    if (!baseModelConfig) {
+        throw new Error(
+            `Synthesis model config not found: ${synthesisModelConfigId}`,
+        );
+    }
+
+    // Create a custom model config with the synthesis prompt
+    const modelConfig = {
+        ...baseModelConfig,
+        modelId: `${baseModelConfig.modelId}::synthesize`,
+        systemPrompt: synthesisPrompt || Prompts.SYNTHESIS_SYSTEM_PROMPT,
+    };
+
+    await forceRefreshMessageSets(chatId);
+
+    // Invalidate chatIsLoading now that the streaming message exists
+    await queryClient.invalidateQueries(chatIsLoadingQueries.detail(chatId));
+
+    // Create the message part
+    await createMessagePart.mutateAsync({
+        messagePart: {
+            chatId,
+            messageId,
+            level: 0,
+            content: "",
+            toolCalls: [],
+            toolResults: undefined,
+        },
+        messageSetId,
+        streamingToken,
+    });
+
+    const messageSets = await getMessageSets(chatId);
+    const conversation = llmConversationForSynthesis(
+        messageSets,
+        blockType,
+        messageSetId,
+    );
+
+    await streamMessagePart.mutateAsync({
+        chatId,
+        messageSetId,
+        messageId,
+        partLevel: 0,
+        conversation,
+        modelConfig,
+        streamingToken,
+        tools: [], // Synthesis doesn't use tools
+    });
+
+    // Set message to idle since synthesis has no additional parts
+    await db.execute(
+        `UPDATE messages
+        SET streaming_token = NULL, state = 'idle'
+        WHERE id = $1 AND streaming_token = $2`,
+        [messageId, streamingToken],
+    );
+}
+
+/**
  * Precondition: no other messages are selected (for compare mode)
  */
 export function useStreamSynthesis() {
@@ -2171,63 +2270,21 @@ export function useStreamSynthesis() {
             });
             const { messageId, streamingToken } = result!;
 
-            // Ensure the newly created synthesis message is in the cache
-            // before streaming starts, so optimistic updates can find it
-            await forceRefreshMessageSets(chatId);
-
-            // Invalidate chatIsLoading now that the streaming message exists
-            await queryClient.invalidateQueries(
-                chatIsLoadingQueries.detail(chatId),
-            );
-
-            // Create the message part
-            await createMessagePart.mutateAsync({
-                messagePart: {
-                    chatId,
-                    messageId,
-                    level: 0,
-                    content: "",
-                    toolCalls: [],
-                    toolResults: undefined,
-                },
-                messageSetId,
-                streamingToken,
-            });
-
-            const conversation = llmConversationForSynthesis(
-                messageSets,
-                blockType,
-                messageSetId,
-            );
-
-            // Log synthesis request details for debugging
-            console.log("=== SYNTHESIS MESSAGE DEBUG ===");
-            console.log("System Prompt:", modelConfig.systemPrompt);
-            console.log(
-                "Conversation:",
-                JSON.stringify(conversation, null, 2),
-            );
-            console.log("Model Config:", JSON.stringify(modelConfig, null, 2));
-            console.log("==============================");
-
-            await streamMessagePart.mutateAsync({
+            // Stream the synthesis message
+            await streamSynthesisForMessage({
                 chatId,
                 messageSetId,
                 messageId,
-                partLevel: 0,
-                conversation,
-                modelConfig,
                 streamingToken,
-                tools: [], // Synthesis doesn't use tools
+                blockType,
+                queryClient,
+                getMessageSets,
+                createMessagePart,
+                streamMessagePart,
+                forceRefreshMessageSets,
+                synthesisModelConfigId,
+                synthesisPrompt,
             });
-
-            // Set message to idle since synthesis has no additional parts
-            await db.execute(
-                `UPDATE messages
-                SET streaming_token = NULL, state = 'idle'
-                WHERE id = $1 AND streaming_token = $2`,
-                [messageId, streamingToken],
-            );
         },
         onSuccess: async (_data, variables, _context) => {
             await queryClient.invalidateQueries({
@@ -2524,6 +2581,89 @@ export function useDeselectSynthesis() {
             await queryClient.invalidateQueries({
                 queryKey: messageKeys.messageSets(variables.chatId),
             });
+        },
+    });
+}
+
+/**
+ * Restarts synthesis by clearing the existing synthesis message and re-streaming with synthesis prompt
+ */
+export function useRestartSynthesis() {
+    const queryClient = useQueryClient();
+    const getMessageSets = useGetMessageSets();
+    const createMessagePart = useCreateMessagePart();
+    const streamMessagePart = useStreamMessagePart();
+    const forceRefreshMessageSets = useForceRefreshMessageSets();
+    const synthesisModelConfigId = useSynthesisModelConfigId();
+    const synthesisPrompt = useSynthesisPrompt();
+
+    return useMutation({
+        mutationKey: ["restartSynthesis"] as const,
+        mutationFn: async ({
+            chatId,
+            messageSetId,
+            messageId,
+            blockType = "tools",
+        }: {
+            chatId: string;
+            messageSetId: string;
+            messageId: string;
+            blockType?: "compare" | "tools";
+        }) => {
+            // Lock and clear the synthesis message
+            const streamingToken = uuidv4();
+            const lockResult = await db.execute(
+                `UPDATE messages
+                SET streaming_token = $1, state = 'streaming'
+                WHERE id = $2 AND state = 'idle' AND streaming_token IS NULL`,
+                [streamingToken, messageId],
+            );
+
+            if (lockResult.rowsAffected === 0) {
+                console.error(
+                    "Not restarting synthesis because lock could not be acquired",
+                );
+                return undefined;
+            }
+
+            // Delete message parts
+            await db.execute(
+                `DELETE FROM message_parts WHERE message_id = $1`,
+                [messageId],
+            );
+
+            // Invalidate to show loading state
+            await queryClient.invalidateQueries({
+                queryKey: messageKeys.messageSets(chatId),
+            });
+
+            // Stream the synthesis message using the shared helper
+            await streamSynthesisForMessage({
+                chatId,
+                messageSetId,
+                messageId,
+                streamingToken,
+                blockType,
+                queryClient,
+                getMessageSets,
+                createMessagePart,
+                streamMessagePart,
+                forceRefreshMessageSets,
+                synthesisModelConfigId,
+                synthesisPrompt,
+            });
+        },
+        onSuccess: async (_data, variables, _context) => {
+            await queryClient.invalidateQueries({
+                queryKey: messageKeys.messageSets(variables.chatId),
+            });
+        },
+        onSettled: async (_data, _error, variables) => {
+            // Invalidate chatIsLoading to update sidebar loading indicator
+            // This runs regardless of success/error
+            await queryClient.invalidateQueries(
+                chatIsLoadingQueries.detail(variables.chatId),
+            );
         },
     });
 }

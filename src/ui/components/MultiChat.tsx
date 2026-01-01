@@ -1186,6 +1186,7 @@ export function ToolsMessageView({
         message.messageSetId,
         message.id,
     );
+    const { mutate: restartSynthesis } = MessageAPI.useRestartSynthesis();
     const branchChat = MessageAPI.useBranchChat({
         chatId: message.chatId,
         messageSetId: message.messageSetId,
@@ -1382,7 +1383,14 @@ export function ToolsMessageView({
                                                     disabled={!modelConfig}
                                                     className="hover:text-foreground"
                                                     onClick={() => {
-                                                        if (modelConfig) {
+                                                        if (isSynthesis) {
+                                                            restartSynthesis({
+                                                                chatId: message.chatId,
+                                                                messageSetId: message.messageSetId,
+                                                                messageId: message.id,
+                                                                blockType: "tools",
+                                                            });
+                                                        } else if (modelConfig) {
                                                             restartMessage.mutate(
                                                                 {
                                                                     modelConfig,
