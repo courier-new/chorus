@@ -3,7 +3,7 @@ import { emit } from "@tauri-apps/api/event";
 import { createDefaultShortcutsConfig, ShortcutsSettings } from "./Shortcuts";
 
 export const DEFAULT_SYNTHESIS_MODEL_CONFIG_ID =
-    "openrouter::openai/gpt-oss-120b";
+    "openrouter::x-ai/grok-4.1-fast";
 
 export interface Settings {
     defaultEditor: string;
