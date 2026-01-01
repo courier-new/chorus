@@ -2200,6 +2200,16 @@ export function useStreamSynthesis() {
                 messageSetId,
             );
 
+            // Log synthesis request details for debugging
+            console.log("=== SYNTHESIS MESSAGE DEBUG ===");
+            console.log("System Prompt:", modelConfig.systemPrompt);
+            console.log(
+                "Conversation:",
+                JSON.stringify(conversation, null, 2),
+            );
+            console.log("Model Config:", JSON.stringify(modelConfig, null, 2));
+            console.log("==============================");
+
             await streamMessagePart.mutateAsync({
                 chatId,
                 messageSetId,
