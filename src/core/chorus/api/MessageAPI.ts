@@ -3581,3 +3581,40 @@ export function useGetSelectedModelConfigs() {
         }
     };
 }
+
+/**
+ * Removes a message from the conversation.
+ * Used when a model errors out or returns an empty response.
+ * Note: Model deselection should be handled separately by the UI component
+ * using useUpdateSelectedModelConfigsCompare and useClearActiveModelGroup.
+ */
+export function useRemoveMessage() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationKey: ["removeMessage"] as const,
+        mutationFn: async ({
+            chatId,
+            messageId,
+        }: {
+            chatId: string;
+            messageId: string;
+        }) => {
+            // 1. Delete message parts first
+            await db.execute("DELETE FROM message_parts WHERE message_id = ?", [
+                messageId,
+            ]);
+
+            // 2. Delete the message itself
+            await db.execute("DELETE FROM messages WHERE id = ?", [messageId]);
+
+            return { chatId };
+        },
+        onSuccess: async (data) => {
+            // Invalidate queries to refresh UI
+            await queryClient.invalidateQueries({
+                queryKey: messageKeys.messageSets(data.chatId),
+            });
+        },
+    });
+}

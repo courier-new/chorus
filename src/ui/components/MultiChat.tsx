@@ -129,6 +129,7 @@ import * as MessageAPI from "@core/chorus/api/MessageAPI";
 import * as ChatAPI from "@core/chorus/api/ChatAPI";
 import * as ProjectAPI from "@core/chorus/api/ProjectAPI";
 import * as ModelsAPI from "@core/chorus/api/ModelsAPI";
+import * as ModelGroupsAPI from "@core/chorus/api/ModelGroupsAPI";
 import * as AttachmentsAPI from "@core/chorus/api/AttachmentsAPI";
 import * as DraftAPI from "@core/chorus/api/DraftAPI";
 import SimpleCopyButton from "./unused/CopyButton";
@@ -1202,7 +1203,51 @@ export function ToolsMessageView({
     });
     const { mutate: deselectSynthesis, isPending: isDeselectingSynthesis } =
         MessageAPI.useDeselectSynthesis();
+    const { mutate: removeMessage } = MessageAPI.useRemoveMessage();
+    const { mutateAsync: updateSelectedModelConfigsCompare } =
+        MessageAPI.useUpdateSelectedModelConfigsCompare();
+    const { data: selectedModelConfigsCompare = [] } =
+        ModelsAPI.useSelectedModelConfigsCompare();
+    const { mutate: clearActiveGroup } =
+        ModelGroupsAPI.useClearActiveModelGroup();
     const modelConfigsQuery = ModelsAPI.useModelConfigs();
+
+    // Detect if the message is in an error or empty state
+    const isErrorOrEmpty = useMemo(() => {
+        return (
+            (message.parts.length === 0 ||
+                message.parts.every((p) => !p.content)) &&
+            message.state === "idle"
+        );
+    }, [message.parts, message.state]);
+
+    // Handler to remove a failed message and deselect its model
+    const handleRemoveFailedMessage = useCallback(async () => {
+        // 1. Remove the message from the database
+        await removeMessage({
+            chatId: message.chatId,
+            messageId: message.id,
+        });
+
+        // 2. Deselect the model from selected_model_configs_compare
+        const newModelConfigs = selectedModelConfigsCompare.filter(
+            (m) => m.id !== message.model,
+        );
+        await updateSelectedModelConfigsCompare({
+            modelConfigs: newModelConfigs ?? [],
+        });
+
+        // 3. Clear active model group (since selection changed)
+        clearActiveGroup();
+    }, [
+        removeMessage,
+        message.chatId,
+        message.id,
+        message.model,
+        selectedModelConfigsCompare,
+        updateSelectedModelConfigsCompare,
+        clearActiveGroup,
+    ]);
     // // Set stream start time when streaming begins
     // useEffect(() => {
     //     if (message.state === "streaming" && !streamStartTime) {
@@ -1386,11 +1431,16 @@ export function ToolsMessageView({
                                                         if (isSynthesis) {
                                                             restartSynthesis({
                                                                 chatId: message.chatId,
-                                                                messageSetId: message.messageSetId,
-                                                                messageId: message.id,
-                                                                blockType: "tools",
+                                                                messageSetId:
+                                                                    message.messageSetId,
+                                                                messageId:
+                                                                    message.id,
+                                                                blockType:
+                                                                    "tools",
                                                             });
-                                                        } else if (modelConfig) {
+                                                        } else if (
+                                                            modelConfig
+                                                        ) {
                                                             restartMessage.mutate(
                                                                 {
                                                                     modelConfig,
@@ -1408,85 +1458,108 @@ export function ToolsMessageView({
                                         </Tooltip>
                                     ) : null}
 
-                                    {!isReply && !isQuickChatWindow && (
+                                    {/* Normal buttons - hidden when message is error/empty */}
+                                    {!isErrorOrEmpty && (
+                                        <>
+                                            {!isReply && !isQuickChatWindow && (
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <button
+                                                            className="hover:text-foreground"
+                                                            onClick={() =>
+                                                                branchChat.mutate()
+                                                            }
+                                                        >
+                                                            <SplitIcon className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        Branch chat
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            )}
+
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <span className="flex items-center">
+                                                        <SimpleCopyButton
+                                                            className="hover:text-foreground"
+                                                            text={fullText}
+                                                            size="sm"
+                                                        />
+                                                    </span>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    Copy
+                                                </TooltipContent>
+                                            </Tooltip>
+
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <span className="flex items-center">
+                                                        <ToolsMessageFullScreenDialogView
+                                                            message={message}
+                                                        >
+                                                            <button className="hover:text-foreground">
+                                                                <Maximize2Icon className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        </ToolsMessageFullScreenDialogView>
+                                                    </span>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    Open full screen
+                                                </TooltipContent>
+                                            </Tooltip>
+
+                                            {!isQuickChatWindow && !isReply && (
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <button
+                                                            className="hover:text-foreground"
+                                                            onClick={
+                                                                onReplyClick
+                                                            }
+                                                        >
+                                                            <ReplyIcon
+                                                                strokeWidth={
+                                                                    1.5
+                                                                }
+                                                                className="w-3.5 h-3.5"
+                                                            />
+                                                        </button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        Reply to this message
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            )}
+                                        </>
+                                    )}
+
+                                    {/* Remove button - always shown if not the only message (not for synthesis which has its own remove) */}
+                                    {!isOnlyMessage && !isSynthesis && (
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <button
                                                     className="hover:text-foreground"
-                                                    onClick={() =>
-                                                        branchChat.mutate()
-                                                    }
+                                                    onClick={() => {
+                                                        void handleRemoveFailedMessage();
+                                                    }}
                                                 >
-                                                    <SplitIcon className="w-3.5 h-3.5" />
+                                                    <TrashIcon
+                                                        strokeWidth={1.5}
+                                                        className="w-3.5 h-3.5"
+                                                    />
                                                 </button>
                                             </TooltipTrigger>
                                             <TooltipContent>
-                                                Branch chat
+                                                Remove model from conversation
                                             </TooltipContent>
                                         </Tooltip>
                                     )}
 
-                                    {/* DUPLICATE x1000 BUTTON - FOR TESTING */}
-                                    {/* {!isQuickChatWindow &&
-                                            config.tellPostHogIAmATestUser && (
-                                                
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <button
-                                                                className="hover:text-foreground"
-                                                                onClick={() => {
-                                                                    for (
-                                                                        let i = 0;
-                                                                        i <
-                                                                        1000;
-                                                                        i++
-                                                                    ) {
-                                                                        branchChat.mutate();
-                                                                    }
-                                                                }}
-                                                            >
-                                                                *1000
-                                                            </button>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            Duplicate chat 1000x
-                                                            times
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                
-                                            )} */}
-
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <span className="flex items-center">
-                                                <SimpleCopyButton
-                                                    className="hover:text-foreground"
-                                                    text={fullText}
-                                                    size="sm"
-                                                />
-                                            </span>
-                                        </TooltipTrigger>
-                                        <TooltipContent>Copy</TooltipContent>
-                                    </Tooltip>
-
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <span className="flex items-center">
-                                                <ToolsMessageFullScreenDialogView
-                                                    message={message}
-                                                >
-                                                    <button className="hover:text-foreground">
-                                                        <Maximize2Icon className="w-3.5 h-3.5" />
-                                                    </button>
-                                                </ToolsMessageFullScreenDialogView>
-                                            </span>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            Open full screen
-                                        </TooltipContent>
-                                    </Tooltip>
-
-                                    {isSynthesis ? (
+                                    {/* Synthesis remove button */}
+                                    {isSynthesis && (
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <button
@@ -1506,26 +1579,6 @@ export function ToolsMessageView({
                                                 Remove synthesis
                                             </TooltipContent>
                                         </Tooltip>
-                                    ) : (
-                                        !isQuickChatWindow &&
-                                        !isReply && (
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <button
-                                                        className="hover:text-foreground"
-                                                        onClick={onReplyClick}
-                                                    >
-                                                        <ReplyIcon
-                                                            strokeWidth={1.5}
-                                                            className="w-3.5 h-3.5"
-                                                        />
-                                                    </button>
-                                                </TooltipTrigger>
-                                                <TooltipContent>
-                                                    Reply to this message
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        )
                                     )}
                                 </div>
                             </div>
