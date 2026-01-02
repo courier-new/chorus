@@ -119,6 +119,7 @@ export interface MessageDBRow {
     completion_tokens: number | null;
     total_tokens: number | null;
     cost_usd: number | null;
+    is_collapsed: number;
 }
 
 export interface MessagePartDBRow {
@@ -157,6 +158,7 @@ export function readMessage(
         completionTokens: row.completion_tokens ?? undefined,
         totalTokens: row.total_tokens ?? undefined,
         costUsd: row.cost_usd ?? undefined,
+        isCollapsed: Boolean(row.is_collapsed),
     };
 }
 
@@ -3612,6 +3614,36 @@ export function useRemoveMessage() {
         },
         onSuccess: async (data) => {
             // Invalidate queries to refresh UI
+            await queryClient.invalidateQueries({
+                queryKey: messageKeys.messageSets(data.chatId),
+            });
+        },
+    });
+}
+
+/**
+ * Sets the UI state of a message to collapsed or not collapsed.
+ */
+export function useSetMessageCollapsed() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey: ["setMessageCollapsed"] as const,
+        mutationFn: async ({
+            messageId,
+            chatId,
+            isCollapsed,
+        }: {
+            messageId: string;
+            chatId: string;
+            isCollapsed: boolean;
+        }) => {
+            await db.execute(
+                "UPDATE messages SET is_collapsed = ? WHERE id = ?",
+                [isCollapsed ? 1 : 0, messageId],
+            );
+            return { chatId };
+        },
+        onSuccess: async (data) => {
             await queryClient.invalidateQueries({
                 queryKey: messageKeys.messageSets(data.chatId),
             });

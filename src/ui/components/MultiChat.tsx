@@ -1214,11 +1214,12 @@ export function ToolsMessageView({
     isSynthesis?: boolean;
 }) {
     const navigate = useNavigate();
-    const [isCollapsed, setIsCollapsed] = useState(false);
     // const [raw, setRaw] = useState(false);
     // const [streamStartTime, setStreamStartTime] = useState<Date>();
 
     const collapseButtonRef = useRef<HTMLButtonElement>(null);
+    const isCollapsed = message.isCollapsed ?? false;
+    const { mutate: setMessageCollapsed } = MessageAPI.useSetMessageCollapsed();
 
     const selectMessage = MessageAPI.useSelectMessage();
     const stopMessage = MessageAPI.useStopMessage();
@@ -1271,7 +1272,12 @@ export function ToolsMessageView({
         } else if (modelConfig) {
             restartMessage({ modelConfig });
         }
-        setTimeout(() => setIsCollapsed(false), 50);
+        // Expand the message when regenerating
+        setMessageCollapsed({
+            messageId: message.id,
+            chatId: message.chatId,
+            isCollapsed: false,
+        });
     }, [
         isSynthesis,
         message.chatId,
@@ -1280,6 +1286,7 @@ export function ToolsMessageView({
         restartSynthesis,
         restartMessage,
         modelConfig,
+        setMessageCollapsed,
     ]);
 
     // Detect if the message is in an error or empty state
@@ -1328,13 +1335,21 @@ export function ToolsMessageView({
     }, [deselectSynthesis, message.chatId, message.messageSetId]);
 
     const expandMessage = useCallback(() => {
-        setIsCollapsed(false);
+        setMessageCollapsed({
+            messageId: message.id,
+            chatId: message.chatId,
+            isCollapsed: false,
+        });
         collapseButtonRef.current?.focus();
-    }, []);
+    }, [setMessageCollapsed, message.id, message.chatId]);
 
     const collapseMessage = useCallback(() => {
-        setIsCollapsed(true);
-    }, []);
+        setMessageCollapsed({
+            messageId: message.id,
+            chatId: message.chatId,
+            isCollapsed: true,
+        });
+    }, [setMessageCollapsed, message.id, message.chatId]);
 
     // // Set stream start time when streaming begins
     // useEffect(() => {
