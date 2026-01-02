@@ -1652,41 +1652,43 @@ export function ToolsMessageView({
                                     )}
 
                                     {/* Collapse/Expand button */}
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <button
-                                                // The chevron is fairly small
-                                                // and narrow, so we remove some
-                                                // of the spacing around it to
-                                                // give it a more uniform look
-                                                // with the other icons.
-                                                className="hover:text-foreground -ml-0.5 -mr-1 w-3.5 h-3.5 flex items-center justify-center"
-                                                onClick={
-                                                    isCollapsed
-                                                        ? expandMessage
-                                                        : collapseMessage
-                                                }
-                                                ref={collapseButtonRef}
-                                            >
-                                                {isCollapsed ? (
-                                                    <ChevronRightIcon
-                                                        className="flex-shrink-0 w-4 h-4"
-                                                        strokeWidth={1.5}
-                                                    />
-                                                ) : (
-                                                    <ChevronDownIcon
-                                                        className="flex-shrink-0 w-4 h-4"
-                                                        strokeWidth={1.5}
-                                                    />
-                                                )}
-                                            </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            {isCollapsed
-                                                ? "Expand"
-                                                : "Collapse"}
-                                        </TooltipContent>
-                                    </Tooltip>
+                                    {!isQuickChatWindow && (
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <button
+                                                    // The chevron is fairly small
+                                                    // and narrow, so we remove some
+                                                    // of the spacing around it to
+                                                    // give it a more uniform look
+                                                    // with the other icons.
+                                                    className="hover:text-foreground -ml-0.5 -mr-1 w-3.5 h-3.5 flex items-center justify-center"
+                                                    onClick={
+                                                        isCollapsed
+                                                            ? expandMessage
+                                                            : collapseMessage
+                                                    }
+                                                    ref={collapseButtonRef}
+                                                >
+                                                    {isCollapsed ? (
+                                                        <ChevronRightIcon
+                                                            className="flex-shrink-0 w-4 h-4"
+                                                            strokeWidth={1.5}
+                                                        />
+                                                    ) : (
+                                                        <ChevronDownIcon
+                                                            className="flex-shrink-0 w-4 h-4"
+                                                            strokeWidth={1.5}
+                                                        />
+                                                    )}
+                                                </button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                {isCollapsed
+                                                    ? "Expand"
+                                                    : "Collapse"}
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    )}
                                 </div>
                             </div>
                         </div>
