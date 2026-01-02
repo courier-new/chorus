@@ -1597,23 +1597,20 @@ export function ToolsMessageView({
                         />
 
                         {/* Reply button at bottom overlapping border (only show if there are no replies and not synthesis) */}
-                        {!isQuickChatWindow &&
-                            !isReply &&
-                            !isSynthesis &&
-                            !message.replyChatId && (
-                                <div className="absolute bottom-0 left-3 transform translate-y-1/2 z-10">
-                                    <button
-                                        className="text-highlight-foreground hover:text-foreground transition-color flex items-center gap-2 bg-background px-2 py-1"
-                                        onClick={onReplyClick}
-                                    >
-                                        <ReplyIcon
-                                            strokeWidth={1.5}
-                                            className="w-3.5 h-3.5"
-                                        />
-                                        Reply
-                                    </button>
-                                </div>
-                            )}
+                        {!isQuickChatWindow && !isReply && !isSynthesis && (
+                            <div className="absolute bottom-0 left-3 transform translate-y-1/2 z-10 opacity-full">
+                                <button
+                                    className="text-muted-foreground hover:text-foreground transition-color flex items-center gap-2 bg-background px-2 py-1 opacity-0 group-hover/message-set-view:opacity-100 focus-within:opacity-100"
+                                    onClick={onReplyClick}
+                                >
+                                    <ReplyIcon
+                                        strokeWidth={1.5}
+                                        className="w-3.5 h-3.5"
+                                    />
+                                    Reply
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
 
