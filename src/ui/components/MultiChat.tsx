@@ -1420,9 +1420,7 @@ export function ToolsMessageView({
                                 `}
                             >
                                 <div
-                                    className={`gap-2 text-muted-foreground px-2
-                                    hidden group-hover/message-set-view:flex
-                                    bg-background
+                                    className={`gap-2 text-muted-foreground px-2 flex opacity-0 group-hover/message-set-view:opacity-100 focus-within:opacity-100 bg-background
                                     ${isQuickChatWindow ? "rounded-lg p-1" : ""}`}
                                 >
                                     {message.state === "streaming" ? (
