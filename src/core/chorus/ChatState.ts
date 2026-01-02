@@ -49,6 +49,8 @@ export interface Message {
     completionTokens?: number;
     totalTokens?: number;
     costUsd?: number;
+    // UI state
+    isCollapsed?: boolean;
 }
 
 export interface MessagePart {

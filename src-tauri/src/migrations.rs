@@ -2574,5 +2574,13 @@ You have full access to bash commands on the user''''s computer. If you write a 
                     ('active_model_group_id', '');
             "#,
         },
+        Migration {
+            version: 140,
+            description: "add is_collapsed column to messages table",
+            kind: MigrationKind::Up,
+            sql: r#"
+                ALTER TABLE messages ADD COLUMN is_collapsed BOOLEAN NOT NULL DEFAULT 0;
+            "#,
+        },
     ];
 }

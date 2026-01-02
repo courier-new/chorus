@@ -628,7 +628,7 @@ function MessagePartView({
 }) {
     return (
         <>
-            <MessageMarkdown text={part.content} />
+            {part.content && <MessageMarkdown text={part.content} />}
             {part.toolCallsAndResults.map((toolCallWithResult) => (
                 <ToolCallView
                     key={toolCallWithResult.id}
@@ -743,7 +743,7 @@ function ToolCallView({
     return (
         <Tooltip>
             <TooltipTrigger asChild>
-                <Collapsible className="my-4 rounded-md text-muted-foreground text-sm py-1.5 px-1.5 border w-fit max-w-full">
+                <Collapsible className="my-4 first-of-type:mt-2 rounded-md text-muted-foreground text-sm py-1.5 px-1.5 border w-fit max-w-full">
                     <CollapsibleTrigger
                         className="group font-geist-mono font-[350] text-left flex items-center justify-left hover:text-foreground"
                         onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
@@ -849,7 +849,10 @@ function ToolsMessageFullScreenDialogView({
         ? `Synthesis (${modelConfig?.displayName ?? "Unknown"})`
         : modelConfig?.displayName;
 
-    const fullText = message.parts.map((p) => p.content).join("\n");
+    const fullText = message.parts
+        .map((p) => p.content)
+        .filter(Boolean)
+        .join("\n");
 
     return (
         <Dialog id={fullscreenToolsDialogId(message.id)}>
@@ -1024,11 +1027,42 @@ function DeepResearchNotificationButton({ message }: { message: Message }) {
     );
 }
 
+function ToolsAIMessageViewInnerCollapsed({
+    fullText,
+    expandMessage,
+}: {
+    fullText: string;
+    expandMessage: () => void;
+}) {
+    return (
+        <div className="flex flex-row gap-1 items-center">
+            {/* Message preview one line */}
+            <p className="text-base text-ellipsis line-clamp-1">{fullText}</p>
+            <button
+                className="text-sm opacity-70 text-muted-foreground flex-shrink-0 flex items-center gap-1 group/expand-button hover:opacity-100 pl-1"
+                onClick={expandMessage}
+            >
+                Expand{" "}
+                <ChevronRightIcon
+                    className="flex-shrink-0 w-4 h-4 -mr-0.5 transition-transform duration-200 group-hover/expand-button:rotate-90 group-focus-within/expand-button:rotate-90"
+                    strokeWidth={1.5}
+                />
+            </button>
+        </div>
+    );
+}
+
 function ToolsAIMessageViewInner({
+    fullText,
     message,
+    isCollapsed,
+    expandMessage,
     isQuickChatWindow,
 }: {
+    fullText: string;
     message: Message;
+    isCollapsed: boolean;
+    expandMessage: () => void;
     isQuickChatWindow: boolean;
 }) {
     // combine tool calls with tool results
@@ -1068,15 +1102,20 @@ function ToolsAIMessageViewInner({
         .filter((p) => p !== undefined);
     return (
         <div
-            className={`relative overflow-y-auto select-text ${
+            className={`relative overflow-y-auto select-text min-h-[3.75rem] ${
                 isQuickChatWindow
                     ? "py-2.5 border !border-special max-w-full inline-block break-words px-3.5 rounded-xl"
                     : "p-4 pb-6"
             }`}
         >
-            {(message.parts.length === 0 ||
-                _.every(message.parts.map((p) => !p.content))) &&
-            message.state === "idle" ? (
+            {isCollapsed ? (
+                <ToolsAIMessageViewInnerCollapsed
+                    fullText={fullText}
+                    expandMessage={expandMessage}
+                />
+            ) : (message.parts.length === 0 ||
+                  _.every(message.parts.map((p) => !p.content))) &&
+              message.state === "idle" ? (
                 <div className="text-sm text-muted-foreground/50 uppercase font-[350] font-geist-mono tracking-wider">
                     <ErrorView message={message} />
                 </div>
@@ -1180,6 +1219,10 @@ export function ToolsMessageView({
     // const [raw, setRaw] = useState(false);
     // const [streamStartTime, setStreamStartTime] = useState<Date>();
 
+    const collapseButtonRef = useRef<HTMLButtonElement>(null);
+    const isCollapsed = message.isCollapsed ?? false;
+    const { mutate: setMessageCollapsed } = MessageAPI.useSetMessageCollapsed();
+
     const selectMessage = MessageAPI.useSelectMessage();
     const stopMessage = MessageAPI.useStopMessage();
     const { mutate: restartMessage } = MessageAPI.useRestartMessage(
@@ -1231,6 +1274,12 @@ export function ToolsMessageView({
         } else if (modelConfig) {
             restartMessage({ modelConfig });
         }
+        // Expand the message when regenerating
+        setMessageCollapsed({
+            messageId: message.id,
+            chatId: message.chatId,
+            isCollapsed: false,
+        });
     }, [
         isSynthesis,
         message.chatId,
@@ -1239,6 +1288,7 @@ export function ToolsMessageView({
         restartSynthesis,
         restartMessage,
         modelConfig,
+        setMessageCollapsed,
     ]);
 
     // Detect if the message is in an error or empty state
@@ -1286,6 +1336,23 @@ export function ToolsMessageView({
         });
     }, [deselectSynthesis, message.chatId, message.messageSetId]);
 
+    const expandMessage = useCallback(() => {
+        setMessageCollapsed({
+            messageId: message.id,
+            chatId: message.chatId,
+            isCollapsed: false,
+        });
+        collapseButtonRef.current?.focus();
+    }, [setMessageCollapsed, message.id, message.chatId]);
+
+    const collapseMessage = useCallback(() => {
+        setMessageCollapsed({
+            messageId: message.id,
+            chatId: message.chatId,
+            isCollapsed: true,
+        });
+    }, [setMessageCollapsed, message.id, message.chatId]);
+
     // // Set stream start time when streaming begins
     // useEffect(() => {
     //     if (message.state === "streaming" && !streamStartTime) {
@@ -1297,7 +1364,10 @@ export function ToolsMessageView({
     if (!message) {
         return null;
     }
-    const fullText = message.parts.map((p) => p.content).join("\n");
+    const fullText = message.parts
+        .map((p) => p.content)
+        .filter(Boolean)
+        .join("\n");
 
     const messageClasses = [
         "relative",
@@ -1420,9 +1490,7 @@ export function ToolsMessageView({
                                 `}
                             >
                                 <div
-                                    className={`gap-2 text-muted-foreground px-2
-                                    hidden group-hover/message-set-view:flex
-                                    bg-background
+                                    className={`gap-2 text-muted-foreground px-2 flex opacity-0 group-hover/message-set-view:opacity-100 focus-within:opacity-100 bg-background
                                     ${isQuickChatWindow ? "rounded-lg p-1" : ""}`}
                                 >
                                     {message.state === "streaming" ? (
@@ -1587,33 +1655,72 @@ export function ToolsMessageView({
                                             </TooltipContent>
                                         </Tooltip>
                                     )}
+
+                                    {/* Collapse/Expand button */}
+                                    {!isQuickChatWindow && (
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <button
+                                                    // The chevron is fairly small
+                                                    // and narrow, so we remove some
+                                                    // of the spacing around it to
+                                                    // give it a more uniform look
+                                                    // with the other icons.
+                                                    className="hover:text-foreground -ml-0.5 -mr-1 w-3.5 h-3.5 flex items-center justify-center"
+                                                    onClick={
+                                                        isCollapsed
+                                                            ? expandMessage
+                                                            : collapseMessage
+                                                    }
+                                                    ref={collapseButtonRef}
+                                                >
+                                                    {isCollapsed ? (
+                                                        <ChevronRightIcon
+                                                            className="flex-shrink-0 w-4 h-4"
+                                                            strokeWidth={1.5}
+                                                        />
+                                                    ) : (
+                                                        <ChevronDownIcon
+                                                            className="flex-shrink-0 w-4 h-4"
+                                                            strokeWidth={1.5}
+                                                        />
+                                                    )}
+                                                </button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                {isCollapsed
+                                                    ? "Expand"
+                                                    : "Collapse"}
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    )}
                                 </div>
                             </div>
                         </div>
 
                         <ToolsAIMessageViewInner
+                            fullText={fullText}
+                            expandMessage={expandMessage}
                             message={message}
+                            isCollapsed={isCollapsed}
                             isQuickChatWindow={isQuickChatWindow}
                         />
 
                         {/* Reply button at bottom overlapping border (only show if there are no replies and not synthesis) */}
-                        {!isQuickChatWindow &&
-                            !isReply &&
-                            !isSynthesis &&
-                            !message.replyChatId && (
-                                <div className="absolute bottom-0 left-3 transform translate-y-1/2 z-10">
-                                    <button
-                                        className="text-highlight-foreground hover:text-foreground transition-color flex items-center gap-2 bg-background px-2 py-1"
-                                        onClick={onReplyClick}
-                                    >
-                                        <ReplyIcon
-                                            strokeWidth={1.5}
-                                            className="w-3.5 h-3.5"
-                                        />
-                                        Reply
-                                    </button>
-                                </div>
-                            )}
+                        {!isQuickChatWindow && !isReply && !isSynthesis && (
+                            <div className="absolute bottom-0 left-3 transform translate-y-1/2 z-10 opacity-full">
+                                <button
+                                    className="text-muted-foreground hover:text-foreground transition-color flex items-center gap-2 bg-background px-2 py-1 opacity-0 group-hover/message-set-view:opacity-100 focus-within:opacity-100"
+                                    onClick={onReplyClick}
+                                >
+                                    <ReplyIcon
+                                        strokeWidth={1.5}
+                                        className="w-3.5 h-3.5"
+                                    />
+                                    Reply
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
 
