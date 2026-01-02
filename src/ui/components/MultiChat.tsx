@@ -1024,6 +1024,32 @@ function DeepResearchNotificationButton({ message }: { message: Message }) {
     );
 }
 
+function ToolsAIMessageViewInnerCollapsed({
+    fullText,
+    expandMessage,
+}: {
+    fullText: string;
+    expandMessage: () => void;
+}) {
+    return (
+        <div className="flex flex-row">
+            {/* Message preview one line */}
+            <p className="text-base whitespace-pre-wrap line-clamp-1 w-[70%]">
+                {fullText}
+            </p>
+            <button
+                className="text-base opacity-70 text-muted-foreground flex-shrink-0 flex items-center gap-1 group/expand-button hover:opacity-100 pl-1"
+                onClick={expandMessage}
+            >
+                Expand{" "}
+                <div className="w-4 h-4 flex items-center justify-center overflow-hidden">
+                    <ChevronRightIcon className="flex-shrink-0 w-5 h-5 -ml-0.5 transition-transform duration-200 group-hover/expand-button:rotate-90 group-focus-within/expand-button:rotate-90" />
+                </div>
+            </button>
+        </div>
+    );
+}
+
 function ToolsAIMessageViewInner({
     fullText,
     message,
@@ -1074,15 +1100,20 @@ function ToolsAIMessageViewInner({
         .filter((p) => p !== undefined);
     return (
         <div
-            className={`relative overflow-y-auto select-text ${
+            className={`relative overflow-y-auto select-text min-h-[3.75rem] ${
                 isQuickChatWindow
                     ? "py-2.5 border !border-special max-w-full inline-block break-words px-3.5 rounded-xl"
                     : "p-4 pb-6"
             }`}
         >
-            {(message.parts.length === 0 ||
-                _.every(message.parts.map((p) => !p.content))) &&
-            message.state === "idle" ? (
+            {isCollapsed ? (
+                <ToolsAIMessageViewInnerCollapsed
+                    fullText={fullText}
+                    expandMessage={expandMessage}
+                />
+            ) : (message.parts.length === 0 ||
+                  _.every(message.parts.map((p) => !p.content))) &&
+              message.state === "idle" ? (
                 <div className="text-sm text-muted-foreground/50 uppercase font-[350] font-geist-mono tracking-wider">
                     <ErrorView message={message} />
                 </div>
