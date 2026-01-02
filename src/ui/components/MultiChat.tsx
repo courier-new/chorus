@@ -1025,10 +1025,16 @@ function DeepResearchNotificationButton({ message }: { message: Message }) {
 }
 
 function ToolsAIMessageViewInner({
+    fullText,
     message,
+    isCollapsed,
+    expandMessage,
     isQuickChatWindow,
 }: {
+    fullText: string;
     message: Message;
+    isCollapsed: boolean;
+    expandMessage: () => void;
     isQuickChatWindow: boolean;
 }) {
     // combine tool calls with tool results
@@ -1177,8 +1183,11 @@ export function ToolsMessageView({
     isSynthesis?: boolean;
 }) {
     const navigate = useNavigate();
+    const [isCollapsed, setIsCollapsed] = useState(false);
     // const [raw, setRaw] = useState(false);
     // const [streamStartTime, setStreamStartTime] = useState<Date>();
+
+    const collapseButtonRef = useRef<HTMLButtonElement>(null);
 
     const selectMessage = MessageAPI.useSelectMessage();
     const stopMessage = MessageAPI.useStopMessage();
@@ -1231,6 +1240,7 @@ export function ToolsMessageView({
         } else if (modelConfig) {
             restartMessage({ modelConfig });
         }
+        setTimeout(() => setIsCollapsed(false), 50);
     }, [
         isSynthesis,
         message.chatId,
@@ -1285,6 +1295,15 @@ export function ToolsMessageView({
             blockType: "tools",
         });
     }, [deselectSynthesis, message.chatId, message.messageSetId]);
+
+    const expandMessage = useCallback(() => {
+        setIsCollapsed(false);
+        collapseButtonRef.current?.focus();
+    }, []);
+
+    const collapseMessage = useCallback(() => {
+        setIsCollapsed(true);
+    }, []);
 
     // // Set stream start time when streaming begins
     // useEffect(() => {
@@ -1585,12 +1604,52 @@ export function ToolsMessageView({
                                             </TooltipContent>
                                         </Tooltip>
                                     )}
+
+                                    {/* Collapse/Expand button */}
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <button
+                                                // The chevron is fairly small
+                                                // and narrow, so we remove some
+                                                // of the spacing around it to
+                                                // give it a more uniform look
+                                                // with the other icons.
+                                                className="hover:text-foreground -ml-0.5 -mr-1 w-3.5 h-3.5 flex items-center justify-center"
+                                                onClick={
+                                                    isCollapsed
+                                                        ? expandMessage
+                                                        : collapseMessage
+                                                }
+                                                ref={collapseButtonRef}
+                                            >
+                                                {isCollapsed ? (
+                                                    <ChevronRightIcon
+                                                        className="flex-shrink-0 w-4 h-4"
+                                                        strokeWidth={1.5}
+                                                    />
+                                                ) : (
+                                                    <ChevronDownIcon
+                                                        className="flex-shrink-0 w-4 h-4"
+                                                        strokeWidth={1.5}
+                                                    />
+                                                )}
+                                            </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            {isCollapsed
+                                                ? "Expand"
+                                                : "Collapse"}
+                                        </TooltipContent>
+                                    </Tooltip>
                                 </div>
                             </div>
                         </div>
 
                         <ToolsAIMessageViewInner
+                            fullText={fullText}
+                            expandMessage={expandMessage}
                             message={message}
+                            isCollapsed={isCollapsed}
                             isQuickChatWindow={isQuickChatWindow}
                         />
 
