@@ -52,11 +52,10 @@ export function SynthesisSettings() {
         useReactQueryAutoSync({
             queryOptions: {
                 queryKey: ["synthesisPrompt"],
-                queryFn: async () => {
-                    return (
-                        synthesisPromptFromSettings ?? SYNTHESIS_SYSTEM_PROMPT
-                    );
-                },
+                queryFn: () =>
+                    Promise.resolve(
+                        synthesisPromptFromSettings ?? SYNTHESIS_SYSTEM_PROMPT,
+                    ),
             },
             mutationOptions: {
                 mutationFn: async (value: string) => {
@@ -106,7 +105,7 @@ export function SynthesisSettings() {
     );
 
     const onResetModelClick = useCallback(() => {
-        setSynthesisModelConfigId(DEFAULT_SYNTHESIS_MODEL_CONFIG_ID);
+        void setSynthesisModelConfigId(DEFAULT_SYNTHESIS_MODEL_CONFIG_ID);
     }, [setSynthesisModelConfigId]);
 
     // Artificial value to force a reset of the synthesis shortcut recorder by

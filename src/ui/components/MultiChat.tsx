@@ -1182,7 +1182,7 @@ export function ToolsMessageView({
 
     const selectMessage = MessageAPI.useSelectMessage();
     const stopMessage = MessageAPI.useStopMessage();
-    const restartMessage = MessageAPI.useRestartMessage(
+    const { mutate: restartMessage } = MessageAPI.useRestartMessage(
         message.chatId,
         message.messageSetId,
         message.id,
@@ -1203,7 +1203,7 @@ export function ToolsMessageView({
     });
     const { mutate: deselectSynthesis, isPending: isDeselectingSynthesis } =
         MessageAPI.useDeselectSynthesis();
-    const { mutate: removeMessage } = MessageAPI.useRemoveMessage();
+    const { mutateAsync: removeMessage } = MessageAPI.useRemoveMessage();
     const { mutateAsync: updateSelectedModelConfigsCompare } =
         MessageAPI.useUpdateSelectedModelConfigsCompare();
     const { data: selectedModelConfigsCompare = [] } =
@@ -1211,6 +1211,35 @@ export function ToolsMessageView({
     const { mutate: clearActiveGroup } =
         ModelGroupsAPI.useClearActiveModelGroup();
     const modelConfigsQuery = ModelsAPI.useModelConfigs();
+
+    const baseModelId = isSynthesis
+        ? message.model.replace(/::synthesize$/, "")
+        : message.model;
+    const modelConfig = useMemo(
+        () => modelConfigsQuery.data?.find((m) => m.id === baseModelId),
+        [modelConfigsQuery.data, baseModelId],
+    );
+
+    const handleRegenerate = useCallback(() => {
+        if (isSynthesis) {
+            restartSynthesis({
+                chatId: message.chatId,
+                messageSetId: message.messageSetId,
+                messageId: message.id,
+                blockType: "tools",
+            });
+        } else if (modelConfig) {
+            restartMessage({ modelConfig });
+        }
+    }, [
+        isSynthesis,
+        message.chatId,
+        message.messageSetId,
+        message.id,
+        restartSynthesis,
+        restartMessage,
+        modelConfig,
+    ]);
 
     // Detect if the message is in an error or empty state
     const isErrorOrEmpty = useMemo(() => {
@@ -1248,6 +1277,15 @@ export function ToolsMessageView({
         updateSelectedModelConfigsCompare,
         clearActiveGroup,
     ]);
+
+    const onRemoveSynthesis = useCallback(() => {
+        deselectSynthesis({
+            chatId: message.chatId,
+            messageSetId: message.messageSetId,
+            blockType: "tools",
+        });
+    }, [deselectSynthesis, message.chatId, message.messageSetId]);
+
     // // Set stream start time when streaming begins
     // useEffect(() => {
     //     if (message.state === "streaming" && !streamStartTime) {
@@ -1260,12 +1298,6 @@ export function ToolsMessageView({
         return null;
     }
     const fullText = message.parts.map((p) => p.content).join("\n");
-    const baseModelId = isSynthesis
-        ? message.model.replace(/::synthesize$/, "")
-        : message.model;
-    const modelConfig = modelConfigsQuery.data?.find(
-        (m) => m.id === baseModelId,
-    );
 
     const messageClasses = [
         "relative",
@@ -1292,14 +1324,6 @@ export function ToolsMessageView({
             replyToMessage.mutate();
         }
     }
-
-    const onRemoveSynthesis = useCallback(() => {
-        deselectSynthesis({
-            chatId: message.chatId,
-            messageSetId: message.messageSetId,
-            blockType: "tools",
-        });
-    }, [deselectSynthesis, message.chatId, message.messageSetId]);
 
     return (
         <div id={`message-${message.id}`} className={"flex w-full select-none"}>
@@ -1427,27 +1451,7 @@ export function ToolsMessageView({
                                                 <button
                                                     disabled={!modelConfig}
                                                     className="hover:text-foreground"
-                                                    onClick={() => {
-                                                        if (isSynthesis) {
-                                                            restartSynthesis({
-                                                                chatId: message.chatId,
-                                                                messageSetId:
-                                                                    message.messageSetId,
-                                                                messageId:
-                                                                    message.id,
-                                                                blockType:
-                                                                    "tools",
-                                                            });
-                                                        } else if (
-                                                            modelConfig
-                                                        ) {
-                                                            restartMessage.mutate(
-                                                                {
-                                                                    modelConfig,
-                                                                },
-                                                            );
-                                                        }
-                                                    }}
+                                                    onClick={handleRegenerate}
                                                 >
                                                     <RefreshCcwIcon className="w-3.5 h-3.5" />
                                                 </button>
@@ -1511,28 +1515,31 @@ export function ToolsMessageView({
                                                 </TooltipContent>
                                             </Tooltip>
 
-                                            {!isQuickChatWindow && !isReply && (
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                        <button
-                                                            className="hover:text-foreground"
-                                                            onClick={
-                                                                onReplyClick
-                                                            }
-                                                        >
-                                                            <ReplyIcon
-                                                                strokeWidth={
-                                                                    1.5
+                                            {!isQuickChatWindow &&
+                                                !isReply &&
+                                                !isSynthesis && (
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <button
+                                                                className="hover:text-foreground"
+                                                                onClick={
+                                                                    onReplyClick
                                                                 }
-                                                                className="w-3.5 h-3.5"
-                                                            />
-                                                        </button>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent>
-                                                        Reply to this message
-                                                    </TooltipContent>
-                                                </Tooltip>
-                                            )}
+                                                            >
+                                                                <ReplyIcon
+                                                                    strokeWidth={
+                                                                        1.5
+                                                                    }
+                                                                    className="w-3.5 h-3.5"
+                                                                />
+                                                            </button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            Reply to this
+                                                            message
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                )}
                                         </>
                                     )}
 
@@ -1786,7 +1793,7 @@ function ToolsBlockView({
                                         </button>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                        {`Synthesize all replies into one${!!(synthesisShortcutDisplay && isLastRow) ? ` (${synthesisShortcutDisplay})` : ""}`}
+                                        {`Synthesize all replies into one${synthesisShortcutDisplay && isLastRow ? ` (${synthesisShortcutDisplay})` : ""}`}
                                     </TooltipContent>
                                 </Tooltip>
                             </div>
