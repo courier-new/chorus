@@ -1035,19 +1035,18 @@ function ToolsAIMessageViewInnerCollapsed({
     expandMessage: () => void;
 }) {
     return (
-        <div className="flex flex-row">
+        <div className="flex flex-row gap-1 items-center">
             {/* Message preview one line */}
-            <p className="text-base whitespace-pre-wrap line-clamp-1 w-[70%]">
-                {fullText}
-            </p>
+            <p className="text-base text-ellipsis line-clamp-1">{fullText}</p>
             <button
-                className="text-base opacity-70 text-muted-foreground flex-shrink-0 flex items-center gap-1 group/expand-button hover:opacity-100 pl-1"
+                className="text-sm opacity-70 text-muted-foreground flex-shrink-0 flex items-center gap-1 group/expand-button hover:opacity-100 pl-1"
                 onClick={expandMessage}
             >
                 Expand{" "}
-                <div className="w-4 h-4 flex items-center justify-center overflow-hidden">
-                    <ChevronRightIcon className="flex-shrink-0 w-5 h-5 -ml-0.5 transition-transform duration-200 group-hover/expand-button:rotate-90 group-focus-within/expand-button:rotate-90" />
-                </div>
+                <ChevronRightIcon
+                    className="flex-shrink-0 w-4 h-4 -mr-0.5 transition-transform duration-200 group-hover/expand-button:rotate-90 group-focus-within/expand-button:rotate-90"
+                    strokeWidth={1.5}
+                />
             </button>
         </div>
     );
