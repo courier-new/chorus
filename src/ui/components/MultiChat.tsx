@@ -849,7 +849,10 @@ function ToolsMessageFullScreenDialogView({
         ? `Synthesis (${modelConfig?.displayName ?? "Unknown"})`
         : modelConfig?.displayName;
 
-    const fullText = message.parts.map((p) => p.content).join("\n");
+    const fullText = message.parts
+        .map((p) => p.content)
+        .filter(Boolean)
+        .join("\n");
 
     return (
         <Dialog id={fullscreenToolsDialogId(message.id)}>
@@ -1362,7 +1365,10 @@ export function ToolsMessageView({
     if (!message) {
         return null;
     }
-    const fullText = message.parts.map((p) => p.content).join("\n");
+    const fullText = message.parts
+        .map((p) => p.content)
+        .filter(Boolean)
+        .join("\n");
 
     const messageClasses = [
         "relative",
