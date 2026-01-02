@@ -628,7 +628,7 @@ function MessagePartView({
 }) {
     return (
         <>
-            <MessageMarkdown text={part.content} />
+            {part.content && <MessageMarkdown text={part.content} />}
             {part.toolCallsAndResults.map((toolCallWithResult) => (
                 <ToolCallView
                     key={toolCallWithResult.id}
@@ -743,7 +743,7 @@ function ToolCallView({
     return (
         <Tooltip>
             <TooltipTrigger asChild>
-                <Collapsible className="my-4 rounded-md text-muted-foreground text-sm py-1.5 px-1.5 border w-fit max-w-full">
+                <Collapsible className="my-4 first-of-type:mt-2 rounded-md text-muted-foreground text-sm py-1.5 px-1.5 border w-fit max-w-full">
                     <CollapsibleTrigger
                         className="group font-geist-mono font-[350] text-left flex items-center justify-left hover:text-foreground"
                         onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
