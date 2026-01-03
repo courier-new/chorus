@@ -2582,5 +2582,14 @@ You have full access to bash commands on the user''''s computer. If you write a 
                 ALTER TABLE messages ADD COLUMN is_collapsed BOOLEAN NOT NULL DEFAULT 0;
             "#,
         },
+        Migration {
+            version: 141,
+            description: "add instance_id column to messages table for multi-instance model support",
+            kind: MigrationKind::Up,
+            sql: r#"
+                -- Add instance_id to track which model instance created this message, in the case that there are multiple instances of the same model in the selection, to link messages back to their originating ModelInstance in the selection
+                ALTER TABLE messages ADD COLUMN instance_id TEXT;
+            "#,
+        },
     ];
 }
