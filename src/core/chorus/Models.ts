@@ -20,6 +20,7 @@ import { ProviderGrok } from "./ModelProviders/ProviderGrok";
 import posthog from "posthog-js";
 import { UserTool, UserToolCall, UserToolResult } from "./Toolsets";
 import { Attachment } from "./api/AttachmentsAPI";
+import { v4 as uuidv4 } from "uuid";
 
 /// ------------------------------------------------------------------------------------------------
 /// Basic Types
@@ -205,6 +206,13 @@ export type ModelConfig = {
     promptPricePerToken?: number;
     completionPricePerToken?: number;
 };
+
+/**
+ * Generates a short unique instance ID for model instances.
+ */
+export function generateInstanceId(): string {
+    return uuidv4().slice(0, 8);
+}
 
 export type UsageData = {
     prompt_tokens?: number;
