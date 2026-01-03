@@ -503,3 +503,106 @@ export function useCreateModelConfig() {
         },
     });
 }
+
+/**
+ * Updates the currently-selected model config instances.
+ */
+export function useUpdateSelectedModelInstances() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey: ["updateSelectedModelInstances"] as const,
+        mutationFn: async ({ instances }: { instances: ModelInstance[] }) => {
+            await db.execute(
+                "UPDATE app_metadata SET value = ? WHERE key = 'selected_model_configs_compare'",
+                [JSON.stringify(instances)],
+            );
+        },
+        onSettled: async () => {
+            await queryClient.invalidateQueries(modelConfigQueries.compare());
+        },
+    });
+}
+
+/**
+ * Adds a new instance of a model config to the selection, not enforcing limits.
+ */
+export function useAddModelInstance() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationKey: ["addModelInstance"] as const,
+        mutationFn: async ({ modelConfigId }: { modelConfigId: string }) => {
+            // Read fresh data from DB to avoid race conditions
+            const currentInstances = await fetchSelectedModelInstances();
+
+            const newInstance: ModelInstance = {
+                modelConfigId,
+                instanceId: generateInstanceId(),
+            };
+
+            await db.execute(
+                "UPDATE app_metadata SET value = ? WHERE key = 'selected_model_configs_compare'",
+                [JSON.stringify([...currentInstances, newInstance])],
+            );
+
+            return newInstance;
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries(modelConfigQueries.compare());
+        },
+    });
+}
+
+/**
+ * Removes a specific instance from the selection by its instance ID.
+ */
+export function useRemoveModelInstance() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationKey: ["removeModelInstance"] as const,
+        mutationFn: async ({ instanceId }: { instanceId: string }) => {
+            // Read fresh data from DB to avoid race conditions
+            const currentInstances = await fetchSelectedModelInstances();
+
+            const newInstances = currentInstances.filter(
+                (i) => i.instanceId !== instanceId,
+            );
+
+            await db.execute(
+                "UPDATE app_metadata SET value = ? WHERE key = 'selected_model_configs_compare'",
+                [JSON.stringify(newInstances)],
+            );
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries(modelConfigQueries.compare());
+        },
+    });
+}
+
+/**
+ * Removes all instances of a specific model config from the selection.
+ */
+export function useRemoveAllModelInstances() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationKey: ["removeAllModelInstances"] as const,
+        mutationFn: async ({ modelConfigId }: { modelConfigId: string }) => {
+            // Read fresh data from DB to avoid race conditions
+            const currentInstances = await fetchSelectedModelInstances();
+
+            const newInstances = currentInstances.filter(
+                (i) => i.modelConfigId !== modelConfigId,
+            );
+
+            await db.execute(
+                "UPDATE app_metadata SET value = ? WHERE key = 'selected_model_configs_compare'",
+                [JSON.stringify(newInstances)],
+            );
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries(modelConfigQueries.compare());
+        },
+    });
+}
