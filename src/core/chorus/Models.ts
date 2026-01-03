@@ -208,6 +208,36 @@ export type ModelConfig = {
 };
 
 /**
+ * Represents a selected instance of a model configuration. Multiple instances
+ * of the same modelConfigId can exist in a selection, distinguished by unique
+ * instanceIds. This enables comparing outputs from the same model with
+ * identical settings.
+ */
+export type ModelInstance = {
+    modelConfigId: string;
+    instanceId: string;
+};
+
+/**
+ * A selected model configuration combined with its instance identifier.
+ */
+export type SelectedModelConfig = ModelConfig & {
+    instanceId: string;
+};
+
+/**
+ * Type guard to check if a value is a ModelInstance.
+ */
+export function isModelInstance(value: unknown): value is ModelInstance {
+    return (
+        typeof value === "object" &&
+        value !== null &&
+        typeof (value as ModelInstance).modelConfigId === "string" &&
+        typeof (value as ModelInstance).instanceId === "string"
+    );
+}
+
+/**
  * Generates a short unique instance ID for model instances.
  */
 export function generateInstanceId(): string {
