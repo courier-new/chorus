@@ -1,7 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Models from "../Models";
 import { db } from "../DB";
-import { ModelConfig } from "../Models";
+import {
+    ModelConfig,
+    SelectedModelConfig,
+    ModelInstance,
+    generateInstanceId,
+    isModelInstance,
+} from "../Models";
 import { getApiKeys } from "./AppMetadataAPI";
 
 // all
@@ -145,46 +151,99 @@ export async function fetchModels() {
     );
 }
 
-export async function fetchModelConfigsCompare(): Promise<ModelConfig[]> {
-    return (
-        await db.select<ModelConfigDBRow[]>(
-            `WITH extracted_models AS (
-  SELECT
-    json_each.value AS model_config_id,
-    CAST(json_each.key AS INTEGER) AS original_order
-  FROM
-    app_metadata,
-    json_each(app_metadata.value)
-  WHERE
-    app_metadata.key = 'selected_model_configs_compare'
-)
+/**
+ * Fetches raw model instances from storage. This read also handles the one-time
+ * migration from old string[] format to new ModelInstance[] format.
+ */
+export async function fetchSelectedModelInstances(): Promise<ModelInstance[]> {
+    const rows = await db.select<{ value: string }[]>(
+        `SELECT value FROM app_metadata WHERE key = 'selected_model_configs_compare'`,
+    );
 
-SELECT
-  mc.id,
-  mc.display_name,
-  mc.author,
-  mc.model_id,
-  mc.system_prompt,
-  m.is_enabled,
-  m.is_internal,
-  m.supported_attachment_types,
-  mc.is_default,
-  m.is_deprecated,
-  mc.budget_tokens,
-  mc.reasoning_effort,
-  em.original_order,
-  m.prompt_price_per_token,
-  m.completion_price_per_token
-FROM
-  extracted_models em
-JOIN
-  model_configs mc ON mc.id = em.model_config_id
-JOIN
-  models m ON mc.model_id = m.id
-ORDER BY
-  em.original_order;`,
+    if (rows.length === 0 || !rows[0].value) {
+        return [];
+    }
+
+    try {
+        const parsed: unknown = JSON.parse(rows[0].value);
+        if (!Array.isArray(parsed)) return [];
+        if (parsed.length === 0) return [];
+
+        // Check if it's the old format (array of strings) or new format (array
+        // of objects). If we detect the old format, we will convert strings to
+        // the new format (ModelInstance objects).
+        if (typeof parsed[0] === "string") {
+            const migrated: ModelInstance[] = parsed.map(
+                (modelConfigId: string): ModelInstance => ({
+                    modelConfigId,
+                    instanceId: generateInstanceId(),
+                }),
+            );
+
+            // Write the new migrated format to the database.
+            await db.execute(
+                "UPDATE app_metadata SET value = ? WHERE key = 'selected_model_configs_compare'",
+                [JSON.stringify(migrated)],
+            );
+
+            return migrated;
+        }
+
+        // New format: validate and return
+        return parsed.filter(isModelInstance);
+    } catch {
+        return [];
+    }
+}
+
+export async function fetchModelConfigsCompare(): Promise<
+    SelectedModelConfig[]
+> {
+    // First get the model instances to ensure migration happens if needed.
+    const instances = await fetchSelectedModelInstances();
+
+    if (instances.length === 0) return [];
+
+    // Extract unique model config IDs while preserving order
+    const modelConfigIds = instances.map((instance) => instance.modelConfigId);
+
+    // Build a VALUES entries clause, e.g.
+    // (0, $1), (1, $2), (2, $3), ...
+    const valuesEntries = modelConfigIds
+        .map((_, i) => `(${i}, $${i + 1})`)
+        .join(", ");
+
+    const rows = await db.select<ModelConfigDBRow[]>(
+        `WITH instance_order(position, config_id) AS (
+            VALUES ${valuesEntries}
         )
-    ).map(readModelConfig);
+        SELECT
+            mc.id,
+            mc.display_name,
+            mc.author,
+            mc.model_id,
+            mc.system_prompt,
+            m.is_enabled,
+            m.is_internal,
+            m.supported_attachment_types,
+            mc.is_default,
+            m.is_deprecated,
+            mc.budget_tokens,
+            mc.reasoning_effort,
+            m.prompt_price_per_token,
+            m.completion_price_per_token
+        FROM model_configs mc
+        JOIN models m ON mc.model_id = m.id
+        JOIN instance_order io ON mc.id = io.config_id
+        ORDER BY io.position`,
+        modelConfigIds,
+    );
+
+    // Combine each row with its corresponding instance's instanceId
+    return rows.map((row, index) => ({
+        ...readModelConfig(row),
+        instanceId: instances[index].instanceId,
+    }));
 }
 
 // TODO: This is unused and can be removed, row can be dropped
@@ -300,6 +359,10 @@ export function useModels() {
     return useQuery(modelQueries.list());
 }
 
+/**
+ * Returns the selected model configs for comparison with their instance IDs.
+ * This enables multi-instance selection support.
+ */
 export function useSelectedModelConfigsCompare() {
     return useQuery(modelConfigQueries.compare());
 }
