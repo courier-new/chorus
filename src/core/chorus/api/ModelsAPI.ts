@@ -31,10 +31,6 @@ export const modelConfigQueries = {
         queryKey: [...modelConfigKeys.all(), "list"] as const,
         queryFn: () => fetchModelConfigs(),
     }),
-    detail: (modelConfigId: string) => ({
-        queryKey: [...modelConfigKeys.all(), "detail", modelConfigId] as const,
-        queryFn: () => fetchModelConfigById(modelConfigId),
-    }),
     quickChat: () => ({
         queryKey: [...modelConfigKeys.all(), "quickChat"] as const,
         queryFn: () => fetchModelConfigQuickChat(),
@@ -191,6 +187,8 @@ ORDER BY
     ).map(readModelConfig);
 }
 
+// TODO: This is unused and can be removed, row can be dropped
+/** @deprecated */
 export async function fetchModelConfigChat() {
     const modelConfigChat = (
         await db.select<ModelConfigDBRow[]>(
@@ -300,10 +298,6 @@ export function useModelConfigsPromise() {
 
 export function useModels() {
     return useQuery(modelQueries.list());
-}
-
-export function useModelConfig(modelConfigId: string) {
-    return useQuery(modelConfigQueries.detail(modelConfigId));
 }
 
 export function useSelectedModelConfigsCompare() {
