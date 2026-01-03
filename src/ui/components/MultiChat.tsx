@@ -3018,6 +3018,7 @@ function MainScrollableContentView({
     const appMetadata = useWaitForAppMetadata();
     const { chatId } = useParams();
     const { isQuickChatWindow } = useAppContext();
+    const toggleVisionShortcut = useShortcutDisplay("toggle-vision");
 
     const messageSetsQuery = MessageAPI.useMessageSets(chatId!);
 
@@ -3182,8 +3183,12 @@ function MainScrollableContentView({
                 {appMetadata["has_dismissed_onboarding"] === "false" &&
                     isQuickChatWindow && (
                         <p className="text-sm text-muted-foreground">
-                            Welcome! Press <code>⌘I</code> to enable vision mode
-                            to let your Ambient Chat see your screen.
+                            Welcome!{" "}
+                            {toggleVisionShortcut
+                                ? `Press ${toggleVisionShortcut} to enable `
+                                : "Enable "}
+                            vision mode to let your Ambient Chat see your
+                            screen.
                         </p>
                     )}
 
