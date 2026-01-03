@@ -1,14 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { db } from "../DB";
-import { ModelConfig } from "../Models";
-import { modelConfigQueries } from "./ModelsAPI";
+import { ModelInstance, generateInstanceId } from "../Models";
+import { modelConfigQueries, maybeMigrateModelsToInstances } from "./ModelsAPI";
 import { fetchAppMetadata } from "./AppMetadataAPI";
 
 export interface ModelGroup {
     id: string;
     name: string;
     description: string | undefined;
-    modelConfigIds: string[];
+    modelInstances: ModelInstance[];
     createdAt: string;
     updatedAt: string;
 }
@@ -17,17 +17,36 @@ interface ModelGroupDBRow {
     id: string;
     name: string;
     description: string | null;
-    model_config_ids: string;
+    model_config_ids: string; // JSON string, originally a string[] of model config IDs but has since been migrated to ModelInstance[]
     created_at: string;
     updated_at: string;
 }
 
-function readModelGroup(row: ModelGroupDBRow): ModelGroup {
+/**
+ * Reads a model group from DB row. This read also handles the one-time
+ * migration from old string[] format to new ModelInstance[] format.
+ */
+async function readModelGroup(row: ModelGroupDBRow): Promise<ModelGroup> {
+    const parsed: unknown = JSON.parse(row.model_config_ids);
+    let modelInstances: ModelInstance[] = [];
+
+    if (Array.isArray(parsed) && parsed.length > 0) {
+        const [instances, wasMigrated] = maybeMigrateModelsToInstances(parsed);
+
+        if (wasMigrated) {
+            await db.execute(
+                "UPDATE model_groups SET model_config_ids = ? WHERE id = ?",
+                [JSON.stringify(instances), row.id],
+            );
+        }
+        modelInstances = instances;
+    }
+
     return {
         id: row.id,
         name: row.name,
         description: row.description ?? undefined,
-        modelConfigIds: JSON.parse(row.model_config_ids) as string[],
+        modelInstances,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
     };
@@ -59,7 +78,7 @@ export async function fetchModelGroups(): Promise<ModelGroup[]> {
     const rows = await db.select<ModelGroupDBRow[]>(
         `SELECT * FROM model_groups ORDER BY created_at DESC`,
     );
-    return rows.map(readModelGroup);
+    return Promise.all(rows.map(readModelGroup));
 }
 
 export async function fetchModelGroup(
@@ -115,17 +134,17 @@ export function useCreateModelGroup() {
             id,
             name,
             description,
-            modelConfigIds,
+            modelInstances,
         }: {
             id: string;
             name: string;
             description: string | undefined;
-            modelConfigIds: string[];
+            modelInstances: ModelInstance[];
         }) => {
             await db.execute(
                 `INSERT INTO model_groups (id, name, description, model_config_ids)
                  VALUES (?, ?, ?, ?)`,
-                [id, name, description ?? null, JSON.stringify(modelConfigIds)],
+                [id, name, description ?? null, JSON.stringify(modelInstances)],
             );
 
             // Set as active group
@@ -146,7 +165,7 @@ export function useCreateModelGroup() {
 }
 
 /**
- * Update a model group's name, description, and/or model_config_ids
+ * Update a model group's name, description, and/or instances
  */
 export function useUpdateModelGroup() {
     const queryClient = useQueryClient();
@@ -156,12 +175,12 @@ export function useUpdateModelGroup() {
             id,
             name,
             description,
-            modelConfigIds,
+            modelInstances,
         }: {
             id: string;
             name?: string;
             description?: string;
-            modelConfigIds?: string[];
+            modelInstances?: ModelInstance[];
         }) => {
             const updates: string[] = [];
             const params: (string | null)[] = [];
@@ -174,9 +193,9 @@ export function useUpdateModelGroup() {
                 updates.push("description = ?");
                 params.push(description ?? null);
             }
-            if (modelConfigIds !== undefined) {
+            if (modelInstances !== undefined) {
                 updates.push("model_config_ids = ?");
-                params.push(JSON.stringify(modelConfigIds));
+                params.push(JSON.stringify(modelInstances));
             }
 
             if (updates.length > 0) {
@@ -233,29 +252,26 @@ export function useDeleteModelGroup() {
 }
 
 /**
- * Set a group as active and update selected models to match the group
+ * Set a group as active and restore its instances to the selection
  */
 export function useSetActiveModelGroup() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationKey: ["setActiveModelGroup"] as const,
-        mutationFn: async ({
-            groupId,
-            modelConfigs,
-        }: {
-            groupId: string;
-            modelConfigs: ModelConfig[];
-        }) => {
+        mutationFn: async ({ groupId }: { groupId: string }) => {
+            const group = await fetchModelGroup(groupId);
+            if (!group) return;
+
             // Set the active group ID
             await db.execute(
                 `UPDATE app_metadata SET value = ? WHERE key = 'active_model_group_id'`,
                 [groupId],
             );
 
-            // Update selected_model_configs_compare with the group's models
+            // Update selected_model_configs_compare with the group's model instances
             await db.execute(
                 `UPDATE app_metadata SET value = ? WHERE key = 'selected_model_configs_compare'`,
-                [JSON.stringify(modelConfigs.map((m) => m.id))],
+                [JSON.stringify(group.modelInstances)],
             );
         },
         onSuccess: async () => {
@@ -289,12 +305,12 @@ export function useClearActiveModelGroup() {
 }
 
 /**
- * Add a model to the active group's model_config_ids
+ * Add an instance of a model to the active group
  */
-export function useAddModelToActiveGroup() {
+export function useAddInstanceToActiveGroup() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationKey: ["addModelToActiveGroup"] as const,
+        mutationKey: ["addInstanceToActiveGroup"] as const,
         mutationFn: async ({
             groupId,
             modelConfigId,
@@ -305,50 +321,16 @@ export function useAddModelToActiveGroup() {
             const group = await fetchModelGroup(groupId);
             if (!group) return;
 
-            // Add model if not already in the group
-            if (!group.modelConfigIds.includes(modelConfigId)) {
-                const updatedIds = [...group.modelConfigIds, modelConfigId];
-                await db.execute(
-                    `UPDATE model_groups SET model_config_ids = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-                    [JSON.stringify(updatedIds), groupId],
-                );
-            }
-        },
-        onSuccess: async (_data, variables) => {
-            await queryClient.invalidateQueries({
-                queryKey: modelGroupKeys.list(),
-            });
-            await queryClient.invalidateQueries({
-                queryKey: modelGroupKeys.detail(variables.groupId),
-            });
-        },
-    });
-}
+            // Add a new instance (supports multiple instances of the same model)
+            const newInstance: ModelInstance = {
+                modelConfigId,
+                instanceId: generateInstanceId(),
+            };
+            const updatedInstances = [...group.modelInstances, newInstance];
 
-/**
- * Remove a model from the active group's model_config_ids
- */
-export function useRemoveModelFromActiveGroup() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationKey: ["removeModelFromActiveGroup"] as const,
-        mutationFn: async ({
-            groupId,
-            modelConfigId,
-        }: {
-            groupId: string;
-            modelConfigId: string;
-        }) => {
-            const group = await fetchModelGroup(groupId);
-            if (!group) return;
-
-            // Remove model from group
-            const updatedIds = group.modelConfigIds.filter(
-                (id) => id !== modelConfigId,
-            );
             await db.execute(
                 `UPDATE model_groups SET model_config_ids = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-                [JSON.stringify(updatedIds), groupId],
+                [JSON.stringify(updatedInstances), groupId],
             );
         },
         onSuccess: async (_data, variables) => {
@@ -363,22 +345,75 @@ export function useRemoveModelFromActiveGroup() {
 }
 
 /**
- * Update the active group's model order after drag-and-drop
+ * Remove last instance of a model config from the provided group
  */
-export function useUpdateActiveGroupOrder() {
+export function useRemoveInstanceFromActiveGroup() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationKey: ["updateActiveGroupOrder"] as const,
+        mutationKey: ["removeInstanceFromActiveGroup"] as const,
         mutationFn: async ({
             groupId,
-            modelConfigIds,
+            modelConfigId,
         }: {
             groupId: string;
-            modelConfigIds: string[];
+            modelConfigId: string;
         }) => {
+            const group = await fetchModelGroup(groupId);
+            if (!group) return;
+
+            // Find the last instance of this model and remove it
+            const lastIndex = group.modelInstances
+                .map((i) => i.modelConfigId)
+                .lastIndexOf(modelConfigId);
+
+            if (lastIndex === -1) return;
+
+            const updatedInstances = [
+                ...group.modelInstances.slice(0, lastIndex),
+                ...group.modelInstances.slice(lastIndex + 1),
+            ];
+
             await db.execute(
                 `UPDATE model_groups SET model_config_ids = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-                [JSON.stringify(modelConfigIds), groupId],
+                [JSON.stringify(updatedInstances), groupId],
+            );
+        },
+        onSuccess: async (_data, variables) => {
+            await queryClient.invalidateQueries({
+                queryKey: modelGroupKeys.list(),
+            });
+            await queryClient.invalidateQueries({
+                queryKey: modelGroupKeys.detail(variables.groupId),
+            });
+        },
+    });
+}
+
+/**
+ * Remove all instances of a model config from the provided group
+ */
+export function useRemoveAllInstancesFromActiveGroup() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey: ["removeAllInstancesFromActiveGroup"] as const,
+        mutationFn: async ({
+            groupId,
+            modelConfigId,
+        }: {
+            groupId: string;
+            modelConfigId: string;
+        }) => {
+            const group = await fetchModelGroup(groupId);
+            if (!group) return;
+
+            // Remove all instances of this model
+            const updatedInstances = group.modelInstances.filter(
+                (i) => i.modelConfigId !== modelConfigId,
+            );
+
+            await db.execute(
+                `UPDATE model_groups SET model_config_ids = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+                [JSON.stringify(updatedInstances), groupId],
             );
         },
         onSuccess: async (_data, variables) => {

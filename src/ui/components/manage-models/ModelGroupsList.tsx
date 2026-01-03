@@ -1,8 +1,8 @@
 import { v4 as uuidv4 } from "uuid";
 import { Button } from "../ui/button";
 import { PencilIcon, PlusIcon, TrashIcon } from "lucide-react";
-import { ModelConfig } from "@core/chorus/Models";
 import * as ModelGroupsAPI from "@core/chorus/api/ModelGroupsAPI";
+import * as ModelsAPI from "@core/chorus/api/ModelsAPI";
 import { ModelGroupForm } from "./ModelGroupForm";
 import { CommandGroup, CommandItem } from "../ui/command";
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -92,9 +92,6 @@ function DeleteConfirmButton({
 interface ModelGroupsListProps {
     isVisible?: boolean;
     onToggleVisibility: () => void;
-    selectedModelConfigs: ModelConfig[];
-    activeGroupId: string;
-    allModelConfigs: ModelConfig[]; // All available model configs
 }
 
 type FormMode = "hidden" | "create" | "edit";
@@ -102,10 +99,12 @@ type FormMode = "hidden" | "create" | "edit";
 export function ModelGroupsList({
     isVisible = true,
     onToggleVisibility,
-    selectedModelConfigs,
-    activeGroupId,
-    allModelConfigs,
 }: ModelGroupsListProps) {
+    const { data: selectedModelConfigs = [] } =
+        ModelsAPI.useSelectedModelConfigsCompare();
+    const { data: allModelConfigs = [] } = ModelsAPI.useModelConfigs();
+
+    const { data: activeGroupId } = ModelGroupsAPI.useActiveModelGroupId();
     const { data: groups = [] } = ModelGroupsAPI.useModelGroups();
     const createGroup = ModelGroupsAPI.useCreateModelGroup();
     const updateGroup = ModelGroupsAPI.useUpdateModelGroup();
@@ -154,7 +153,10 @@ export function ModelGroupsList({
                     id: groupId,
                     name: name.trim(),
                     description: description.trim(),
-                    modelConfigIds: selectedModelConfigs.map((m) => m.id),
+                    modelInstances: selectedModelConfigs.map((m) => ({
+                        modelConfigId: m.id,
+                        instanceId: m.instanceId,
+                    })),
                 });
             } else if (formMode === "edit" && editingGroupId) {
                 await updateGroup.mutateAsync({
@@ -190,17 +192,11 @@ export function ModelGroupsList({
                 return;
             }
 
-            // Get the model configs for this group, filtering out any that no longer exist
-            const groupModelConfigs = group.modelConfigIds
-                .map((id) => allModelConfigs.find((mc) => mc.id === id))
-                .filter((mc): mc is ModelConfig => mc !== undefined);
-
             await setActiveGroup.mutateAsync({
                 groupId: group.id,
-                modelConfigs: groupModelConfigs,
             });
         },
-        [activeGroupId, allModelConfigs, setActiveGroup],
+        [activeGroupId, setActiveGroup],
     );
 
     return (
@@ -268,11 +264,13 @@ export function ModelGroupsList({
                         const isActive = activeGroupId === group.id;
                         const isEditing =
                             formMode === "edit" && editingGroupId === group.id;
-                        const modelNames = group.modelConfigIds
+                        const modelNames = group.modelInstances
                             .map(
-                                (id) =>
-                                    allModelConfigs.find((mc) => mc.id === id)
-                                        ?.displayName,
+                                (instance) =>
+                                    allModelConfigs.find(
+                                        (mc) =>
+                                            mc.id === instance.modelConfigId,
+                                    )?.displayName,
                             )
                             .filter(
                                 (name): name is string => name !== undefined,
