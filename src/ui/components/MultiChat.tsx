@@ -86,11 +86,7 @@ import { SUMMARY_DIALOG_ID, SummaryDialog } from "./SummaryDialog";
 import { FindInPage } from "./FindInPage";
 import { useEditable } from "use-editable";
 import { EditableTitle } from "./EditableTitle";
-import {
-    CompareBlockView,
-    ChatBlockView,
-    BrainstormBlockView,
-} from "@ui/components/MultiChatDeprecationPath";
+import { DeprecatedBlockView } from "@ui/components/MultiChatDeprecationPath";
 import { Separator } from "./ui/separator";
 import { Toggle } from "./ui/toggle";
 import { CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
@@ -2060,20 +2056,6 @@ const MessageSetView = memo(
                             userMessageRef={userMessageRef}
                             isQuickChatWindow={isQuickChatWindow}
                         />
-                    ) : messageSet.selectedBlockType === "compare" ? (
-                        <CompareBlockView
-                            messageSetId={messageSetId}
-                            compareBlock={messageSet.compareBlock}
-                            isLastRow={isLastRow}
-                            isQuickChatWindow={isQuickChatWindow}
-                        />
-                    ) : messageSet.selectedBlockType === "chat" ? (
-                        <ChatBlockView
-                            messageSetId={messageSetId}
-                            chatBlock={messageSet.chatBlock}
-                            isLastRow={isLastRow}
-                            isQuickChatWindow={isQuickChatWindow}
-                        />
                     ) : messageSet.selectedBlockType === "tools" ? (
                         <ToolsBlockView
                             messageSetId={messageSetId}
@@ -2081,11 +2063,9 @@ const MessageSetView = memo(
                             isLastRow={isLastRow}
                             isQuickChatWindow={isQuickChatWindow}
                         />
-                    ) : messageSet.selectedBlockType === "brainstorm" ? (
-                        <BrainstormBlockView
-                            brainstormBlock={messageSet.brainstormBlock}
-                        />
-                    ) : null}
+                    ) : (
+                        <DeprecatedBlockView />
+                    )}
                 </div>
             </div>
         );
