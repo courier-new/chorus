@@ -367,6 +367,18 @@ export function useSelectedModelConfigsCompare() {
     return useQuery(modelConfigQueries.compare());
 }
 
+/**
+ * Returns any selected model config instances for the given model config ID.
+ * @param modelConfigId - The ID of the model config to get the instances for.
+ */
+export function useSelectedModelConfigInstances(modelConfigId: string) {
+    const { data: selectedModelConfigsCompare = [] } =
+        useSelectedModelConfigsCompare();
+    return selectedModelConfigsCompare.filter(
+        (config) => config.id === modelConfigId,
+    );
+}
+
 export function useSelectedModelConfigQuickChat() {
     return useQuery(modelConfigQueries.quickChat());
 }
