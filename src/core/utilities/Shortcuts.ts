@@ -507,7 +507,7 @@ export function comboToDisplayString(
         delete: "⌦",
         escape: "⎋",
         tab: "⇥",
-        space: "Space",
+        space: "␣",
         arrowup: "↑",
         arrowdown: "↓",
         arrowleft: "←",
@@ -518,7 +518,9 @@ export function comboToDisplayString(
 
     return [
         ...modifiers.map((m) => symbolMap[m.toLowerCase()]),
-        ...mainKeys,
+        ...mainKeys.map((k) =>
+            k.toLowerCase() in symbolMap ? symbolMap[k.toLowerCase()] : k,
+        ),
     ].join(withPlus ? "+" : "");
 }
 
