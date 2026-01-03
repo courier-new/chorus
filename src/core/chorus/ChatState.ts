@@ -51,6 +51,8 @@ export interface Message {
     costUsd?: number;
     // UI state
     isCollapsed?: boolean;
+    // For distinguishing multiple instances of the same model config
+    instanceId?: string;
 }
 
 export interface MessagePart {
@@ -70,6 +72,7 @@ export function createAIMessage({
     selected = false,
     isReview = false,
     level,
+    instanceId,
 }: {
     chatId: string;
     messageSetId: string;
@@ -78,6 +81,7 @@ export function createAIMessage({
     selected?: boolean;
     isReview?: boolean;
     level?: number;
+    instanceId?: string;
 }): Omit<Message, "id" | "streamingToken" | "parts"> {
     return {
         chatId,
@@ -94,6 +98,7 @@ export function createAIMessage({
         level,
         replyChatId: undefined,
         branchedFromId: undefined,
+        instanceId,
     };
 }
 
@@ -306,6 +311,15 @@ function encodeBrainstormBlock(block: BrainstormBlock): LLMMessage[] {
 }
 
 function encodeCompareBlockForSynthesis(block: CompareBlock): LLMMessage[] {
+    const modelCounts: Record<string, number> = {};
+    for (const message of block.messages) {
+        modelCounts[message.model] = (modelCounts[message.model] ?? 0) + 1;
+    }
+    // If all the models are only present once, we can omit the instance numbering
+    const shouldLabelInstances = Object.values(modelCounts).some(
+        (count) => count > 1,
+    );
+
     // include all responses, regardless of whether they're selected
     return [
         {
@@ -313,12 +327,14 @@ function encodeCompareBlockForSynthesis(block: CompareBlock): LLMMessage[] {
             content: `${Prompts.SYNTHESIS_INTERJECTION}
 
         ${block.messages
-            .map(
-                (message) =>
-                    `<perspective sender="${message.model}">
+            .map((message) => {
+                const senderLabel = shouldLabelInstances
+                    ? `${message.model} (${modelCounts[message.model]})`
+                    : message.model;
+                return `<perspective sender="${senderLabel}">
 ${message.text}
-</perspective>`,
-            )
+</perspective>`;
+            })
             .join("\n\n")}`,
             attachments: [],
         },
@@ -326,6 +342,15 @@ ${message.text}
 }
 
 function encodeToolsBlockForSynthesis(block: ToolsBlock): LLMMessage[] {
+    const modelCounts: Record<string, number> = {};
+    for (const message of block.chatMessages) {
+        modelCounts[message.model] = (modelCounts[message.model] ?? 0) + 1;
+    }
+    // If all the models are only present once, we can omit the instance numbering
+    const shouldLabelInstances = Object.values(modelCounts).some(
+        (count) => count > 1,
+    );
+
     const result: LLMMessage[] = [
         {
             role: "user",
@@ -335,7 +360,10 @@ ${block.chatMessages
     .map((message) => {
         // For tools block messages, content is in parts
         const messageContent = message.parts.map((p) => p.content).join("\n\n");
-        return `<perspective sender="${message.model}">
+        const senderLabel = shouldLabelInstances
+            ? `${message.model} (${modelCounts[message.model]})`
+            : message.model;
+        return `<perspective sender="${senderLabel}">
 ${messageContent}
 </perspective>`;
     })
