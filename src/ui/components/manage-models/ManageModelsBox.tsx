@@ -21,13 +21,7 @@ import {
     getProviderLabel,
     getProviderName,
 } from "@core/chorus/Models";
-import {
-    PlusIcon,
-    RefreshCcwIcon,
-    XIcon,
-    ArrowBigUpIcon,
-    CircleCheckIcon,
-} from "lucide-react";
+import { PlusIcon, RefreshCcwIcon, XIcon, CircleCheckIcon } from "lucide-react";
 import { ProviderLogo } from "../ui/provider-logo";
 import {
     CommandDialog,
@@ -50,6 +44,7 @@ import { ModelGroupsList } from "./ModelGroupsList";
 import { useShiftKey } from "../hooks/useShiftKey";
 import { SectionHeading } from "./SectionHeading";
 import { useSettings } from "../hooks/useSettings";
+import { useShortcutDisplay } from "@core/utilities/ShortcutsAPI";
 
 // Helper function to filter models by search terms
 const filterBySearch = (models: ModelConfig[], searchTerms: string[]) => {
@@ -346,6 +341,7 @@ export function ManageModelsBox({
     mode: ModelPickerMode;
     id: string; // Allow any string ID for flexibility
 }) {
+    const clearModelsShortcut = useShortcutDisplay("clear-models");
     const { data: apiKeys } = AppMetadataAPI.useApiKeys();
     const navigate = useNavigate();
     const isDialogClosed = useDialogStore(
@@ -769,11 +765,13 @@ export function ManageModelsBox({
                                                         title="Clear all models"
                                                     >
                                                         Clear{" "}
-                                                        <span className="text-[10px] inline-flex items-center gap-0.5 bg-muted-foreground/10 rounded px-1 py-0.5">
-                                                            <span>⌘</span>
-                                                            <ArrowBigUpIcon className="w-2.5 h-2.5 -mt-0.5" />
-                                                            <span>⌫</span>
-                                                        </span>
+                                                        {clearModelsShortcut && (
+                                                            <span className="text-[10px] inline-flex items-center gap-0.5 bg-muted-foreground/10 rounded px-1 py-0.5">
+                                                                {
+                                                                    clearModelsShortcut
+                                                                }
+                                                            </span>
+                                                        )}
                                                     </button>
                                                 </div>
                                             )}
