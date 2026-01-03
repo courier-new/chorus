@@ -3514,7 +3514,7 @@ export function useGetSelectedModelConfigs() {
  * Removes a message from the conversation.
  * Used when a model errors out or returns an empty response.
  * Note: Model deselection should be handled separately by the UI component
- * using useUpdateSelectedModelConfigsCompare and useClearActiveModelGroup.
+ * using useRemoveModelInstance and useClearActiveModelGroup.
  */
 export function useRemoveMessage() {
     const queryClient = useQueryClient();

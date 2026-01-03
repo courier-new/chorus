@@ -125,6 +125,12 @@ import * as MessageAPI from "@core/chorus/api/MessageAPI";
 import * as ChatAPI from "@core/chorus/api/ChatAPI";
 import * as ProjectAPI from "@core/chorus/api/ProjectAPI";
 import * as ModelsAPI from "@core/chorus/api/ModelsAPI";
+import {
+    useSelectedModelConfigsCompare,
+    useAddModelInstance,
+    useRemoveModelInstance,
+    useRemoveAllModelInstances,
+} from "@core/chorus/api/ModelsAPI";
 import * as ModelGroupsAPI from "@core/chorus/api/ModelGroupsAPI";
 import * as AttachmentsAPI from "@core/chorus/api/AttachmentsAPI";
 import * as DraftAPI from "@core/chorus/api/DraftAPI";
@@ -1243,10 +1249,9 @@ export function ToolsMessageView({
     const { mutate: deselectSynthesis, isPending: isDeselectingSynthesis } =
         MessageAPI.useDeselectSynthesis();
     const { mutateAsync: removeMessage } = MessageAPI.useRemoveMessage();
-    const { mutateAsync: updateSelectedModelConfigsCompare } =
-        MessageAPI.useUpdateSelectedModelConfigsCompare();
-    const { data: selectedModelConfigsCompare = [] } =
-        ModelsAPI.useSelectedModelConfigsCompare();
+    const { mutateAsync: removeModelInstance } = useRemoveModelInstance();
+    const { mutateAsync: removeAllModelInstances } =
+        useRemoveAllModelInstances();
     const { mutate: clearActiveGroup } =
         ModelGroupsAPI.useClearActiveModelGroup();
     const modelConfigsQuery = ModelsAPI.useModelConfigs();
@@ -1296,7 +1301,7 @@ export function ToolsMessageView({
         );
     }, [message.parts, message.state]);
 
-    // Handler to remove a failed message and deselect its model
+    // Handler to remove a failed message and deselect its model config instance
     const handleRemoveFailedMessage = useCallback(async () => {
         // 1. Remove the message from the database
         await removeMessage({
@@ -1304,23 +1309,29 @@ export function ToolsMessageView({
             messageId: message.id,
         });
 
-        // 2. Deselect the model from selected_model_configs_compare
-        const newModelConfigs = selectedModelConfigsCompare.filter(
-            (m) => m.id !== message.model,
-        );
-        await updateSelectedModelConfigsCompare({
-            modelConfigs: newModelConfigs ?? [],
-        });
+        // 2. Remove the specific instance from selected model configs
+        if (message.instanceId) {
+            await removeModelInstance({
+                instanceId: message.instanceId,
+            });
+        } else {
+            // For backwards compatibility with messages without an instance id,
+            // remove all instances of that model config from selection.
+            await removeAllModelInstances({
+                modelConfigId: message.model,
+            });
+        }
 
         // 3. Clear active model group (since selection changed)
         clearActiveGroup();
     }, [
         removeMessage,
+        removeModelInstance,
+        removeAllModelInstances,
         message.chatId,
         message.id,
+        message.instanceId,
         message.model,
-        selectedModelConfigsCompare,
-        updateSelectedModelConfigsCompare,
         clearActiveGroup,
     ]);
 
