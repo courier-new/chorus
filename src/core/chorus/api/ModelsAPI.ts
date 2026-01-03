@@ -151,11 +151,29 @@ export async function fetchModels() {
     );
 }
 
+export function maybeMigrateModelsToInstances(
+    configs: unknown[],
+): [instances: ModelInstance[], wasMigrated: boolean] {
+    // Check if it's the old format (array of strings) or new format (array
+    // of objects). If we detect the old format, we will convert strings to
+    // the new format (ModelInstance objects).
+    if (typeof configs[0] === "string") {
+        const migrated = (configs as string[]).map(
+            (modelConfigId): ModelInstance => ({
+                modelConfigId,
+                instanceId: generateInstanceId(),
+            }),
+        );
+        return [migrated, true];
+    }
+    return [configs.filter(isModelInstance), false];
+}
+
 /**
  * Fetches raw model instances from storage. This read also handles the one-time
  * migration from old string[] format to new ModelInstance[] format.
  */
-export async function fetchSelectedModelInstances(): Promise<ModelInstance[]> {
+async function fetchSelectedModelInstances(): Promise<ModelInstance[]> {
     const rows = await db.select<{ value: string }[]>(
         `SELECT value FROM app_metadata WHERE key = 'selected_model_configs_compare'`,
     );
@@ -166,31 +184,19 @@ export async function fetchSelectedModelInstances(): Promise<ModelInstance[]> {
 
     try {
         const parsed: unknown = JSON.parse(rows[0].value);
-        if (!Array.isArray(parsed)) return [];
-        if (parsed.length === 0) return [];
+        if (!Array.isArray(parsed) || parsed.length === 0) return [];
 
-        // Check if it's the old format (array of strings) or new format (array
-        // of objects). If we detect the old format, we will convert strings to
-        // the new format (ModelInstance objects).
-        if (typeof parsed[0] === "string") {
-            const migrated: ModelInstance[] = parsed.map(
-                (modelConfigId: string): ModelInstance => ({
-                    modelConfigId,
-                    instanceId: generateInstanceId(),
-                }),
-            );
+        const [instances, wasMigrated] = maybeMigrateModelsToInstances(parsed);
 
+        if (wasMigrated) {
             // Write the new migrated format to the database.
             await db.execute(
                 "UPDATE app_metadata SET value = ? WHERE key = 'selected_model_configs_compare'",
-                [JSON.stringify(migrated)],
+                [JSON.stringify(instances)],
             );
-
-            return migrated;
         }
 
-        // New format: validate and return
-        return parsed.filter(isModelInstance);
+        return instances;
     } catch {
         return [];
     }
