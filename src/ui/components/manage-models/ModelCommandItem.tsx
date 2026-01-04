@@ -20,6 +20,9 @@ import { useShortcut } from "@ui/hooks/useShortcut";
 import { MANAGE_MODELS_COMPARE_DIALOG_ID } from "./ManageModelsBox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 
+// We arbitrarily set an upper limit the number of concurrently selected
+// instances per model to avoid overcrowding the UI and excessive comparison
+// complexity/performance cost.
 const MAX_INSTANCES_PER_MODEL = 5;
 
 // Helper function to format pricing for display (per million tokens)

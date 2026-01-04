@@ -1169,7 +1169,6 @@ export function ToolsReplyCountView({
     const messageSetsQuery = MessageAPI.useMessageSets(replyChatId);
 
     const replyCount = useMemo(() => {
-        console.log(messageSetsQuery.data, chatQuery.data);
         return filterReplyMessageSets(
             messageSetsQuery.data,
             chatQuery.data,
