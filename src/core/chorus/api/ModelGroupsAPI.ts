@@ -93,7 +93,7 @@ export async function fetchModelGroup(
 
 export async function fetchActiveModelGroupId(): Promise<string> {
     const appMetadata = await fetchAppMetadata();
-    return appMetadata.active_model_group_id || ("NONE" as const);
+    return appMetadata.active_model_group_id || ("" as const);
 }
 
 export function useModelGroups() {
