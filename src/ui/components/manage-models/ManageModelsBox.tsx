@@ -33,7 +33,7 @@ import {
     ModelPickerMultiSelectProps,
     ModelPickerToggleProps,
 } from "./ModelCommandItem";
-import { ActiveReadOnlyModelGroupSection } from "./ActiveReadOnlyModelGroupSection";
+import { ActiveModelGroupSection } from "./ActiveReadOnlyModelGroupSection";
 
 // Helper function to filter models by search terms
 const filterBySearch = (models: ModelConfig[], searchTerms: string[]) => {
@@ -303,23 +303,17 @@ export function ManageModelsBox({
                 />
             </div>
             <CommandList ref={listRef}>
+                {mode === "MULTI" && searchQuery && <ActiveModelGroupSection />}
+
                 {!hasAnyMatches && <CommandEmpty>No models found</CommandEmpty>}
 
                 {/* Model Groups Section */}
-                {mode === "MULTI" &&
-                    (searchQuery ? (
-                        <ActiveReadOnlyModelGroupSection
-                            isGroupsSectionVisible={sectionsVisibility.groups}
-                            onToggleGroupsSectionVisibility={() =>
-                                toggleSection("groups")
-                            }
-                        />
-                    ) : (
-                        <ModelGroupsList
-                            isVisible={sectionsVisibility.groups}
-                            onToggleVisibility={() => toggleSection("groups")}
-                        />
-                    ))}
+                {mode === "MULTI" && !searchQuery && (
+                    <ModelGroupsList
+                        isVisible={sectionsVisibility.groups}
+                        onToggleVisibility={() => toggleSection("groups")}
+                    />
+                )}
 
                 {/* OpenRouter Models - main list */}
                 {modelSections.openrouter.length > 0 && (

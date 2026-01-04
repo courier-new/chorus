@@ -208,7 +208,7 @@ export function ModelCommandItem({
                         )}
                     </div>
                 </div>
-                <div className="flex items-center gap-1 h-5">
+                <div className="flex items-center gap-2 h-5">
                     {!isModelAllowed ? (
                         <Button
                             variant="link"
@@ -276,7 +276,10 @@ function MultiSelectModelSelectionHelpText({
             }
             return "⤶ to remove all";
         }
-        return "⤶ to add" + (activeGroupId ? " / ⇧⤶ to add to group" : "");
+        if (activeGroupId && shiftKeyEnabled) {
+            return "⇧⤶ to add to group";
+        }
+        return "⤶ to add";
     }, [activeGroupId, instanceCount, shiftKeyEnabled]);
 
     return (
@@ -327,24 +330,24 @@ function InstanceControls({
     );
 
     return (
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-1">
             {/* Remove instance button */}
             <button
                 ref={minusRef}
-                className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30"
+                className="w-5 h-5 inline-flex items-center justify-center rounded-full hover:bg-muted/75 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30"
                 onClick={handleRemove}
             >
                 <MinusIcon className="w-3.5 h-3.5" />
             </button>
 
             {/* Instance count badge */}
-            <span className="inline-flex items-center justify-center w-5 h-5 text-[11px] font-medium rounded-full bg-primary text-primary-foreground">
+            <span className="inline-flex items-center justify-center w-5 h-5 text-sm font-medium rounded-full bg-primary text-primary-foreground">
                 {instanceCount}
             </span>
 
             {/* Add instance button */}
             <button
-                className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30"
+                className="w-5 h-5 inline-flex items-center justify-center rounded-full hover:bg-muted/75 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30"
                 onClick={handleAdd}
                 disabled={!canAddMore}
             >

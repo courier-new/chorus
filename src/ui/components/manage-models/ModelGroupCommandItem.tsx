@@ -161,7 +161,11 @@ export function ModelGroupCommandItem({
                         />
                     )}
                 </div>
-                {isActive && <ActivePill />}
+                {isActive && (
+                    <span className="bg-accent-500 rounded-full px-1.5 py-1 text-primary-foreground text-xs font-medium">
+                        Active
+                    </span>
+                )}
             </div>
             {isEditing && (
                 // Set background color to primary[0.5] to match the active state
@@ -179,62 +183,6 @@ export function ModelGroupCommandItem({
                 </div>
             )}
         </CommandItem>
-    );
-}
-
-// Read-only variant of the model group item that is not a command item
-export function ReadonlyModelGroupItem({ group }: { group: ModelGroup }) {
-    const { data: activeGroupId } = ModelGroupsAPI.useActiveModelGroupId();
-    const isActive = activeGroupId === group.id;
-
-    const [fullModelNames, truncatedModelNames] = useModelNames(
-        group,
-        isActive,
-    );
-    return (
-        <div className="relative flex cursor-default gap-2 select-none items-center rounded-sm px-2 py-3 border border-transparent">
-            <div className="flex items-center justify-between w-full gap-1.5">
-                <div className="flex-1 min-w-0">
-                    <div className="flex min-w-0 gap-1">
-                        <p className="min-w-fit">
-                            {group.name}
-                            {group.description && ":"}
-                        </p>
-                        <span
-                            className="text-muted-foreground truncate"
-                            title={group.description}
-                        >
-                            {group.description}
-                        </span>
-                    </div>
-                    <p
-                        className="text-xs text-muted-foreground mt-1.5"
-                        title={fullModelNames}
-                    >
-                        {truncatedModelNames}
-                        {isActive && (
-                            <>
-                                <DotIcon className="inline-block !w-2.5 !h-2.5 mx-1" />
-                                <span className="text-helper">
-                                    (add/remove with ⇧)
-                                </span>
-                            </>
-                        )}
-                    </p>
-                </div>
-
-                {isActive && <ActivePill />}
-            </div>
-        </div>
-    );
-}
-
-// Pill to indicate that a model group is active
-function ActivePill() {
-    return (
-        <span className="bg-accent-500 rounded-full px-1.5 py-1 text-primary-foreground text-xs font-medium">
-            Active
-        </span>
     );
 }
 

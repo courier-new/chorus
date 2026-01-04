@@ -368,6 +368,20 @@ body {
     animation: shimmer 5s infinite linear;
 }
 
+@keyframes accentPulse {
+    0%,
+    100% {
+        background-color: hsl(30 47% 63%); /* accent-500 */
+    }
+    50% {
+        background-color: hsl(29 52% 82%); /* accent-300 - brighter */
+    }
+}
+
+.animate-accent-pulse {
+    animation: accentPulse 2s ease-in-out infinite;
+}
+
 /*
 
 Atom One Light by Daniel Gamage

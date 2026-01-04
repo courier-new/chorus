@@ -101,6 +101,7 @@ const CommandInput = React.forwardRef<
                     className="ml-2 hover:opacity-70 transition-opacity"
                     type="button"
                     aria-label="Clear search"
+                    title="Clear search"
                 >
                     <XCircle className="!h-4 !w-4 text-muted-foreground" />
                 </button>
