@@ -37,6 +37,10 @@ function truncateModelNames(modelNames: string[], maxLength: number): string {
     );
 }
 
+// There's less horizontal real estate for the model names when a group is active.
+const ACTIVE_MAX_MODEL_NAME_CHARACTERS = 75;
+const INACTIVE_MAX_MODEL_NAME_CHARACTERS = 95;
+
 /**
  * Hook to format the model display names for a model group.
  *
@@ -59,7 +63,12 @@ function useModelNames(
         .filter((name): name is string => name !== undefined);
 
     const fullString = modelNames.join(", ");
-    const truncatedString = truncateModelNames(modelNames, isActive ? 75 : 95);
+    const truncatedString = truncateModelNames(
+        modelNames,
+        isActive
+            ? ACTIVE_MAX_MODEL_NAME_CHARACTERS
+            : INACTIVE_MAX_MODEL_NAME_CHARACTERS,
+    );
     return [fullString, truncatedString];
 }
 
