@@ -38,8 +38,8 @@ function truncateModelNames(modelNames: string[], maxLength: number): string {
 }
 
 // There's less horizontal real estate for the model names when a group is active.
-const ACTIVE_MAX_MODEL_NAME_CHARACTERS = 75;
-const INACTIVE_MAX_MODEL_NAME_CHARACTERS = 95;
+const ACTIVE_MAX_MODEL_NAME_CHARACTERS = 70;
+const INACTIVE_MAX_MODEL_NAME_CHARACTERS = 90;
 
 /**
  * Hook to format the model display names for a model group.
