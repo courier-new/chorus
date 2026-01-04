@@ -125,12 +125,6 @@ import * as MessageAPI from "@core/chorus/api/MessageAPI";
 import * as ChatAPI from "@core/chorus/api/ChatAPI";
 import * as ProjectAPI from "@core/chorus/api/ProjectAPI";
 import * as ModelsAPI from "@core/chorus/api/ModelsAPI";
-import {
-    useSelectedModelConfigsCompare,
-    useAddModelInstance,
-    useRemoveModelInstance,
-    useRemoveAllModelInstances,
-} from "@core/chorus/api/ModelsAPI";
 import * as ModelGroupsAPI from "@core/chorus/api/ModelGroupsAPI";
 import * as AttachmentsAPI from "@core/chorus/api/AttachmentsAPI";
 import * as DraftAPI from "@core/chorus/api/DraftAPI";
@@ -1249,9 +1243,10 @@ export function ToolsMessageView({
     const { mutate: deselectSynthesis, isPending: isDeselectingSynthesis } =
         MessageAPI.useDeselectSynthesis();
     const { mutateAsync: removeMessage } = MessageAPI.useRemoveMessage();
-    const { mutateAsync: removeModelInstance } = useRemoveModelInstance();
+    const { mutateAsync: removeModelInstance } =
+        ModelsAPI.useRemoveModelInstance();
     const { mutateAsync: removeAllModelInstances } =
-        useRemoveAllModelInstances();
+        ModelsAPI.useRemoveAllModelInstances();
     const { mutate: clearActiveGroup } =
         ModelGroupsAPI.useClearActiveModelGroup();
     const modelConfigsQuery = ModelsAPI.useModelConfigs();
@@ -1761,10 +1756,11 @@ function ToolsBlockView({
     const { chatId } = useParams();
     const { elementRef, shouldShowScrollbar } = useElementScrollDetection();
 
-    const addModelToCompareConfigs = MessageAPI.useAddModelToCompareConfigs();
-    const addMessageToToolsBlock = MessageAPI.useAddMessageToToolsBlock(
-        chatId!,
-    );
+    const { mutate: clearActiveGroup } =
+        ModelGroupsAPI.useClearActiveModelGroup();
+    const { mutateAsync: addModelInstance } = ModelsAPI.useAddModelInstance();
+    const { mutate: addMessageToToolsBlock } =
+        MessageAPI.useAddMessageToToolsBlock(chatId!);
     const { mutate: selectSynthesis, isPending: isSelectingSynthesis } =
         MessageAPI.useSelectSynthesis();
 
@@ -1830,17 +1826,52 @@ function ToolsBlockView({
     // is animating out)
     const synthesisToShow = synthesisMessage ?? animatingOutSynthesis;
 
-    const handleAddModel = (modelId: string) => {
-        // First add the model to the selected models list
-        addModelToCompareConfigs.mutate({
-            newSelectedModelConfigId: modelId,
-        });
-        // Then add it to the current message set
-        addMessageToToolsBlock.mutate({
+    const handleAddModel = useCallback(
+        async (modelConfigId: string) => {
+            // Add instance to selection
+            const { instanceId } = await addModelInstance({
+                modelConfigId: modelConfigId,
+            });
+
+            // Ensure we are detached from group
+            clearActiveGroup();
+
+            // Add message to the current message set with the instanceId
+            addMessageToToolsBlock({
+                messageSetId,
+                modelId: modelConfigId,
+                instanceId,
+            });
+
+            dialogActions.closeDialog();
+        },
+        [
+            addModelInstance,
+            addMessageToToolsBlock,
             messageSetId,
-            modelId,
-        });
-    };
+            clearActiveGroup,
+        ],
+    );
+
+    // Helper hook to determine the model instances for a given model config ID
+    // in use in the current tools block. This enables us to show
+    // checkmarks/instance controls for models from this tools block
+    // specifically, rather than looking at the global selected model configs
+    // from the app metadata.
+    const useGetModelInstancesForConfig = useCallback(
+        (modelConfigId: string): Models.ModelInstance[] => {
+            return toolsBlock.chatMessages
+                .filter((message) => message.model === modelConfigId)
+                .map((message) => ({
+                    modelConfigId: message.model,
+                    // We don't actually use the instance ID, so we'll be
+                    // backwards compatible with old conversations by just using
+                    // an empty string in the absence of an instance ID.
+                    instanceId: message.instanceId ?? "",
+                }));
+        },
+        [toolsBlock.chatMessages],
+    );
 
     const handleSynthesize = useCallback(() => {
         if (!canSynthesize) return;
@@ -1967,13 +1998,11 @@ function ToolsBlockView({
                     {/* Add Model dialog (can go basically anywhere, but shouldn't be inside the button) */}
                     <ManageModelsBox
                         id={MANAGE_MODELS_TOOLS_INLINE_DIALOG_ID}
-                        mode={{
-                            type: "add",
-                            checkedModelConfigIds: toolsBlock.chatMessages.map(
-                                (m) => m.model,
-                            ),
-                            onAddModel: handleAddModel,
-                        }}
+                        mode="ADD"
+                        onToggleModelConfig={handleAddModel}
+                        useGetModelInstancesForConfig={
+                            useGetModelInstancesForConfig
+                        }
                     />
                 </div>
             )}

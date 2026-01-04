@@ -95,19 +95,3 @@ export function useReplyModelConfig(chatId: string) {
         data: savedModelConfig.data?.[0] ?? null,
     };
 }
-
-// Convenience hook for updating reply model - updates with a single model ID
-export function useUpdateReplyModelConfig() {
-    const updateSavedModelConfig = useUpdateSavedModelConfigChat();
-
-    return useMutation({
-        mutationFn: ({
-            chatId,
-            modelId,
-        }: {
-            chatId: string;
-            modelId: string;
-        }) =>
-            updateSavedModelConfig.mutateAsync({ chatId, modelIds: [modelId] }),
-    });
-}
