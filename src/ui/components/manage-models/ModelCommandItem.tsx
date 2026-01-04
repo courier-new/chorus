@@ -15,6 +15,10 @@ import { hasApiKey } from "@core/utilities/ProxyUtils";
 import { CommandItem } from "../ui/command";
 import { useShiftKey, useShiftKeyRef } from "../hooks/useShiftKey";
 import { CircleCheckIcon, MinusIcon, PlusIcon } from "lucide-react";
+import { useCommandState } from "cmdk";
+import { useShortcut } from "@ui/hooks/useShortcut";
+import { MANAGE_MODELS_COMPARE_DIALOG_ID } from "./ManageModelsBox";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 
 const MAX_INSTANCES_PER_MODEL = 5;
 
@@ -71,6 +75,11 @@ const useDefaultGetModelInstancesForConfig = (
         [selectedModelConfigsData, modelConfigId],
     );
 };
+
+const ADD_INSTANCE_SHORTCUT = ["]"];
+const ADD_INSTANCE_TO_GROUP_SHORTCUT = ["Shift", "]"];
+const REMOVE_INSTANCE_SHORTCUT = ["["];
+const REMOVE_INSTANCE_FROM_GROUP_SHORTCUT = ["Shift", "["];
 
 /**
  * Simple toggle-based props for the model picker: callback is invoked whenever
@@ -171,9 +180,29 @@ export function ModelCommandItem({
         }
     }, [modelConfig.id, modelPickerCallbacks, shiftKeyRef]);
 
+    const itemValue = groupId ? `${groupId}-${modelConfig.id}` : modelConfig.id;
+    const isSelected = useCommandState((state) => state.value === itemValue);
+
+    useShortcut(ADD_INSTANCE_SHORTCUT, onAddInstance, {
+        isEnabled: isSelected && isMultiSelect && canAddMore,
+        enableOnDialogIds: [MANAGE_MODELS_COMPARE_DIALOG_ID],
+    });
+    useShortcut(ADD_INSTANCE_TO_GROUP_SHORTCUT, onAddInstance, {
+        isEnabled: isSelected && isMultiSelect && canAddMore,
+        enableOnDialogIds: [MANAGE_MODELS_COMPARE_DIALOG_ID],
+    });
+    useShortcut(REMOVE_INSTANCE_SHORTCUT, onRemoveInstance, {
+        isEnabled: isSelected && isMultiSelect && instanceCount > 0,
+        enableOnDialogIds: [MANAGE_MODELS_COMPARE_DIALOG_ID],
+    });
+    useShortcut(REMOVE_INSTANCE_FROM_GROUP_SHORTCUT, onRemoveInstance, {
+        isEnabled: isSelected && isMultiSelect && instanceCount > 0,
+        enableOnDialogIds: [MANAGE_MODELS_COMPARE_DIALOG_ID],
+    });
+
     return (
         <CommandItem
-            value={groupId ? `${groupId}-${modelConfig.id}` : modelConfig.id}
+            value={itemValue}
             onSelect={() => {
                 if (isModelAllowed) {
                     modelPickerCallbacks.onToggleModelConfig(
@@ -302,6 +331,7 @@ function InstanceControls({
     onRemove: () => void;
 }) {
     const minusRef = useRef<HTMLButtonElement>(null);
+    const shiftKeyEnabled = useShiftKey();
 
     const handleAdd = useCallback(
         (e: React.MouseEvent) => {
@@ -331,28 +361,40 @@ function InstanceControls({
 
     return (
         <div className="flex items-center gap-1">
-            {/* Remove instance button */}
-            <button
-                ref={minusRef}
-                className="w-5 h-5 inline-flex items-center justify-center rounded-full hover:bg-muted/75 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30"
-                onClick={handleRemove}
-            >
-                <MinusIcon className="w-3.5 h-3.5" />
-            </button>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <button
+                        ref={minusRef}
+                        className="w-5 h-5 inline-flex items-center justify-center rounded-full hover:bg-muted/75 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30"
+                        onClick={handleRemove}
+                    >
+                        <MinusIcon className="w-3.5 h-3.5" />
+                    </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                    Remove instance {shiftKeyEnabled ? "from group ⇧" : ""}[
+                </TooltipContent>
+            </Tooltip>
 
             {/* Instance count badge */}
             <span className="inline-flex items-center justify-center w-5 h-5 text-sm font-medium rounded-full bg-primary text-primary-foreground">
                 {instanceCount}
             </span>
 
-            {/* Add instance button */}
-            <button
-                className="w-5 h-5 inline-flex items-center justify-center rounded-full hover:bg-muted/75 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30"
-                onClick={handleAdd}
-                disabled={!canAddMore}
-            >
-                <PlusIcon className="w-3.5 h-3.5" />
-            </button>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <button
+                        className="w-5 h-5 inline-flex items-center justify-center rounded-full hover:bg-muted/75 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30"
+                        onClick={handleAdd}
+                        disabled={!canAddMore}
+                    >
+                        <PlusIcon className="w-3.5 h-3.5" />
+                    </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                    Add instance {shiftKeyEnabled ? "to group ⇧" : ""}]
+                </TooltipContent>
+            </Tooltip>
         </div>
     );
 }
