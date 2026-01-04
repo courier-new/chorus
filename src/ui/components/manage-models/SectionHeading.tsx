@@ -27,11 +27,13 @@ export function SectionHeading({
                 title={isVisible ? `Collapse ${title}` : `Expand ${title}`}
             >
                 <span>{title}</span>
-                <ChevronDownIcon
-                    className={`w-3.5 h-3.5 transition-transform duration-200 ${
-                        isVisible ? "" : "-rotate-90"
-                    }`}
-                />
+                <div className="flex items-center w-3.5 h-3.5 overflow-hidden">
+                    <ChevronDownIcon
+                        className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                            isVisible ? "" : "-rotate-90"
+                        }`}
+                    />
+                </div>
             </button>
             <div className="flex items-center gap-1 tracking-normal">
                 {/* Show right button only when section is visible */}
