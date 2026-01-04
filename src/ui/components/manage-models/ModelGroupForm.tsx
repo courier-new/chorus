@@ -12,6 +12,7 @@ interface ModelGroupFormProps {
     onSave: (name: string, description: string) => void;
     onCancel: () => void;
     idPrefix?: string;
+    showModelSelectionHelpText?: boolean;
 }
 
 const DESCRIPTION_MAX_LENGTH = 200;
@@ -29,6 +30,7 @@ export function ModelGroupForm({
     onSave,
     onCancel,
     idPrefix = "group",
+    showModelSelectionHelpText = false,
 }: ModelGroupFormProps) {
     const [nameHasError, setNameHasError] = useState(false);
     const [descriptionHasError, setDescriptionHasError] = useState(false);
@@ -87,9 +89,9 @@ export function ModelGroupForm({
     );
 
     return (
-        <div className="grid grid-cols-2 gap-2 px-2 py-2.5 border-dashed !border-helper border rounded-md">
+        <div className="grid grid-cols-2 gap-1 px-2 py-2.5 border-dashed !border-helper border rounded-md mb-2 bg-background/80">
             {instructions && (
-                <p className="text-sm text-helper col-span-2 mb-1">
+                <p className="text-sm text-muted-foreground col-span-2 mb-1">
                     {instructions}
                 </p>
             )}
@@ -125,10 +127,19 @@ export function ModelGroupForm({
                 onChange={(e) => handleDescriptionChange(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g., Best models for coding"
-                className="text-sm resize-none col-span-2 min-h-[initial]"
+                className="text-sm resize-none col-span-2 min-h-[initial] mb-2"
                 isError={descriptionHasError}
                 rows={2}
             />
+            {showModelSelectionHelpText && (
+                <>
+                    <label className="text-sm">Model selection</label>
+                    <p className="text-sm col-span-2 text-muted-foreground mb-2">
+                        To change model selections for this group, activate it,
+                        then use ⇧+select on the model list to add or remove.
+                    </p>
+                </>
+            )}
             <div />
             <div className="flex gap-2 mt-1">
                 <Button

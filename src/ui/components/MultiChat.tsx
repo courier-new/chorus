@@ -86,11 +86,7 @@ import { SUMMARY_DIALOG_ID, SummaryDialog } from "./SummaryDialog";
 import { FindInPage } from "./FindInPage";
 import { useEditable } from "use-editable";
 import { EditableTitle } from "./EditableTitle";
-import {
-    CompareBlockView,
-    ChatBlockView,
-    BrainstormBlockView,
-} from "@ui/components/MultiChatDeprecationPath";
+import { DeprecatedBlockView } from "@ui/components/MultiChatDeprecationPath";
 import { Separator } from "./ui/separator";
 import { Toggle } from "./ui/toggle";
 import { CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
@@ -1173,7 +1169,6 @@ export function ToolsReplyCountView({
     const messageSetsQuery = MessageAPI.useMessageSets(replyChatId);
 
     const replyCount = useMemo(() => {
-        console.log(messageSetsQuery.data, chatQuery.data);
         return filterReplyMessageSets(
             messageSetsQuery.data,
             chatQuery.data,
@@ -1247,10 +1242,10 @@ export function ToolsMessageView({
     const { mutate: deselectSynthesis, isPending: isDeselectingSynthesis } =
         MessageAPI.useDeselectSynthesis();
     const { mutateAsync: removeMessage } = MessageAPI.useRemoveMessage();
-    const { mutateAsync: updateSelectedModelConfigsCompare } =
-        MessageAPI.useUpdateSelectedModelConfigsCompare();
-    const { data: selectedModelConfigsCompare = [] } =
-        ModelsAPI.useSelectedModelConfigsCompare();
+    const { mutateAsync: removeModelInstance } =
+        ModelsAPI.useRemoveModelInstance();
+    const { mutateAsync: removeAllModelInstances } =
+        ModelsAPI.useRemoveAllModelInstances();
     const { mutate: clearActiveGroup } =
         ModelGroupsAPI.useClearActiveModelGroup();
     const modelConfigsQuery = ModelsAPI.useModelConfigs();
@@ -1300,7 +1295,7 @@ export function ToolsMessageView({
         );
     }, [message.parts, message.state]);
 
-    // Handler to remove a failed message and deselect its model
+    // Handler to remove a failed message and deselect its model config instance
     const handleRemoveFailedMessage = useCallback(async () => {
         // 1. Remove the message from the database
         await removeMessage({
@@ -1308,23 +1303,29 @@ export function ToolsMessageView({
             messageId: message.id,
         });
 
-        // 2. Deselect the model from selected_model_configs_compare
-        const newModelConfigs = selectedModelConfigsCompare.filter(
-            (m) => m.id !== message.model,
-        );
-        await updateSelectedModelConfigsCompare({
-            modelConfigs: newModelConfigs ?? [],
-        });
+        // 2. Remove the specific instance from selected model configs
+        if (message.instanceId) {
+            await removeModelInstance({
+                instanceId: message.instanceId,
+            });
+        } else {
+            // For backwards compatibility with messages without an instance id,
+            // remove all instances of that model config from selection.
+            await removeAllModelInstances({
+                modelConfigId: message.model,
+            });
+        }
 
         // 3. Clear active model group (since selection changed)
         clearActiveGroup();
     }, [
         removeMessage,
+        removeModelInstance,
+        removeAllModelInstances,
         message.chatId,
         message.id,
+        message.instanceId,
         message.model,
-        selectedModelConfigsCompare,
-        updateSelectedModelConfigsCompare,
         clearActiveGroup,
     ]);
 
@@ -1754,10 +1755,11 @@ function ToolsBlockView({
     const { chatId } = useParams();
     const { elementRef, shouldShowScrollbar } = useElementScrollDetection();
 
-    const addModelToCompareConfigs = MessageAPI.useAddModelToCompareConfigs();
-    const addMessageToToolsBlock = MessageAPI.useAddMessageToToolsBlock(
-        chatId!,
-    );
+    const { mutate: clearActiveGroup } =
+        ModelGroupsAPI.useClearActiveModelGroup();
+    const { mutateAsync: addModelInstance } = ModelsAPI.useAddModelInstance();
+    const { mutate: addMessageToToolsBlock } =
+        MessageAPI.useAddMessageToToolsBlock(chatId!);
     const { mutate: selectSynthesis, isPending: isSelectingSynthesis } =
         MessageAPI.useSelectSynthesis();
 
@@ -1823,17 +1825,52 @@ function ToolsBlockView({
     // is animating out)
     const synthesisToShow = synthesisMessage ?? animatingOutSynthesis;
 
-    const handleAddModel = (modelId: string) => {
-        // First add the model to the selected models list
-        addModelToCompareConfigs.mutate({
-            newSelectedModelConfigId: modelId,
-        });
-        // Then add it to the current message set
-        addMessageToToolsBlock.mutate({
+    const handleAddModel = useCallback(
+        async (modelConfigId: string) => {
+            // Add instance to selection
+            const { instanceId } = await addModelInstance({
+                modelConfigId: modelConfigId,
+            });
+
+            // Ensure we are detached from group
+            clearActiveGroup();
+
+            // Add message to the current message set with the instanceId
+            addMessageToToolsBlock({
+                messageSetId,
+                modelId: modelConfigId,
+                instanceId,
+            });
+
+            dialogActions.closeDialog();
+        },
+        [
+            addModelInstance,
+            addMessageToToolsBlock,
             messageSetId,
-            modelId,
-        });
-    };
+            clearActiveGroup,
+        ],
+    );
+
+    // Helper hook to determine the model instances for a given model config ID
+    // in use in the current tools block. This enables us to show
+    // checkmarks/instance controls for models from this tools block
+    // specifically, rather than looking at the global selected model configs
+    // from the app metadata.
+    const useGetModelInstancesForConfig = useCallback(
+        (modelConfigId: string): Models.ModelInstance[] => {
+            return toolsBlock.chatMessages
+                .filter((message) => message.model === modelConfigId)
+                .map((message) => ({
+                    modelConfigId: message.model,
+                    // We don't actually use the instance ID, so we'll be
+                    // backwards compatible with old conversations by just using
+                    // an empty string in the absence of an instance ID.
+                    instanceId: message.instanceId ?? "",
+                }));
+        },
+        [toolsBlock.chatMessages],
+    );
 
     const handleSynthesize = useCallback(() => {
         if (!canSynthesize) return;
@@ -1960,13 +1997,11 @@ function ToolsBlockView({
                     {/* Add Model dialog (can go basically anywhere, but shouldn't be inside the button) */}
                     <ManageModelsBox
                         id={MANAGE_MODELS_TOOLS_INLINE_DIALOG_ID}
-                        mode={{
-                            type: "add",
-                            checkedModelConfigIds: toolsBlock.chatMessages.map(
-                                (m) => m.model,
-                            ),
-                            onAddModel: handleAddModel,
-                        }}
+                        mode="ADD"
+                        onToggleModelConfig={handleAddModel}
+                        useGetModelInstancesForConfig={
+                            useGetModelInstancesForConfig
+                        }
                     />
                 </div>
             )}
@@ -2060,20 +2095,6 @@ const MessageSetView = memo(
                             userMessageRef={userMessageRef}
                             isQuickChatWindow={isQuickChatWindow}
                         />
-                    ) : messageSet.selectedBlockType === "compare" ? (
-                        <CompareBlockView
-                            messageSetId={messageSetId}
-                            compareBlock={messageSet.compareBlock}
-                            isLastRow={isLastRow}
-                            isQuickChatWindow={isQuickChatWindow}
-                        />
-                    ) : messageSet.selectedBlockType === "chat" ? (
-                        <ChatBlockView
-                            messageSetId={messageSetId}
-                            chatBlock={messageSet.chatBlock}
-                            isLastRow={isLastRow}
-                            isQuickChatWindow={isQuickChatWindow}
-                        />
                     ) : messageSet.selectedBlockType === "tools" ? (
                         <ToolsBlockView
                             messageSetId={messageSetId}
@@ -2081,11 +2102,9 @@ const MessageSetView = memo(
                             isLastRow={isLastRow}
                             isQuickChatWindow={isQuickChatWindow}
                         />
-                    ) : messageSet.selectedBlockType === "brainstorm" ? (
-                        <BrainstormBlockView
-                            brainstormBlock={messageSet.brainstormBlock}
-                        />
-                    ) : null}
+                    ) : (
+                        <DeprecatedBlockView />
+                    )}
                 </div>
             </div>
         );

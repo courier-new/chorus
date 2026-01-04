@@ -51,6 +51,8 @@ export interface Message {
     costUsd?: number;
     // UI state
     isCollapsed?: boolean;
+    // For distinguishing multiple instances of the same model config
+    instanceId?: string;
 }
 
 export interface MessagePart {
@@ -70,6 +72,7 @@ export function createAIMessage({
     selected = false,
     isReview = false,
     level,
+    instanceId,
 }: {
     chatId: string;
     messageSetId: string;
@@ -78,6 +81,7 @@ export function createAIMessage({
     selected?: boolean;
     isReview?: boolean;
     level?: number;
+    instanceId?: string;
 }): Omit<Message, "id" | "streamingToken" | "parts"> {
     return {
         chatId,
@@ -94,6 +98,7 @@ export function createAIMessage({
         level,
         replyChatId: undefined,
         branchedFromId: undefined,
+        instanceId,
     };
 }
 
@@ -305,41 +310,86 @@ function encodeBrainstormBlock(block: BrainstormBlock): LLMMessage[] {
     ];
 }
 
+type LabeledPerspective = {
+    message: Message;
+    senderLabel: string;
+};
+
+function labelPerspectives(messages: Message[]): LabeledPerspective[] {
+    // Check if all the models are unique (only present once). If not, we need
+    // to label the perspective instances to distinguish them.
+    let shouldLabelInstances = false;
+    const modelsEncountered = new Set<string>();
+    for (const message of messages) {
+        if (modelsEncountered.has(message.model)) {
+            shouldLabelInstances = true;
+            break;
+        }
+        modelsEncountered.add(message.model);
+    }
+
+    if (!shouldLabelInstances) {
+        return messages.map((message) => ({
+            message,
+            senderLabel: message.model,
+        }));
+    }
+
+    // Track the number of times each model appears
+    const modelCounts: Record<string, number> = {};
+    const labeledPerspectives: LabeledPerspective[] = [];
+    for (const message of messages) {
+        const modelCount = modelCounts[message.model] ?? 1;
+        labeledPerspectives.push({
+            message,
+            senderLabel: `${message.model} (${modelCount})`,
+        });
+        modelCounts[message.model] = modelCount + 1;
+    }
+    return labeledPerspectives;
+}
+
 function encodeCompareBlockForSynthesis(block: CompareBlock): LLMMessage[] {
+    const labeledPerspectives = labelPerspectives(block.messages);
+
     // include all responses, regardless of whether they're selected
     return [
         {
             role: "user",
-            content: `${Prompts.SYNTHESIS_INTERJECTION}
-
-        ${block.messages
-            .map(
-                (message) =>
-                    `<perspective sender="${message.model}">
-${message.text}
-</perspective>`,
-            )
-            .join("\n\n")}`,
+            content: [
+                Prompts.SYNTHESIS_INTERJECTION,
+                ...labeledPerspectives
+                    .map(({ message, senderLabel }) => [
+                        `<perspective sender="${senderLabel}">`,
+                        message.text,
+                        "</perspective>",
+                    ])
+                    .flat(),
+            ].join("\n\n"),
             attachments: [],
         },
     ];
 }
 
 function encodeToolsBlockForSynthesis(block: ToolsBlock): LLMMessage[] {
+    const labeledPerspectives = labelPerspectives(block.chatMessages);
+
     const result: LLMMessage[] = [
         {
             role: "user",
-            content: `${Prompts.SYNTHESIS_INTERJECTION}
-
-${block.chatMessages
-    .map((message) => {
-        // For tools block messages, content is in parts
-        const messageContent = message.parts.map((p) => p.content).join("\n\n");
-        return `<perspective sender="${message.model}">
-${messageContent}
-</perspective>`;
-    })
-    .join("\n\n")}`,
+            content: [
+                Prompts.SYNTHESIS_INTERJECTION,
+                ...labeledPerspectives
+                    .map(({ message, senderLabel }) => {
+                        return [
+                            `<perspective sender="${senderLabel}">`,
+                            // For tools block messages, content is in parts
+                            message.parts.map((p) => p.content).join(""),
+                            "</perspective>",
+                        ];
+                    })
+                    .flat(),
+            ].join("\n\n"),
             attachments: [],
         },
     ];
@@ -507,6 +557,8 @@ export function llmConversationForSynthesis(
             : blockType === "tools" && targetMessageSet.toolsBlock
               ? encodeToolsBlockForSynthesis(targetMessageSet.toolsBlock)
               : [];
+
+    console.log("synthesisMessages", synthesisMessages);
 
     // Include conversation history up to (but not including) the target message set
     return [

@@ -16,7 +16,12 @@ import {
 } from "@core/chorus/ChatState";
 import * as Reviews from "../reviews";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { LLMMessage, ModelConfig, UsageData } from "../Models";
+import type {
+    LLMMessage,
+    ModelConfig,
+    SelectedModelConfig,
+    UsageData,
+} from "../Models";
 import * as Models from "../Models";
 import { UpdateQueue } from "../UpdateQueue";
 import posthog from "posthog-js";
@@ -120,6 +125,7 @@ export interface MessageDBRow {
     total_tokens: number | null;
     cost_usd: number | null;
     is_collapsed: number;
+    instance_id: string | null;
 }
 
 export interface MessagePartDBRow {
@@ -159,6 +165,7 @@ export function readMessage(
         totalTokens: row.total_tokens ?? undefined,
         costUsd: row.cost_usd ?? undefined,
         isCollapsed: Boolean(row.is_collapsed),
+        instanceId: row.instance_id ?? undefined,
     };
 }
 
@@ -1868,7 +1875,8 @@ export function useCreateMessage() {
                     is_review,
                     review_state,
                     block_type,
-                    level
+                    level,
+                    instance_id
                 ) SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, ${
                     message.level !== undefined
                         ? `$12` // use provided level
@@ -1878,7 +1886,7 @@ export function useCreateMessage() {
                             FROM messages
                             WHERE message_set_id = $3 AND block_type = $11
                           )`
-                }
+                }, $13
                 ${
                     options.mode === "first"
                         ? `WHERE NOT EXISTS (
@@ -1905,6 +1913,7 @@ export function useCreateMessage() {
                     message.reviewState ?? null,
                     message.blockType,
                     message.level,
+                    message.instanceId ?? null,
                 ],
             );
 
@@ -3048,10 +3057,11 @@ function usePopulateToolsBlock(chatId: string) {
             // BTBL: do we need to protect against double-population here by ensuring
             // it's empty before we populate?
 
-            let modelConfigs: ModelConfig[];
+            let modelConfigs: (SelectedModelConfig | ModelConfig)[] = [];
 
             if (replyToModelId) {
-                // For replies, use only the model being replied to
+                // For replies, use only the model being replied to (no instance
+                // tracking).
                 const modelConfig = await fetchModelConfigById(replyToModelId);
                 if (!modelConfig) {
                     console.error(
@@ -3060,9 +3070,14 @@ function usePopulateToolsBlock(chatId: string) {
                     return { skipped: true };
                 }
                 modelConfigs = [modelConfig];
-            } else {
-                // Normal flow: use selected model configs
+            } else if (isQuickChatWindow) {
+                // Quick chat window: single model, no instance tracking.
                 modelConfigs = await getSelectedModelConfigs(isQuickChatWindow);
+            } else {
+                // Normal flow: use selected model config instances.
+                modelConfigs = await queryClient.ensureQueryData(
+                    modelConfigQueries.compare(),
+                );
             }
 
             if (modelConfigs.length === 0) {
@@ -3082,7 +3097,14 @@ function usePopulateToolsBlock(chatId: string) {
                     model: firstModelConfig.id,
                     selected: true,
                     level: 0, // explicitly set level for first message
+                    instanceId:
+                        "instanceId" in firstModelConfig
+                            ? firstModelConfig.instanceId
+                            : undefined,
                 }),
+                options: {
+                    mode: "always", // Allow multiple instances of same model
+                },
             });
 
             // phase 2: create the rest of the messages and stream all
@@ -3099,9 +3121,13 @@ function usePopulateToolsBlock(chatId: string) {
                                       model: modelConfig.id,
                                       selected: false,
                                       level: index, // explicitly set level to preserve model order
+                                      instanceId:
+                                          "instanceId" in modelConfig
+                                              ? modelConfig.instanceId
+                                              : undefined,
                                   }),
                                   options: {
-                                      mode: "unique_model",
+                                      mode: "always", // Allow multiple instances of same model
                                   },
                               });
 
@@ -3224,9 +3250,11 @@ export function useAddMessageToToolsBlock(chatId: string) {
         mutationFn: async ({
             messageSetId,
             modelId,
+            instanceId,
         }: {
             messageSetId: string;
             modelId: string;
+            instanceId?: string;
         }) => {
             const modelConfig = modelConfigsQuery.data?.find(
                 (m: Models.ModelConfig) => m.id === modelId,
@@ -3242,6 +3270,7 @@ export function useAddMessageToToolsBlock(chatId: string) {
                     blockType: "tools",
                     model: modelConfig.id,
                     selected: false,
+                    instanceId,
                 }),
                 options: {
                     mode: "always",
@@ -3431,109 +3460,6 @@ ${userMessageText}
 }
 
 // TODO-GC: remove after migration to GC
-export function useAddModelToCompareConfigs() {
-    const queryClient = useQueryClient();
-    const modelConfigsQuery = useModelConfigs();
-
-    return useMutation({
-        mutationKey: ["addModelToCompareConfigs"] as const,
-        mutationFn: async ({
-            newSelectedModelConfigId,
-        }: {
-            newSelectedModelConfigId: string;
-        }) => {
-            const selectedModelConfigsCompare =
-                await queryClient.ensureQueryData(modelConfigQueries.compare());
-
-            if (
-                selectedModelConfigsCompare.some(
-                    (m: ModelConfig) => m.id === newSelectedModelConfigId,
-                )
-            ) {
-                return { skipped: true };
-            }
-
-            const newSelectedModelConfig = modelConfigsQuery.data?.find(
-                (m: ModelConfig) => m.id === newSelectedModelConfigId,
-            );
-            if (!newSelectedModelConfig) {
-                console.warn(
-                    "model config not found ",
-                    newSelectedModelConfigId,
-                );
-                return { skipped: true };
-            }
-
-            const newConfigIds = [
-                ...selectedModelConfigsCompare,
-                newSelectedModelConfig,
-            ].map((m) => m.id);
-
-            await db.execute(
-                "UPDATE app_metadata SET value = ? WHERE key = 'selected_model_configs_compare'",
-                [JSON.stringify(newConfigIds)],
-            );
-
-            return { newConfigIds };
-        },
-        onSuccess: async (data, variables) => {
-            if (data?.skipped) return;
-
-            await queryClient.invalidateQueries(modelConfigQueries.compare());
-
-            posthog.capture("selected_model_configs_updated", {
-                selectedModelConfigs: data.newConfigIds as string[],
-                modelConfigAdded: variables.newSelectedModelConfigId,
-            });
-        },
-    });
-}
-
-// TODO-GC: remove after migration to GC
-/**
- * Updates the list of selected model configs for comparing model output
- */
-export function useUpdateSelectedModelConfigsCompare() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationKey: ["updateSelectedModelConfigsCompare"] as const,
-        mutationFn: async ({
-            modelConfigs,
-        }: {
-            modelConfigs: ModelConfig[];
-        }) => {
-            await db.execute(
-                "UPDATE app_metadata SET value = ? WHERE key = 'selected_model_configs_compare'",
-                [JSON.stringify(modelConfigs.map((m) => m.id))],
-            );
-        },
-        onMutate: async ({ modelConfigs }) => {
-            // optimistic update, as prescribed by TSQuery docs
-            await queryClient.cancelQueries(modelConfigQueries.compare());
-            const previousModelConfigs = queryClient.getQueryData(
-                modelConfigQueries.compare().queryKey,
-            );
-            queryClient.setQueryData(
-                modelConfigQueries.compare().queryKey,
-                modelConfigs,
-            );
-            return {
-                previousModelConfigs,
-            };
-        },
-        onError: async (_error, _variables, context) => {
-            await queryClient.setQueryData(
-                modelConfigQueries.compare().queryKey,
-                context?.previousModelConfigs,
-            );
-        },
-        onSettled: async () => {
-            await queryClient.invalidateQueries(modelConfigQueries.compare());
-        },
-    });
-}
-
-// TODO-GC: remove after migration to GC
 export function useUpdateSelectedModelConfigQuickChat() {
     const queryClient = useQueryClient();
     return useMutation({
@@ -3588,7 +3514,7 @@ export function useGetSelectedModelConfigs() {
  * Removes a message from the conversation.
  * Used when a model errors out or returns an empty response.
  * Note: Model deselection should be handled separately by the UI component
- * using useUpdateSelectedModelConfigsCompare and useClearActiveModelGroup.
+ * using useRemoveModelInstance and useClearActiveModelGroup.
  */
 export function useRemoveMessage() {
     const queryClient = useQueryClient();

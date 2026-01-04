@@ -3,7 +3,7 @@ import React from "react";
 import { useAppContext } from "@ui/hooks/useAppContext";
 import AutoExpandingTextarea from "./AutoExpandingTextarea";
 import { AttachmentAddPill, AttachmentDropArea } from "./AttachmentsViews";
-import { AttachmentType } from "@core/chorus/Models";
+import type { AttachmentType, SelectedModelConfig } from "@core/chorus/Models";
 import {
     MANAGE_MODELS_COMPARE_DIALOG_ID,
     ManageModelsBox,
@@ -44,6 +44,7 @@ import * as DraftAPI from "@core/chorus/api/DraftAPI";
 import * as ModelConfigChatAPI from "@core/chorus/api/ModelConfigChatAPI";
 import * as ProjectAPI from "@core/chorus/api/ProjectAPI";
 import * as ModelGroupsAPI from "@core/chorus/api/ModelGroupsAPI";
+import { SelectedModelsDragAndDrop } from "./manage-models/SelectedModelsDragAndDrop";
 
 const DEFAULT_CHAT_INPUT_ID = "default-chat-input";
 const REPLY_CHAT_INPUT_ID = "reply-chat-input";
@@ -90,14 +91,38 @@ export function ChatInput({
     showScrollButton?: boolean;
     handleScrollToBottom?: () => void;
 }) {
-    const selectedModelConfigsCompare =
+    const { data: selectedModelConfigs = [] } =
         ModelsAPI.useSelectedModelConfigsCompare();
+    const selectedModelConfigIds = useMemo(() => {
+        return selectedModelConfigs.map((m) => m.id);
+    }, [selectedModelConfigs]);
     const modelConfigs = ModelsAPI.useModelConfigs();
     const appMetadata = useWaitForAppMetadata();
     const cautiousEnter = appMetadata["cautious_enter"] === "true";
     const focusInputShortcut = useShortcutDisplay("focus-input");
 
+    // Instance management hooks for multi-instance support
+    const { mutate: addModelInstance } = ModelsAPI.useAddModelInstance();
+    const { mutate: removeModelInstance } = ModelsAPI.useRemoveModelInstance();
+    const { mutate: removeAllModelInstances } =
+        ModelsAPI.useRemoveAllModelInstances();
+    const {
+        mutate: updateSelectedModelInstances,
+        mutateAsync: updateSelectedModelInstancesAsync,
+    } = ModelsAPI.useUpdateSelectedModelInstances();
+
+    // Model groups hooks
     const { data: activeGroup } = ModelGroupsAPI.useActiveModelGroup();
+    const activeGroupId = activeGroup?.id;
+    const { mutate: clearActiveGroup } =
+        ModelGroupsAPI.useClearActiveModelGroup();
+    const { mutate: addInstanceToActiveGroup } =
+        ModelGroupsAPI.useAddInstanceToActiveGroup();
+    const { mutate: removeInstanceFromActiveGroup } =
+        ModelGroupsAPI.useRemoveInstanceFromActiveGroup();
+    const { mutate: removeAllInstancesFromActiveGroup } =
+        ModelGroupsAPI.useRemoveAllInstancesFromActiveGroup();
+    const { mutate: updateModelGroup } = ModelGroupsAPI.useUpdateModelGroup();
 
     const { draft, setDraft } = DraftAPI.useAutoSyncMessageDraft(chatId);
 
@@ -140,8 +165,6 @@ export function ChatInput({
 
     const replyModelConfigQuery =
         ModelConfigChatAPI.useReplyModelConfig(chatId);
-    const updateReplyModelConfig =
-        ModelConfigChatAPI.useUpdateReplyModelConfig();
 
     const getReplyToModelConfig = useCallback(
         (modelId: string | undefined) => {
@@ -168,12 +191,6 @@ export function ChatInput({
     const { data: settings } = useSettings();
 
     const posthog = usePostHog();
-
-    const addModelToCompareConfigs = MessageAPI.useAddModelToCompareConfigs();
-    const { mutateAsync: updateSelectedModelConfigsCompare } =
-        MessageAPI.useUpdateSelectedModelConfigsCompare();
-    const { mutate: clearActiveGroup } =
-        ModelGroupsAPI.useClearActiveModelGroup();
 
     const createMessageSetPair = MessageAPI.useCreateMessageSetPair();
     const createMessage = MessageAPI.useCreateMessage();
@@ -370,82 +387,166 @@ export function ChatInput({
         }
     };
 
-    // --------------------------------------------------------------------------
-    // Model management
-    // --------------------------------------------------------------------------
+    const onReorder = useCallback(
+        async (items: SelectedModelConfig[]) => {
+            const modelInstances = items.map((item) => ({
+                modelConfigId: item.id,
+                instanceId: item.instanceId,
+            }));
 
-    /**
-     * Ensures a model config is selected
-     */
-    const ensureCompareModelConfigSelected = useCallback(
-        async (modelConfigId: string) => {
-            await addModelToCompareConfigs.mutateAsync({
-                newSelectedModelConfigId: modelConfigId,
-            });
-        },
-        [addModelToCompareConfigs],
-    );
-
-    const ensureCompareModelConfigDeselected = useCallback(
-        async (modelConfigId: string) => {
-            const newModelConfigs = selectedModelConfigsCompare.data?.filter(
-                (m) => m.id !== modelConfigId,
-            );
-            await updateSelectedModelConfigsCompare({
-                modelConfigs: newModelConfigs ?? [],
+            await updateSelectedModelInstancesAsync({
+                instances: modelInstances,
             });
 
-            posthog.capture("selected_model_configs_updated", {
-                selectedModelConfigs: newModelConfigs?.map((m) => m.id) ?? [],
-                modelConfigRemoved: modelConfigId,
-            });
-        },
-        [
-            selectedModelConfigsCompare,
-            posthog,
-            updateSelectedModelConfigsCompare,
-        ],
-    );
-
-    const toggleCompareModelConfig = useCallback(
-        async (modelConfigId: string) => {
-            console.log("toggleCompareModelConfig", modelConfigId);
-            try {
-                // Check if model is already selected
-                const isSelected = selectedModelConfigsCompare.data?.some(
-                    (m) => m.id === modelConfigId,
-                );
-
-                if (isSelected) {
-                    await ensureCompareModelConfigDeselected(modelConfigId);
-                } else {
-                    await ensureCompareModelConfigSelected(modelConfigId);
-                }
-            } catch (error) {
-                console.error(error);
-                toast.error("Error", {
-                    description: "Failed to update model selection",
+            // If there's an active group, update the current model instances for it
+            if (activeGroupId) {
+                updateModelGroup({
+                    id: activeGroupId,
+                    modelInstances,
                 });
             }
         },
+        [activeGroupId, updateModelGroup, updateSelectedModelInstancesAsync],
+    );
+
+    const handleToggleModelConfig = useCallback(
+        (modelConfigId: string, shiftKey = false) => {
+            const isCurrentlySelected =
+                selectedModelConfigIds.includes(modelConfigId);
+
+            // Regular toggle behavior to update the selection
+            if (isCurrentlySelected) {
+                // Remove all instances
+                removeAllModelInstances({ modelConfigId: modelConfigId });
+            } else {
+                // Add first instance
+                addModelInstance({ modelConfigId: modelConfigId });
+            }
+
+            // Shift+click for model group interactions
+            if (shiftKey && activeGroupId) {
+                if (isCurrentlySelected) {
+                    // Remove all instances from group
+                    removeAllInstancesFromActiveGroup({
+                        groupId: activeGroupId,
+                        modelConfigId: modelConfigId,
+                    });
+                } else {
+                    // Add first instance to group
+                    addInstanceToActiveGroup({
+                        groupId: activeGroupId,
+                        modelConfigId: modelConfigId,
+                    });
+                }
+            } else if (activeGroupId) {
+                // Regular click: Detach from group
+                clearActiveGroup();
+            }
+        },
         [
-            selectedModelConfigsCompare,
-            ensureCompareModelConfigSelected,
-            ensureCompareModelConfigDeselected,
+            selectedModelConfigIds,
+            activeGroupId,
+            addInstanceToActiveGroup,
+            removeAllInstancesFromActiveGroup,
+            clearActiveGroup,
+            removeAllModelInstances,
+            addModelInstance,
         ],
     );
 
-    const clearCompareModelConfigs = useCallback(() => {
-        void (async () => {
-            await updateSelectedModelConfigsCompare({
-                modelConfigs: [],
-            });
+    const handleAddModelConfigInstance = useCallback(
+        (modelConfigId: string, shiftKey: boolean) => {
+            addModelInstance({ modelConfigId });
+            if (shiftKey && activeGroupId) {
+                addInstanceToActiveGroup({
+                    groupId: activeGroupId,
+                    modelConfigId: modelConfigId,
+                });
+            } else if (activeGroupId) {
+                clearActiveGroup();
+            }
+        },
+        [
+            addModelInstance,
+            addInstanceToActiveGroup,
+            clearActiveGroup,
+            activeGroupId,
+        ],
+    );
+
+    const handleRemoveModelConfigInstance = useCallback(
+        (modelConfigId: string, shiftKey: boolean) => {
+            // Find the last instance of this model in the selection
+            if (!selectedModelConfigs) return;
+
+            const lastInstance = selectedModelConfigs
+                .filter((config) => config.id === modelConfigId)
+                .at(-1);
+
+            if (!lastInstance) return;
+
+            const { instanceId } = lastInstance;
+
+            removeModelInstance({ instanceId });
+
+            if (shiftKey && activeGroupId) {
+                removeInstanceFromActiveGroup({
+                    groupId: activeGroupId,
+                    instanceId,
+                });
+            } else if (activeGroupId) {
+                clearActiveGroup();
+            }
+        },
+        [
+            selectedModelConfigs,
+            removeModelInstance,
+            removeInstanceFromActiveGroup,
+            clearActiveGroup,
+            activeGroupId,
+        ],
+    );
+
+    const handleRemoveInstance = useCallback(
+        (index: number, shiftKey: boolean) => {
+            const selectedConfig = selectedModelConfigs[index];
+            if (!selectedConfig) return;
+
+            const { instanceId } = selectedConfig;
+
+            // Update the selection: remove specific instance by instanceId
+            removeModelInstance({ instanceId });
+
+            // Shift+click for model group interactions
+            if (shiftKey && activeGroupId) {
+                // Remove instance from group
+                removeInstanceFromActiveGroup({
+                    groupId: activeGroupId,
+                    instanceId,
+                });
+            } else if (activeGroupId) {
+                // Regular click: Detach from group
+                clearActiveGroup();
+            }
+        },
+        [
+            selectedModelConfigs,
+            activeGroupId,
+            removeInstanceFromActiveGroup,
+            clearActiveGroup,
+            removeModelInstance,
+        ],
+    );
+
+    const handleClearAllModelConfigs = useCallback(() => {
+        // Update the selection
+        updateSelectedModelInstances({ instances: [] });
+
+        // Ensure we are detached from group
+        if (activeGroupId) {
             clearActiveGroup();
-            posthog.capture("selected_model_configs_updated", {
-                selectedModelConfigs: [],
-            });
-        })();
-    }, [posthog, updateSelectedModelConfigsCompare, clearActiveGroup]);
+        }
+    }, [activeGroupId, clearActiveGroup, updateSelectedModelInstances]);
 
     // Update focus when dialog closes or chat id changes
     useEffect(() => {
@@ -473,7 +574,7 @@ export function ChatInput({
         isGlobal: true,
     });
 
-    useConfigurableShortcut("clear-models", clearCompareModelConfigs, {
+    useConfigurableShortcut("clear-models", handleClearAllModelConfigs, {
         isEnabled: !isQuickChatWindow,
         enableOnDialogIds: [MANAGE_MODELS_COMPARE_DIALOG_ID],
     });
@@ -609,9 +710,7 @@ export function ChatInput({
                         {!isReply && (
                             <ManageModelsButtonCompare
                                 activeGroup={activeGroup}
-                                selectedModelConfigs={
-                                    selectedModelConfigsCompare.data ?? []
-                                }
+                                selectedModelConfigs={selectedModelConfigs}
                                 dialogId={MANAGE_MODELS_COMPARE_DIALOG_ID}
                             />
                         )}
@@ -676,36 +775,19 @@ export function ChatInput({
                 {!isReply && (
                     <ManageModelsBox
                         id={MANAGE_MODELS_COMPARE_DIALOG_ID}
-                        mode={{
-                            type: "default",
-                            onToggleModelConfig: (id) =>
-                                void toggleCompareModelConfig(id),
-                            onClearModelConfigs: clearCompareModelConfigs,
-                        }}
-                    />
-                )}
-
-                {isReply && (
-                    <ManageModelsBox
-                        id={MANAGE_MODELS_REPLY_DIALOG_ID}
-                        mode={{
-                            type: "single",
-                            onSetModel: (modelId) => {
-                                // Find the model config by modelId
-                                const modelConfig = modelConfigs.data?.find(
-                                    (m) => m.id === modelId,
-                                );
-                                if (modelConfig) {
-                                    // Update the database with the selected model
-                                    void updateReplyModelConfig.mutateAsync({
-                                        chatId,
-                                        modelId: modelConfig.modelId,
-                                    });
-                                }
-                            },
-                            selectedModelConfigId: replyToModelConfig?.id ?? "",
-                        }}
-                    />
+                        mode="MULTI"
+                        onToggleModelConfig={handleToggleModelConfig}
+                        onAddModelConfigInstance={handleAddModelConfigInstance}
+                        onRemoveModelConfigInstance={
+                            handleRemoveModelConfigInstance
+                        }
+                    >
+                        <SelectedModelsDragAndDrop
+                            onReorder={onReorder}
+                            onClearAll={handleClearAllModelConfigs}
+                            onRemoveInstance={handleRemoveInstance}
+                        />
+                    </ManageModelsBox>
                 )}
             </div>
         </div>
