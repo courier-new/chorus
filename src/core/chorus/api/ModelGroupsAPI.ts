@@ -354,25 +354,17 @@ export function useRemoveInstanceFromActiveGroup() {
         mutationKey: ["removeInstanceFromActiveGroup"] as const,
         mutationFn: async ({
             groupId,
-            modelConfigId,
+            instanceId,
         }: {
             groupId: string;
-            modelConfigId: string;
+            instanceId: string;
         }) => {
             const group = await fetchModelGroup(groupId);
             if (!group) return;
 
-            // Find the last instance of this model and remove it
-            const lastIndex = group.modelInstances
-                .map((i) => i.modelConfigId)
-                .lastIndexOf(modelConfigId);
-
-            if (lastIndex === -1) return;
-
-            const updatedInstances = [
-                ...group.modelInstances.slice(0, lastIndex),
-                ...group.modelInstances.slice(lastIndex + 1),
-            ];
+            const updatedInstances = group.modelInstances.filter(
+                (i) => i.instanceId !== instanceId,
+            );
 
             await db.execute(
                 `UPDATE model_groups SET model_config_ids = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,

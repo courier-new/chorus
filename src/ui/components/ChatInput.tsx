@@ -478,18 +478,21 @@ export function ChatInput({
         (modelConfigId: string, shiftKey: boolean) => {
             // Find the last instance of this model in the selection
             if (!selectedModelConfigs) return;
-            const instancesOfModel = selectedModelConfigs.filter(
-                (config) => config.id === modelConfigId,
-            );
-            if (instancesOfModel.length > 0) {
-                const lastInstance =
-                    instancesOfModel[instancesOfModel.length - 1];
-                removeModelInstance({ instanceId: lastInstance.instanceId });
-            }
+
+            const lastInstance = selectedModelConfigs
+                .filter((config) => config.id === modelConfigId)
+                .at(-1);
+
+            if (!lastInstance) return;
+
+            const { instanceId } = lastInstance;
+
+            removeModelInstance({ instanceId });
+
             if (shiftKey && activeGroupId) {
                 removeInstanceFromActiveGroup({
                     groupId: activeGroupId,
-                    modelConfigId: modelConfigId,
+                    instanceId,
                 });
             } else if (activeGroupId) {
                 clearActiveGroup();
@@ -509,17 +512,17 @@ export function ChatInput({
             const selectedConfig = selectedModelConfigs[index];
             if (!selectedConfig) return;
 
+            const { instanceId } = selectedConfig;
+
             // Update the selection: remove specific instance by instanceId
-            removeModelInstance({
-                instanceId: selectedConfig.instanceId,
-            });
+            removeModelInstance({ instanceId });
 
             // Shift+click for model group interactions
             if (shiftKey && activeGroupId) {
-                // Remove one instance from group
+                // Remove instance from group
                 removeInstanceFromActiveGroup({
                     groupId: activeGroupId,
-                    modelConfigId: selectedConfig.id,
+                    instanceId,
                 });
             } else if (activeGroupId) {
                 // Regular click: Detach from group
