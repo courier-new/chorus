@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { db } from "../DB";
-import { ModelInstance, generateInstanceId } from "../Models";
+import { v4 as uuidv4 } from "uuid";
+import { ModelInstance } from "../Models";
 import { modelConfigQueries, maybeMigrateModelsToInstances } from "./ModelsAPI";
 import { fetchAppMetadata } from "./AppMetadataAPI";
 
@@ -324,7 +325,7 @@ export function useAddInstanceToActiveGroup() {
             // Add a new instance (supports multiple instances of the same model)
             const newInstance: ModelInstance = {
                 modelConfigId,
-                instanceId: generateInstanceId(),
+                instanceId: uuidv4(),
             };
             const updatedInstances = [...group.modelInstances, newInstance];
 

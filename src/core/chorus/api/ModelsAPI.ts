@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Models from "../Models";
+import { v4 as uuidv4 } from "uuid";
 import { db } from "../DB";
 import {
     ModelConfig,
     SelectedModelConfig,
     ModelInstance,
-    generateInstanceId,
     isModelInstance,
 } from "../Models";
 import { getApiKeys } from "./AppMetadataAPI";
@@ -161,7 +161,7 @@ export function maybeMigrateModelsToInstances(
         const migrated = (configs as string[]).map(
             (modelConfigId): ModelInstance => ({
                 modelConfigId,
-                instanceId: generateInstanceId(),
+                instanceId: uuidv4(),
             }),
         );
         return [migrated, true];
@@ -555,7 +555,7 @@ export function useAddModelInstance() {
 
             const newInstance: ModelInstance = {
                 modelConfigId,
-                instanceId: generateInstanceId(),
+                instanceId: uuidv4(),
             };
 
             await db.execute(
