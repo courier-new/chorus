@@ -1,5 +1,5 @@
 import type { ModelConfig } from "@core/chorus/Models";
-import { useShiftKey } from "../hooks/useShiftKey";
+import { useShiftKeyRef } from "../hooks/useShiftKey";
 import { Badge } from "../ui/badge";
 import { ProviderLogo } from "../ui/provider-logo";
 import { XIcon } from "lucide-react";
@@ -16,7 +16,7 @@ export function ModelPill({
     onRemove: (index: number, shiftKey: boolean) => void;
     isDragging: boolean;
 }) {
-    const shiftKeyRef = useShiftKey();
+    const shiftKeyRef = useShiftKeyRef();
     return (
         <Badge
             variant="secondary"
