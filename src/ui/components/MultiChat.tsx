@@ -1030,13 +1030,21 @@ function ToolsAIMessageViewInnerCollapsed({
     fullText: string;
     expandMessage: () => void;
 }) {
+    const handleExpand = useCallback(
+        (e: React.MouseEvent<HTMLButtonElement>) => {
+            // Prevent message from also being selected as "in chat".
+            e.stopPropagation();
+            expandMessage();
+        },
+        [expandMessage],
+    );
     return (
         <div className="flex flex-row gap-1 items-center">
             {/* Message preview one line */}
             <p className="text-base text-ellipsis line-clamp-1">{fullText}</p>
             <button
                 className="text-sm opacity-70 text-muted-foreground flex-shrink-0 flex items-center gap-1 group/expand-button hover:opacity-100 pl-1"
-                onClick={expandMessage}
+                onClick={handleExpand}
             >
                 Expand{" "}
                 <ChevronRightIcon
