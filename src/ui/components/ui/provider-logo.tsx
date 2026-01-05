@@ -19,6 +19,30 @@ import {
     RiQuestionMark,
 } from "react-icons/ri";
 import { SiOllama } from "react-icons/si";
+import {
+    AI21Icon,
+    AionLabsIcon,
+    ArceeIcon,
+    ByteDanceIcon,
+    CohereIcon,
+    DeepCogitoIcon,
+    DeepSeekIcon,
+    IBMIcon,
+    InceptionIcon,
+    InflectionIcon,
+    KimiIcon,
+    LiquidIcon,
+    MinimaxIcon,
+    MistralIcon,
+    MorphIcon,
+    NousResearchIcon,
+    NvidiaIcon,
+    OpenRouterIcon,
+    QwenIcon,
+    RelaceIcon,
+    XaiIcon,
+    ZaiIcon,
+} from "@ui/components/provider-icons";
 
 // can pass in either provider or modelId. provider takes precedence over modelId
 export type ProviderLogoProps = {
@@ -67,181 +91,55 @@ export function ProviderLogo({
             case "meta":
                 return <RiMetaFill className="w-4 h-4" />;
             case "grok":
-                return (
-                    <img
-                        src="/xai_light.svg"
-                        alt="Grok"
-                        className="w-4 h-4 dark:invert"
-                    />
-                );
+                return <XaiIcon className="w-4 h-4" />;
             case "ai21":
-                return (
-                    <img
-                        src="/ai21_light.svg"
-                        alt="AI21"
-                        className="w-4 h-4 dark:invert"
-                    />
-                );
+                return <AI21Icon className="w-4 h-4" />;
             case "aionlabs":
-                return (
-                    <img
-                        src="/aionlabs_light.svg"
-                        alt="Aion Labs"
-                        className="w-4 h-4 dark:invert"
-                    />
-                );
+                return <AionLabsIcon className="w-4 h-4" />;
             case "alibaba":
                 return <RiAlibabaCloudFill className="w-4 h-4" />;
             case "amazon":
                 return <RiAmazonFill className="w-4 h-4" />;
             case "arcee":
-                return (
-                    <img
-                        src="/arcee_light.svg"
-                        alt="Arcee AI"
-                        className="w-4 h-4 dark:invert"
-                    />
-                );
+                return <ArceeIcon className="w-4 h-4" />;
             case "baidu":
                 return <RiBaiduFill className="w-4 h-4" />;
             case "bytedance":
-                return (
-                    <img
-                        src="/bytedance_light.svg"
-                        alt="Bytedance"
-                        className="w-4 h-4 dark:invert"
-                    />
-                );
+                return <ByteDanceIcon className="w-4 h-4" />;
             case "cohere":
-                return (
-                    <img
-                        src="/cohere_light.svg"
-                        alt="Cohere"
-                        className="w-4 h-4 dark:invert"
-                    />
-                );
+                return <CohereIcon className="w-4 h-4" />;
             case "deepcogito":
-                return (
-                    <img
-                        src="/deepcogito_light.svg"
-                        alt="DeepCogito"
-                        className="w-4 h-4 dark:invert"
-                    />
-                );
+                return <DeepCogitoIcon className="w-4 h-4" />;
             case "deepseek":
-                return (
-                    <img
-                        src="/deepseek_light.svg"
-                        alt="DeepSeek"
-                        className="w-4 h-4 dark:invert"
-                    />
-                );
+                return <DeepSeekIcon className="w-4 h-4" />;
             case "ibm":
-                return (
-                    <img
-                        src="/ibm_light.svg"
-                        alt="IBM"
-                        className="w-4 h-4 dark:invert"
-                    />
-                );
+                return <IBMIcon className="w-4 h-4" />;
             case "inception":
-                return (
-                    <img
-                        src="/inception_light.svg"
-                        alt="Inception"
-                        className="w-4 h-4 dark:invert"
-                    />
-                );
+                return <InceptionIcon className="w-4 h-4" />;
             case "inflection":
-                return (
-                    <img
-                        src="/inflection_light.svg"
-                        alt="Inflection"
-                        className="w-4 h-4 dark:invert"
-                    />
-                );
+                return <InflectionIcon className="w-4 h-4" />;
             case "kimi":
-                return (
-                    <img
-                        src="/kimi_light.svg"
-                        alt="Kimi"
-                        className="w-4 h-4 dark:invert"
-                    />
-                );
+                return <KimiIcon className="w-4 h-4" />;
             case "liquid":
-                return (
-                    <img
-                        src="/liquid_light.svg"
-                        alt="Liquid"
-                        className="w-4 h-4 dark:invert"
-                    />
-                );
+                return <LiquidIcon className="w-4 h-4" />;
             case "microsoft":
                 return <RiMicrosoftFill className="w-4 h-4" />;
             case "minimax":
-                return (
-                    <img
-                        src="/minimax_light.svg"
-                        alt="Minimax"
-                        className="w-4 h-4 dark:invert"
-                    />
-                );
+                return <MinimaxIcon className="w-4 h-4" />;
             case "mistral":
-                return (
-                    <img
-                        src="/mistral_light.svg"
-                        alt="Mistral"
-                        className="w-4 h-4 dark:invert"
-                    />
-                );
+                return <MistralIcon className="w-4 h-4" />;
             case "morph":
-                return (
-                    <img
-                        src="/morph_light.svg"
-                        alt="Morph"
-                        className="w-4 h-4 dark:invert"
-                    />
-                );
+                return <MorphIcon className="w-4 h-4" />;
             case "nousresearch":
-                return (
-                    <img
-                        src="/nousresearch_light.svg"
-                        alt="Nous Research"
-                        className="w-4 h-4 dark:invert"
-                    />
-                );
+                return <NousResearchIcon className="w-4 h-4" />;
             case "nvidia":
-                return (
-                    <img
-                        src="/nvidia_light.svg"
-                        alt="NVIDIA"
-                        className="w-4 h-4 dark:invert"
-                    />
-                );
+                return <NvidiaIcon className="w-4 h-4" />;
             case "qwen":
-                return (
-                    <img
-                        src="/qwen_light.svg"
-                        alt="Qwen"
-                        className="w-4 h-4 dark:invert"
-                    />
-                );
+                return <QwenIcon className="w-4 h-4" />;
             case "relace":
-                return (
-                    <img
-                        src="/relace_light.svg"
-                        alt="Relace"
-                        className="w-4 h-4 dark:invert"
-                    />
-                );
+                return <RelaceIcon className="w-4 h-4" />;
             case "zai":
-                return (
-                    <img
-                        src="/zai_light.svg"
-                        alt="01.AI"
-                        className="w-4 h-4 dark:invert"
-                    />
-                );
+                return <ZaiIcon className="w-4 h-4" />;
             case "openrouter":
                 if (modelId) {
                     const detectedProvider =
@@ -250,13 +148,7 @@ export function ProviderLogo({
                         return getLogoComponent(detectedProvider);
                     }
                 }
-                return (
-                    <img
-                        src="/openrouter_dark.svg"
-                        alt="OpenRouter"
-                        className="w-4 h-4 invert dark:invert-0"
-                    />
-                );
+                return <OpenRouterIcon className="w-4 h-4" />;
             default: {
                 // @ts-expect-error: creating unused variable to provide exhaustiveness check
                 const _unused: never = provider;

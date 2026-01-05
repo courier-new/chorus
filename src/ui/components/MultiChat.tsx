@@ -40,6 +40,7 @@ import {
     FolderOpenIcon,
     ReplyIcon,
     TrashIcon,
+    CheckCircleIcon,
 } from "lucide-react";
 import { useAppContext } from "@ui/hooks/useAppContext";
 import {
@@ -136,6 +137,7 @@ import {
     requestPermission,
 } from "@tauri-apps/plugin-notification";
 import { useShortcutDisplay } from "@core/utilities/ShortcutsAPI";
+import { useSettings } from "./hooks/useSettings";
 
 // ----------------------------------
 // Sub-components
@@ -1030,13 +1032,21 @@ function ToolsAIMessageViewInnerCollapsed({
     fullText: string;
     expandMessage: () => void;
 }) {
+    const handleExpand = useCallback(
+        (e: React.MouseEvent<HTMLButtonElement>) => {
+            // Prevent message from also being selected as "in chat".
+            e.stopPropagation();
+            expandMessage();
+        },
+        [expandMessage],
+    );
     return (
         <div className="flex flex-row gap-1 items-center">
             {/* Message preview one line */}
             <p className="text-base text-ellipsis line-clamp-1">{fullText}</p>
             <button
                 className="text-sm opacity-70 text-muted-foreground flex-shrink-0 flex items-center gap-1 group/expand-button hover:opacity-100 pl-1"
-                onClick={expandMessage}
+                onClick={handleExpand}
             >
                 Expand{" "}
                 <ChevronRightIcon
@@ -1054,12 +1064,14 @@ function ToolsAIMessageViewInner({
     isCollapsed,
     expandMessage,
     isQuickChatWindow,
+    showCost,
 }: {
     fullText: string;
     message: Message;
     isCollapsed: boolean;
     expandMessage: () => void;
     isQuickChatWindow: boolean;
+    showCost: boolean;
 }) {
     // combine tool calls with tool results
     const messagePartsSandwiched: MessagePartWithResults[] = message.parts
@@ -1098,10 +1110,10 @@ function ToolsAIMessageViewInner({
         .filter((p) => p !== undefined);
     return (
         <div
-            className={`relative overflow-y-auto select-text min-h-[3.75rem] ${
+            className={`relative overflow-y-auto select-text ${
                 isQuickChatWindow
                     ? "py-2.5 border !border-special max-w-full inline-block break-words px-3.5 rounded-xl"
-                    : "p-4 pb-6"
+                    : `p-4 ${showCost ? "pb-7" : ""}`
             }`}
         >
             {isCollapsed ? (
@@ -1213,6 +1225,9 @@ export function ToolsMessageView({
     const navigate = useNavigate();
     // const [raw, setRaw] = useState(false);
     // const [streamStartTime, setStreamStartTime] = useState<Date>();
+
+    const { data: settings } = useSettings();
+    const showCost = settings?.showCost ?? false;
 
     const collapseButtonRef = useRef<HTMLButtonElement>(null);
     const isCollapsed = message.isCollapsed ?? false;
@@ -1373,7 +1388,11 @@ export function ToolsMessageView({
     const messageClasses = [
         "relative",
         !isQuickChatWindow && "rounded-md border-[0.090rem]",
-        isQuickChatWindow ? "text-sm" : "bg-background",
+        isQuickChatWindow
+            ? "text-sm"
+            : message.selected
+              ? "bg-highlight/25 dark:bg-highlight/5"
+              : "bg-background",
         // Border color: selected uses special, synthesis (non-selected) uses synthesis color, otherwise default
         !isQuickChatWindow && (message.selected || isReply)
             ? "!border-special"
@@ -1435,11 +1454,18 @@ export function ToolsMessageView({
                                 className={`flex items-center h-6 gap-2 ${isQuickChatWindow ? "invisible" : ""}`}
                             >
                                 <div
-                                    className={`ml-2 px-2 bg-background ${
+                                    className="ml-2 px-2 text-muted-foreground"
+                                    style={
                                         message.selected
-                                            ? "text-foreground"
-                                            : "text-muted-foreground"
-                                    }`}
+                                            ? {
+                                                  background:
+                                                      "linear-gradient(to bottom, hsl(var(--background)) 50%, transparent 50%)",
+                                              }
+                                            : {
+                                                  background:
+                                                      "hsl(var(--background))",
+                                              }
+                                    }
                                 >
                                     {isSynthesis ? (
                                         <Tooltip>
@@ -1476,24 +1502,40 @@ export function ToolsMessageView({
                                         )
                                     )}
                                 </div>
-                                {!isOnlyMessage && (
-                                    <div
-                                        className={`text-accent-600 px-2 flex text-sm tracking-wider font-[350]
-                                        ${isQuickChatWindow ? "bg-gray-200" : "bg-background"} animate-brief-flash font-geist-mono uppercase
-                                        ${message.selected ? "opacity-100" : "opacity-0"}`}
-                                    >
-                                        In Chat
-                                    </div>
-                                )}
                             </div>
                             <div
                                 className={`no-print mr-3 flex items-center h-6 gap-2
                                 `}
                             >
                                 <div
-                                    className={`gap-2 text-muted-foreground px-2 flex opacity-0 group-hover/message-set-view:opacity-100 focus-within:opacity-100 bg-background
+                                    className={`gap-2 text-muted-foreground px-2 flex opacity-0 group-hover/message-set-view:opacity-100 focus-within:opacity-100
                                     ${isQuickChatWindow ? "rounded-lg p-1" : ""}`}
+                                    style={
+                                        message.selected
+                                            ? {
+                                                  background:
+                                                      "linear-gradient(to bottom, hsl(var(--background)) 50%, transparent 50%)",
+                                              }
+                                            : {
+                                                  background:
+                                                      "hsl(var(--background))",
+                                              }
+                                    }
                                 >
+                                    {message.selected &&
+                                        !isOnlyMessage &&
+                                        !isQuickChatWindow && (
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <CheckCircleIcon className="w-3.5 h-3.5 text-accent-500" />
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    This message will be
+                                                    included in the conversation
+                                                    context.
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        )}
                                     {message.state === "streaming" ? (
                                         <Tooltip>
                                             <TooltipTrigger asChild>
@@ -1705,13 +1747,25 @@ export function ToolsMessageView({
                             message={message}
                             isCollapsed={isCollapsed}
                             isQuickChatWindow={isQuickChatWindow}
+                            showCost={showCost}
                         />
 
                         {/* Reply button at bottom overlapping border (only show if there are no replies and not synthesis) */}
                         {!isQuickChatWindow && !isReply && !isSynthesis && (
                             <div className="absolute bottom-0 left-3 transform translate-y-1/2 z-10 opacity-full">
                                 <button
-                                    className="text-muted-foreground hover:text-foreground transition-color flex items-center gap-2 bg-background px-2 py-1 opacity-0 group-hover/message-set-view:opacity-100 focus-within:opacity-100"
+                                    className="text-muted-foreground hover:text-foreground transition-color flex items-center gap-2 px-2 py-1 opacity-0 group-hover/message-set-view:opacity-100 focus-within:opacity-100"
+                                    style={
+                                        message.selected
+                                            ? {
+                                                  background:
+                                                      "linear-gradient(to bottom, transparent 50%, hsl(var(--background)) 50%)",
+                                              }
+                                            : {
+                                                  background:
+                                                      "hsl(var(--background))",
+                                              }
+                                    }
                                     onClick={onReplyClick}
                                 >
                                     <ReplyIcon
