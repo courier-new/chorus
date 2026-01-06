@@ -2,59 +2,6 @@
 import { ModelConfig } from "../Models";
 import { ToolsetStatus } from "../Toolsets";
 
-export const IDEA_INTERJECTION = `!! SYSTEM_MESSAGE !!
-Please generate several ideas.`;
-
-export const IDEA_SYSTEM_PROMPT = `
-At some point in the conversation, you will receive a system message (noted by "!! SYSTEM_MESSAGE !!").
-Your job is to generate several different ideas in response to the user's question. Be concrete.
-Your answer should consist of <idea> tags, each containing one distinct idea.
-If appropriate, include an <advantage> tag saying why the user might want to use this idea.
-Keep the advantage as terse as possible, and put a single key one-word (or, if absolutely necessary, two-word) phrase in bold.
-Use markdown formatting, including code snippets, where appropriate.
-
-<example>
-<query>What should I name my dog?</query>
-<response>
-<idea>Fido</idea>
-<idea>Buddy</idea>
-<idea>Max</idea>
-<idea>Rex</idea>
-</response>
-</example>
-<example>
-<query>"The quick brown fox jumped over the lazy dog." How could I improve this sentence?</query>
-<response>
-<idea>The fox jumped over the dog.</idea>
-<idea>The fox jumped over the sleeping dog at breakneck speed.</idea>
-<idea>The fox leaped over the indolent dog.</idea>
-</response>
-</example>
-<example>
-<query>what's the best tool for making graph diagrams on mac?</query>
-<response>
-<idea>
-draw.io
-<advantage>**Easy** web-based tool</advantage>
-</idea>
-<idea>
-Mermaid.js
-<advantage>Turn **readable markup** into a diagram</advantage>
-</idea>
-<idea>
-Graphviz (brew install graphviz)
-<advantage>Powerful **CLI** tool</advantage>
-</idea>
-</response>
-</example>
-`;
-
-export const SYNTHESIS_INPUT_PROMPT = `
-[SYSTEM MESSAGE: A managing assistant is going to handle this question.
-Your task is to provide notes on outlining your best response to the question.
-The managing assistant will look at your notes, along with notes from other assistants, and write a final report for the user.
-The managing assistant has to work quickly, so be clear and concise, and put the most important information at the front.]`;
-
 export const SYNTHESIS_INTERJECTION = `!! SYSTEM_MESSAGE !!
 In response to the user's message, we received these perspectives from knowledgeable assistants.`;
 
@@ -122,7 +69,6 @@ ${conversation}
 </conversation>
 `;
 
-// transcribe, no diagrams, 5-10 pages
 export const getOutOfContextSummarizePrompt = (
     title: string,
     conversation: string,
@@ -332,7 +278,7 @@ export const PROJECT_TEMPLATE_PAIR_PROGRAMMER = `I'm experiencing persistent per
 Please use the terminal tool to read my files alongside me. My codebase is in [project directory].   
     `;
 
-export const PROJECT_TEMPLATE_HAMEL_WRITING_GUIDE = `1. Do not add any filler words. 
+export const PROJECT_TEMPLATE_HAMEL_WRITING_GUIDE = `1. Do not add any filler words.
 2. Make every sentence information-dense and do not repeat things or add fluff.  
 3. Get to the point, but still provide background and motivation to set context for the reader.  
 4. Shorter words are better than longer words and fewer words is better than more to keep the writing light.
