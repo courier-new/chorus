@@ -4,9 +4,9 @@
 
 Sets up a new isolated development instance by:
 
--   Installing dependencies with `pnpm i`
+-   Symlinking dependencies from the main repo (if it exists), or installing them normally
 -   Creating the Application Support directory for the instance
--   Copying `auth.dat` from the main dev instance (if it exists)
+-   Copying settings and data from the main dev or production instance (if it exists)
 
 ### Usage
 
