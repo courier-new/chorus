@@ -1,6 +1,7 @@
 import { SplitIcon } from "lucide-react";
 import { useMemo } from "react";
 import { useShortcutDisplay } from "@core/utilities/ShortcutsAPI";
+import { comboToDisplayString } from "@core/utilities/Shortcuts";
 
 const useEmptyStateShortcuts = () => {
     const newProjectDisplay = useShortcutDisplay("new-project", true);
