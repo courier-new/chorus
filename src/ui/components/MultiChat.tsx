@@ -69,7 +69,6 @@ import {
     DialogTrigger,
 } from "./ui/dialog";
 import { MessageMarkdown } from "./renderers/MessageMarkdown";
-import { catchAsyncErrors } from "@core/chorus/utilities";
 import { MouseTrackingEye, MouseTrackingEyeRef } from "./MouseTrackingEye";
 import {
     Message,
@@ -2174,6 +2173,7 @@ const MessageSetView = memo(
 const COPY_SHARE_URL_SHORTCUT = ["Enter"];
 const OPEN_SHARE_URL_SHORTCUT = ["Meta", "Enter"];
 const CLOSE_SHARE_URL_SHORTCUT = ["Escape"];
+const HIDE_QUICK_CHAT_SHORTCUT = ["Escape"];
 
 // ----------------------------------
 // Main Component
@@ -2497,54 +2497,13 @@ export default function MultiChat() {
         isEnabled: isQuickChatWindow,
     });
 
-    // Non-configurable keyboard shortcuts (cmd+1-8, Escape for quick chat)
-    useEffect(() => {
-        // eslint-disable-next-line @typescript-eslint/require-await
-        const handleKeyDown = catchAsyncErrors(async (e: KeyboardEvent) => {
-            if (e.metaKey && /^[1-8]$/.test(e.key)) {
-                // cmd + 1-8: select message at index
-                e.preventDefault();
-                if (currentMessageSet?.selectedBlockType !== "compare") {
-                    console.warn(
-                        "skipping cmd+1-8 because we're not in compare mode",
-                    );
-                    return;
-                }
-                // Get message at index (1-based)
-                const index = parseInt(e.key) - 1;
-                if (
-                    !currentCompareBlock ||
-                    currentCompareBlock.messages.length <= index
-                ) {
-                    console.warn(
-                        `couldn't select message at ${index} from cmd+${index + 1}`,
-                    );
-                    return;
-                }
-                const message = currentCompareBlock.messages[index];
+    const hideQuickChat = useCallback(() => {
+        void invoke("hide");
+    }, []);
 
-                selectMessage.mutate({
-                    chatId: chatId!,
-                    messageSetId: currentMessageSet.id,
-                    messageId: message.id,
-                });
-            }
-
-            if (isQuickChatWindow && e.key === "Escape") {
-                e.preventDefault();
-                void invoke("hide");
-            }
-        });
-
-        document.addEventListener("keydown", handleKeyDown);
-        return () => document.removeEventListener("keydown", handleKeyDown);
-    }, [
-        chatId,
-        currentMessageSet,
-        currentCompareBlock,
-        isQuickChatWindow,
-        selectMessage,
-    ]);
+    useShortcut(HIDE_QUICK_CHAT_SHORTCUT, hideQuickChat, {
+        isEnabled: isQuickChatWindow,
+    });
 
     const scrollToLatestMessageSet = useCallback(() => {
         // autoscroll on new message
