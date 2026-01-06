@@ -91,18 +91,6 @@ export const allowedExtensions: Record<AttachmentType, string[]> = {
     webpage: [],
 };
 
-/**
- * LEGACY -- TODO get rid of this one when we deprecate old-style tools
- */
-export interface ToolConfig {
-    name: string; // "Web Search"
-    generic_tool_name: string; //  a generic name for the tool, e.g. "web_search"
-    provider_tool_id: string; // provider specific id for the tool, e.g. "web_search_preview" for OpenAI
-    description: string; // "Search the web for information"
-    default_enabled: boolean; // whether the tool should be enabled by default
-    toggleable: boolean; // whether the tool should be toggleable by the user
-}
-
 export type LLMMessageUser = {
     role: "user";
     content: string;

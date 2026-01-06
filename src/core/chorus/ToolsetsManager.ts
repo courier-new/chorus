@@ -16,13 +16,8 @@ import {
 import { v4 as uuidv4 } from "uuid";
 import { ToolsetWeb } from "./toolsets/web";
 import { ToolsetMedia } from "./toolsets/media";
-// import { ToolsetSlack } from "./toolsets/slack";
 import { ToolsetTerminal } from "./toolsets/terminal";
-// import { ToolsetCoder } from "./toolsets/coder";
 import { ToolsetGithub } from "./toolsets/github";
-// import { ToolsetNotion } from "./toolsets/notion";
-// import { ToolsetFiles } from "./toolsets/files";
-// import { ToolsetMessages } from "./toolsets/messages";
 
 export class ToolsetsManager {
     private _builtInToolsets: Toolset[] = [];
@@ -36,14 +31,9 @@ export class ToolsetsManager {
 
             ToolsetsManager._instance._builtInToolsets = [
                 new ToolsetWeb(),
-                // new ToolsetFiles(),
                 new ToolsetTerminal(),
                 new ToolsetMedia(),
                 new ToolsetGithub(),
-                // new ToolsetCoder(),
-                // new ToolsetSlack(),
-                // new ToolsetMessages(),
-                // new ToolsetNotion(),
             ];
         }
 

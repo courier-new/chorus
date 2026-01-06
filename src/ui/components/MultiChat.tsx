@@ -1224,8 +1224,6 @@ export function ToolsMessageView({
     toolsBlock: ToolsBlock;
 }) {
     const navigate = useNavigate();
-    // const [raw, setRaw] = useState(false);
-    // const [streamStartTime, setStreamStartTime] = useState<Date>();
 
     const { data: settings } = useSettings();
     const showCost = settings?.showCost ?? false;

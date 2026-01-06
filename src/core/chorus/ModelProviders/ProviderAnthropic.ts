@@ -282,11 +282,6 @@ async function formatMessageWithAttachments(
                 break;
             }
             case "image": {
-                const fileExtension = attachment.path
-                    .split(".")
-                    .pop()
-                    ?.toLowerCase();
-
                 // Get the image data
                 const imageData = await readImageAttachment(attachment);
 

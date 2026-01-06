@@ -121,23 +121,6 @@ export class StdioClientTransportChorus implements Transport {
                       },
                   );
 
-        // this._process = spawn(
-        //     this._serverParams.command,
-        //     this._serverParams.args ?? [],
-        //     {
-        //         env: this._serverParams.env ?? getDefaultEnvironment(),
-        //         stdio: [
-        //             "pipe",
-        //             "pipe",
-        //             this._serverParams.stderr ?? "inherit",
-        //         ],
-        //         shell: false,
-        //         signal: this._abortController.signal,
-        //         windowsHide: process.platform === "win32" && isElectron(),
-        //         cwd: this._serverParams.cwd,
-        //     },
-        // );
-
         this._command.on("error", (error) => {
             const err = new Error(error);
             this.onerror?.(err);
@@ -147,10 +130,6 @@ export class StdioClientTransportChorus implements Transport {
             this._process = undefined;
             this.onclose?.();
         });
-
-        // this._process.stdin?.on("error", (error) => {
-        //     this.onerror?.(error);
-        // });
 
         this._command.stdout?.on("data", (chunk) => {
             console.debug("Received chunk:", chunk);
@@ -162,10 +141,6 @@ export class StdioClientTransportChorus implements Transport {
             console.debug("Received stderr chunk:", chunk, this.onerror);
             this.onerror?.(new Error(chunk));
         });
-
-        // this._command.stdout?.on("error", (error) => {
-        //     this.onerror?.(error);
-        // });
 
         this._process = await this._command.spawn();
 

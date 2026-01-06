@@ -95,34 +95,6 @@ const queryClient = new QueryClient({
     },
 });
 
-// function DeeplinkTester({ onTest }: { onTest: (urls: string[]) => void }) {
-//     const [testUrl, setTestUrl] = useState("");
-
-//     const handleTestDeeplink = () => {
-//         if (testUrl.trim()) {
-//             onTest([testUrl]);
-//         }
-//     };
-
-//     return (
-//         <div className="fixed bottom-12 right-4 z-50 flex gap-2 bg-card p-2 rounded-md border shadow-md">
-//             <input
-//                 type="text"
-//                 value={testUrl}
-//                 onChange={(e) => setTestUrl(e.target.value)}
-//                 placeholder="chorus://..."
-//                 className="px-2 py-1 text-sm border rounded"
-//             />
-//             <button
-//                 onClick={handleTestDeeplink}
-//                 className="px-2 py-1 text-sm bg-primary text-primary-foreground rounded"
-//             >
-//                 Open deep link
-//             </button>
-//         </div>
-//     );
-// }
-
 function AppContent() {
     const navigate = useNavigate();
     const location = useLocation();
