@@ -172,7 +172,6 @@ function AppContent() {
         currentAppVersion !== null &&
         dismissedAlertVersion !== currentAppVersion;
 
-    const [reviewsDialogOpen, setReviewsDialogOpen] = useState(false);
     const [_waitlistDialogOpen, _setWaitlistDialogOpen] = useState(false);
     const [defaultSettingsTab, setDefaultSettingsTab] =
         useState<SettingsTabId>("general");
@@ -730,21 +729,6 @@ function AppContent() {
         skipOnboarding.mutate();
     };
 
-    // Check if we should show the reviews dialog
-    useEffect(() => {
-        const checkReviewsDialog = async () => {
-            const result = await db.select<{ value: string }[]>(
-                "SELECT value FROM app_metadata WHERE key = 'needs_reviews_primer'",
-            );
-
-            if (result.length > 0 && result[0].value === "true") {
-                setReviewsDialogOpen(true);
-            }
-        };
-
-        void checkReviewsDialog();
-    }, [db]);
-
     // Listen for events to open API keys settings
     useEffect(() => {
         const unlisten = listen(
@@ -826,46 +810,6 @@ function AppContent() {
             {!hasDismissedOnboarding && !isQuickChatWindow && (
                 <Onboarding onComplete={onCompleteOnboarding} />
             )}
-
-            <AlertDialog
-                open={reviewsDialogOpen}
-                onOpenChange={setReviewsDialogOpen}
-            >
-                <AlertDialogContent className="max-w-2xl">
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Introducing Reviews</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            <p>
-                                AIs now review each other&rsquo;s messages for
-                                accuracy and clarity. Only one AI responds at a
-                                time.
-                            </p>
-                            <img
-                                src="/review.jpg"
-                                alt="Reviews"
-                                className="w-full rounded-lg border my-6"
-                            />
-                            <p>
-                                If you prefer to see responses side-by-side,
-                                turn on Legacy Mode in settings.
-                            </p>
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogAction
-                            variant="default"
-                            onClick={() => {
-                                setReviewsDialogOpen(false);
-                                void db.execute(
-                                    "UPDATE app_metadata SET value = 'false' WHERE key = 'needs_reviews_primer'",
-                                );
-                            }}
-                        >
-                            Got it
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
 
             <div
                 className={`select-none ${isQuickChatWindow ? "bg-transparent" : "bg-background"}`}

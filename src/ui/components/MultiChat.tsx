@@ -2494,8 +2494,6 @@ export default function MultiChat() {
     useConfigurableShortcut("share-chat", handleShareChat);
 
     const selectMessage = MessageAPI.useSelectMessage();
-    const { mutate: setReviewsEnabled } = MessageAPI.useSetReviewsEnabled();
-
     const handleToggleVisionMode = useCallback(async () => {
         const hasPermissions = await checkScreenRecordingPermission();
         const visionModeEnabled = appMetadata["vision_mode_enabled"] === "true";
@@ -2516,14 +2514,6 @@ export default function MultiChat() {
             setVisionModeEnabled.mutate(!visionModeEnabled);
         }
     }, [appMetadata, setVisionModeEnabled]);
-
-    const toggleReviews = useCallback(() => {
-        setReviewsEnabled({
-            enabled: appMetadata["reviews_enabled"] !== "true",
-        });
-    }, [appMetadata, setReviewsEnabled]);
-
-    useConfigurableShortcut("toggle-reviews", toggleReviews);
 
     useConfigurableShortcut("open-in-main", handleOpenQuickChatInMainWindow, {
         isEnabled: isQuickChatWindow,

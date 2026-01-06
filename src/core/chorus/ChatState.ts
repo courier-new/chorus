@@ -3,7 +3,6 @@ import type { Attachment } from "./api/AttachmentsAPI";
 import * as Toolsets from "./Toolsets";
 import type { UserToolCall, UserToolResult } from "./Toolsets";
 import * as Prompts from "./prompts/prompts";
-import * as Reviews from "./reviews";
 
 // ----------------------------------
 // Types
@@ -35,11 +34,9 @@ export interface Message {
     model: string;
     selected: boolean;
     attachments: Attachment[] | undefined;
-    isReview: boolean;
     state: "streaming" | "idle";
     streamingToken: string | undefined; // says which stream is updating this message
     errorMessage: string | undefined;
-    reviewState: "pending" | "applied" | undefined;
     level: number | undefined;
     parts: MessagePart[];
     replyChatId: string | undefined;
@@ -70,7 +67,6 @@ export function createAIMessage({
     blockType,
     model,
     selected = false,
-    isReview = false,
     level,
     instanceId,
 }: {
@@ -79,7 +75,6 @@ export function createAIMessage({
     blockType: BlockType;
     model: string;
     selected?: boolean;
-    isReview?: boolean;
     level?: number;
     instanceId?: string;
 }): Omit<Message, "id" | "streamingToken" | "parts"> {
@@ -93,8 +88,6 @@ export function createAIMessage({
         attachments: undefined,
         state: "streaming",
         errorMessage: undefined,
-        isReview,
-        reviewState: undefined,
         level,
         replyChatId: undefined,
         branchedFromId: undefined,
@@ -120,8 +113,6 @@ export function createUserMessage({
         selected: true,
         state: "idle",
         errorMessage: undefined,
-        isReview: false,
-        reviewState: undefined,
         level: undefined,
         replyChatId: undefined,
         branchedFromId: undefined,
@@ -156,7 +147,6 @@ export type UserBlock = {
 export type ChatBlock = {
     type: "chat";
     message: Message | undefined;
-    reviews: Message[];
 };
 export type CompareBlock = {
     type: "compare";
@@ -253,22 +243,6 @@ ${message.parts.map((p) => p.content).join("")}
 }
 
 function encodeChatBlock(block: ChatBlock): LLMMessage[] {
-    const appliedReview = block.reviews.find(
-        (r) => r.reviewState === "applied",
-    );
-    const revision = appliedReview
-        ? Reviews.parseReview(appliedReview.text, true).revision
-        : undefined;
-    if (revision) {
-        return [
-            {
-                role: "assistant",
-                content: revision,
-                toolCalls: [],
-            },
-        ];
-    }
-
     if (!block.message) {
         return [];
     }

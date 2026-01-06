@@ -32,7 +32,6 @@ export type ShortcutId =
     | "focus-input"
     | "synthesize"
     | "share-chat"
-    | "toggle-reviews"
     | "new-group-chat"
     | "find-in-page"
     | "find-next"
@@ -222,15 +221,6 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
         defaultCombo: "Meta+Shift+S",
         requiresRestart: false,
         visible: true,
-    },
-    "toggle-reviews": {
-        id: "toggle-reviews",
-        label: "Toggle Reviews",
-        description: "Toggles the reviews mode for the current chat.",
-        scope: "chat",
-        defaultCombo: "Meta+Shift+R",
-        requiresRestart: false,
-        visible: false,
     },
     "new-group-chat": {
         id: "new-group-chat",

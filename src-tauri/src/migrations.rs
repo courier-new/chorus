@@ -2604,5 +2604,27 @@ You have full access to bash commands on the user''''s computer. If you write a 
                 DROP TABLE IF EXISTS temp_message_sets;
             "#,
         },
+        Migration {
+            version: 143,
+            description: "clean up deprecated app_metadata rows",
+            kind: MigrationKind::Up,
+            sql: r#"
+                -- Remove deprecated app_metadata rows
+                DELETE FROM app_metadata WHERE key IN (
+                    'selected_model_config_chat',
+                    'reviews_enabled',
+                    'review_mode'
+                );
+            "#,
+        },
+        Migration {
+            version: 144,
+            description: "drop is_review and review_state columns from messages",
+            kind: MigrationKind::Up,
+            sql: r#"
+                ALTER TABLE messages DROP COLUMN is_review;
+                ALTER TABLE messages DROP COLUMN review_state;
+            "#,
+        },
     ];
 }

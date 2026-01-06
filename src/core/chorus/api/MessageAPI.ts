@@ -14,7 +14,6 @@ import {
     ChatBlock,
     UserBlock,
 } from "@core/chorus/ChatState";
-import * as Reviews from "../reviews";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
     LLMMessage,
@@ -113,8 +112,6 @@ export interface MessageDBRow {
     state: "streaming" | "idle";
     streaming_token: string | null;
     error_message: string | null;
-    is_review: number;
-    review_state: "applied" | null;
     block_type: BlockType;
     level: number | null;
     reply_chat_id: string | null;
@@ -153,8 +150,6 @@ export function readMessage(
         state: row.state,
         streamingToken: row.streaming_token ?? undefined,
         errorMessage: row.error_message ?? undefined,
-        isReview: Boolean(row.is_review),
-        reviewState: row.review_state ?? undefined,
         level: row.level ?? undefined,
         parts: messagePartsRows.map(readMessagePart),
         replyChatId: row.reply_chat_id ?? undefined,
@@ -526,13 +521,11 @@ export async function duplicateMessagesForMessageSet(
                 model,
                 selected,
                 streaming_token,
-                is_review,
-                review_state,
                 block_type,
                 state,
                 level,
                 branched_from_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              RETURNING id`,
             [
                 newMessageId,
@@ -542,8 +535,6 @@ export async function duplicateMessagesForMessageSet(
                 message.model,
                 message.selected,
                 null, // Reset streaming token
-                message.is_review,
-                message.review_state,
                 message.block_type,
                 "idle", // Reset state to idle
                 message.level,
@@ -784,24 +775,6 @@ export function useBranchChat({
                 navigate(`/chat/${newChatId}`);
             }
             await queryClient.invalidateQueries(chatQueries.list());
-        },
-    });
-}
-
-export function useSetReviewsEnabled() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationKey: ["setReviewsEnabled"] as const,
-        mutationFn: async ({ enabled }: { enabled: boolean }) => {
-            await db.execute(
-                "UPDATE app_metadata SET value = $1 WHERE key = 'reviews_enabled'",
-                [enabled ? "true" : "false"],
-            );
-        },
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({
-                queryKey: appMetadataKeys.appMetadata(),
-            });
         },
     });
 }
@@ -1719,10 +1692,10 @@ export function useCreateMessageSetPair() {
 
             // possible (but extremely hypothetical) race condition here because this is not in a transaction
 
-            // stop streaming on all previous messages (except review messages)
+            // stop streaming on all previous messages
             await db.execute(
                 `UPDATE messages SET streaming_token = NULL, state = 'idle'
-                    WHERE chat_id = $1 AND state = 'streaming' AND is_review <> 1`,
+                    WHERE chat_id = $1 AND state = 'streaming'`,
                 [chatId],
             );
 
@@ -1864,31 +1837,29 @@ export function useCreateMessage() {
                     selected,
                     state,
                     streaming_token,
-                    is_review,
-                    review_state,
                     block_type,
                     level,
                     instance_id
-                ) SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, ${
+                ) SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, ${
                     message.level !== undefined
-                        ? `$12` // use provided level
+                        ? `$10` // use provided level
                         : `(
                             -- automatically set level
                             SELECT COALESCE(MAX(level), -1) + 1
                             FROM messages
-                            WHERE message_set_id = $3 AND block_type = $11
+                            WHERE message_set_id = $3 AND block_type = $9
                           )`
-                }, $13
+                }, $11
                 ${
                     options.mode === "first"
                         ? `WHERE NOT EXISTS (
-                                SELECT 1 FROM messages 
-                                WHERE message_set_id = $3 AND block_type = $11
+                                SELECT 1 FROM messages
+                                WHERE message_set_id = $3 AND block_type = $9
                             )`
                         : options.mode === "unique_model"
                           ? `WHERE NOT EXISTS (
-                                SELECT 1 FROM messages 
-                                WHERE message_set_id = $3 AND block_type = $11 AND model = $5
+                                SELECT 1 FROM messages
+                                WHERE message_set_id = $3 AND block_type = $9 AND model = $5
                             )`
                           : ""
                 }`,
@@ -1901,8 +1872,6 @@ export function useCreateMessage() {
                     message.selected ? 1 : 0,
                     state,
                     streamingToken,
-                    message.isReview ? 1 : 0,
-                    message.reviewState ?? null,
                     message.blockType,
                     message.level,
                     message.instanceId ?? null,
@@ -2340,32 +2309,6 @@ export function useSelectSynthesis() {
     });
 }
 
-export function useApplyRevision() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationKey: ["applyRevision"] as const,
-        mutationFn: async ({
-            messageSetId,
-            reviewMessage,
-        }: {
-            chatId: string;
-            messageSetId: string;
-            reviewMessage: Message;
-        }) => {
-            // set this revision to applied, and all other revisions to NULL state
-            await db.execute(
-                "UPDATE messages SET review_state = (CASE WHEN id = $1 THEN 'applied' ELSE NULL END) WHERE message_set_id = $2 AND block_type = 'chat'",
-                [reviewMessage.id, messageSetId],
-            );
-        },
-        onSuccess: async (_data, variables, _context) => {
-            await queryClient.invalidateQueries({
-                queryKey: messageKeys.messageSets(variables.chatId),
-            });
-        },
-    });
-}
-
 export function useEditMessage(chatId: string, isQuickChatWindow: boolean) {
     const queryClient = useQueryClient();
     const populateBlock = usePopulateBlock(chatId, isQuickChatWindow);
@@ -2444,132 +2387,22 @@ export function useEditMessage(chatId: string, isQuickChatWindow: boolean) {
     });
 }
 
-export function useUnapplyRevisions() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationKey: ["unapplyRevisions"] as const,
-        mutationFn: async ({
-            messageSetId,
-        }: {
-            chatId: string;
-            messageSetId: string;
-        }) => {
-            await db.execute(
-                "UPDATE messages SET review_state = NULL WHERE message_set_id = $1 AND block_type = 'chat'",
-                [messageSetId],
-            );
-        },
-        onSuccess: async (_data, variables, _context) => {
-            await queryClient.invalidateQueries({
-                queryKey: messageKeys.messageSets(variables.chatId),
-            });
-        },
-    });
-}
-
-/**
- * Deletes all reviews for a message set
- * Can be used to set up a message set for reviews to be freshly generated
- */
-export function useDeleteReviews() {
-    const queryClient = useQueryClient();
-    const { isQuickChatWindow } = useAppContext();
-
-    return useMutation({
-        mutationKey: ["deleteReviews"] as const,
-        mutationFn: async ({
-            chatId: _chatId,
-            messageSetId,
-        }: {
-            chatId: string;
-            messageSetId: string;
-        }) => {
-            if (isQuickChatWindow) return { skipped: true };
-
-            await db.execute(
-                "DELETE FROM messages WHERE message_set_id = $1 AND is_review = 1 AND block_type = 'chat'",
-                [messageSetId],
-            );
-        },
-        onSuccess: async (data, variables, _context) => {
-            if (data?.skipped) return;
-
-            await queryClient.invalidateQueries({
-                queryKey: messageKeys.messageSets(variables.chatId),
-            });
-        },
-    });
-}
-
-/**
- * Apply a revision in a destructive way (overwriting original text) and delete all reviews
- * Can be used to set up a message set for reviews to be freshly generated
- */
-export function useHardApplyAndDeleteReviews() {
-    const deleteReviews = useDeleteReviews();
-
-    return useMutation({
-        mutationKey: ["hardApplyAndDeleteReviews"] as const,
-        mutationFn: async ({
-            chatId,
-            messageSetId,
-            revision,
-        }: {
-            chatId: string;
-            messageSetId: string;
-            revision: string;
-        }) => {
-            // overwrite the main chat message with the revision text
-            await db.execute(
-                `UPDATE messages SET text = $1 WHERE message_set_id = $2 AND is_review = 0 AND block_type = 'chat'`,
-                [revision, messageSetId],
-            );
-
-            // delete all reviews
-            await deleteReviews.mutateAsync({
-                chatId,
-                messageSetId,
-            });
-        },
-    });
-}
-
 export function useDeselectSynthesis() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationKey: ["deselectSynthesis"] as const,
         mutationFn: async ({
             messageSetId,
-            blockType = "compare",
         }: {
             chatId: string;
             messageSetId: string;
-            blockType?: "compare" | "tools";
+            blockType?: "tools";
         }) => {
-            if (blockType === "tools") {
-                // For tools mode: delete the synthesis message
-                await db.execute(
-                    `DELETE FROM messages WHERE message_set_id = $1 AND block_type = 'tools' AND model LIKE '%::synthesize'`,
-                    [messageSetId],
-                );
-            } else {
-                // For compare mode: reselect first non-synthesis message
-                const result = await db.execute(
-                    `
-            WITH to_select AS (
-                SELECT id
-                FROM messages
-                WHERE message_set_id = $1 AND model <> $2
-                LIMIT 1
-            )
-            UPDATE messages SET selected = (
-                CASE WHEN id = (SELECT id FROM to_select) THEN 1 ELSE 0 END
-            ) WHERE message_set_id = $1 AND block_type = 'compare'
-            `,
-                    [messageSetId, "chorus::synthesize"],
-                );
-                return result.rowsAffected > 0;
-            }
+            // For tools mode: delete the synthesis message
+            await db.execute(
+                `DELETE FROM messages WHERE message_set_id = $1 AND block_type = 'tools' AND model LIKE '%::synthesize'`,
+                [messageSetId],
+            );
         },
         onSuccess: async (_data, variables, _context) => {
             await queryClient.invalidateQueries({
@@ -2720,108 +2553,6 @@ export function useSummarizeChat() {
 // ------------------------------------------------------------------------------------------------
 // Populate functions
 // ------------------------------------------------------------------------------------------------
-
-export function useGenerateReviews() {
-    const queryClient = useQueryClient();
-    const getMessageSets = useGetMessageSets();
-    const streamMessageText = useStreamMessageLegacy();
-    const modelConfigsPromise = useModelConfigsPromise();
-    const createMessage = useCreateMessage();
-    const { isQuickChatWindow } = useAppContext();
-
-    return useMutation({
-        mutationKey: ["generateReviews"] as const,
-        mutationFn: async ({
-            chatId,
-            messageSetId,
-        }: {
-            chatId: string;
-            messageSetId: string;
-        }) => {
-            if (isQuickChatWindow) return { skipped: true };
-
-            const appMetadata = await queryClient.ensureQueryData({
-                queryKey: appMetadataKeys.appMetadata(),
-                queryFn: () => fetchAppMetadata(),
-            });
-            if (appMetadata["reviews_enabled"] !== "true") {
-                // abort
-                console.debug(
-                    "Skipping reviews generation because reviews are disabled",
-                    appMetadata,
-                );
-                return;
-            }
-
-            const messageSets = await getMessageSets(chatId);
-            const messageSet = messageSets.find((m) => m.id === messageSetId);
-
-            if (!messageSet) {
-                throw new Error(`Message set not found: ${messageSetId}`);
-            }
-
-            const message = messageSet.chatBlock?.message;
-            if (!message) {
-                throw new Error(
-                    `Message not found in message set: ${messageSetId}`,
-                );
-            }
-
-            const modelConfigs = await modelConfigsPromise;
-
-            const reviewConfigs: ModelConfig[] =
-                Reviews.ACTIVE_REVIEWERS_ORDER.map((key) => {
-                    const modelConfig = modelConfigs.find((m) => m.id === key)!;
-                    return modelConfig;
-                }).filter((m) => m !== undefined);
-
-            const conversation = llmConversation(messageSets);
-
-            await Promise.all(
-                reviewConfigs.map(async (reviewConfig) => {
-                    const message = await createMessage.mutateAsync({
-                        message: createAIMessage({
-                            chatId,
-                            messageSetId,
-                            blockType: "chat",
-                            model: reviewConfig.id,
-                            selected: false, // review messages are not selected
-                            isReview: true,
-                        }),
-                        options: {
-                            mode: "always",
-                        },
-                    });
-                    if (!message) {
-                        throw new Error(
-                            `Failed to create message for review: ${reviewConfig.id}`,
-                        );
-                    }
-
-                    const { messageId, streamingToken } = message;
-
-                    await streamMessageText.mutateAsync({
-                        chatId,
-                        messageSetId,
-                        messageId,
-                        conversation,
-                        modelConfig: reviewConfig,
-                        streamingToken,
-                        messageType: "review",
-                    });
-                }),
-            );
-        },
-        onSuccess: async (data, variables, _context) => {
-            if (data?.skipped) return;
-
-            await queryClient.invalidateQueries({
-                queryKey: messageKeys.messageSets(variables.chatId),
-            });
-
-        },
-    });
-}
 
 /**
  * Creates a new-style, message-parts-based (tools) message and streams its message parts
