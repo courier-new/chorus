@@ -2591,5 +2591,18 @@ You have full access to bash commands on the user''''s computer. If you write a 
                 ALTER TABLE messages ADD COLUMN instance_id TEXT;
             "#,
         },
+        Migration {
+            version: 142,
+            description: "drop archived and temporary tables",
+            kind: MigrationKind::Up,
+            sql: r#"
+                DROP TABLE IF EXISTS messages_archive_20250102;
+                DROP TABLE IF EXISTS models_archive_20250111;
+                DROP TABLE IF EXISTS temp_group_parent;
+                DROP TABLE IF EXISTS temp_groupings;
+                DROP TABLE IF EXISTS temp_hierarchy;
+                DROP TABLE IF EXISTS temp_message_sets;
+            "#,
+        },
     ];
 }
