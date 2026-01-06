@@ -179,7 +179,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     "model-picker": {
         id: "model-picker",
         label: "Model Picker",
-        description: "Opens the model picker to select or compare AI models.",
+        description: "Opens the model picker to select AI models.",
         scope: "chat",
         defaultCombo: "Meta+J",
         requiresRestart: false,
@@ -188,7 +188,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     "clear-models": {
         id: "clear-models",
         label: "Clear Models",
-        description: "Clears all models from the compare view.",
+        description: "Clears all models currently selected.",
         scope: "chat",
         defaultCombo: "Meta+Shift+Backspace",
         requiresRestart: false,
@@ -206,7 +206,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     synthesize: {
         id: "synthesize",
         label: "Synthesize",
-        description: "Generates a synthesis from compared model responses.",
+        description: "Generates a synthesis from model responses.",
         scope: "chat",
         defaultCombo: "Meta+S",
         requiresRestart: false,

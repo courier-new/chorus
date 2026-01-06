@@ -86,7 +86,6 @@ import { SUMMARY_DIALOG_ID, SummaryDialog } from "./SummaryDialog";
 import { FindInPage } from "./FindInPage";
 import { useEditable } from "use-editable";
 import { EditableTitle } from "./EditableTitle";
-import { DeprecatedBlockView } from "@ui/components/MultiChatDeprecationPath";
 import { Separator } from "./ui/separator";
 import { Toggle } from "./ui/toggle";
 import { CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
@@ -1248,13 +1247,11 @@ export function ToolsMessageView({
         chatId: message.chatId,
         messageSetId: message.messageSetId,
         messageId: message.id,
-        blockType: "tools",
     });
     const replyToMessage = MessageAPI.useBranchChat({
         chatId: message.chatId,
         messageSetId: message.messageSetId,
         messageId: message.id,
-        blockType: "tools",
         replyToId: message.id,
     });
     const { mutate: deselectSynthesis, isPending: isDeselectingSynthesis } =
@@ -1282,7 +1279,6 @@ export function ToolsMessageView({
                 chatId: message.chatId,
                 messageSetId: message.messageSetId,
                 messageId: message.id,
-                blockType: "tools",
             });
         } else if (modelConfig) {
             restartMessage({ modelConfig });
@@ -1351,7 +1347,6 @@ export function ToolsMessageView({
         deselectSynthesis({
             chatId: message.chatId,
             messageSetId: message.messageSetId,
-            blockType: "tools",
         });
     }, [deselectSynthesis, message.chatId, message.messageSetId]);
 
@@ -1951,11 +1946,7 @@ function ToolsBlockView({
 
     const handleSynthesize = useCallback(() => {
         if (!canSynthesize) return;
-        selectSynthesis({
-            chatId: chatId!,
-            messageSetId,
-            blockType: "tools",
-        });
+        selectSynthesis({ chatId: chatId!, messageSetId });
     }, [canSynthesize, chatId, messageSetId, selectSynthesis]);
 
     // The keyboard shortcut targets the last row only.
@@ -2141,12 +2132,6 @@ const MessageSetView = memo(
 
         const messageSet = messageSetQuery.data?.[0];
 
-        if (messageSet?.selectedBlockType === "compare" && isQuickChatWindow) {
-            console.error(
-                "Error: shouldn't render compare block in quick chat window",
-            );
-        }
-
         return (
             <div
                 ref={messageSetRef}
@@ -2181,9 +2166,7 @@ const MessageSetView = memo(
                             isLastRow={isLastRow}
                             isQuickChatWindow={isQuickChatWindow}
                         />
-                    ) : (
-                        <DeprecatedBlockView />
-                    )}
+                    ) : null}
                 </div>
             </div>
         );
@@ -2313,10 +2296,6 @@ export default function MultiChat() {
     const currentMessageSet =
         messageSetsQuery.data && messageSetsQuery.data.length > 0
             ? messageSetsQuery.data[messageSetsQuery.data.length - 1]
-            : undefined;
-    const currentCompareBlock =
-        currentMessageSet?.selectedBlockType === "compare"
-            ? currentMessageSet.compareBlock
             : undefined;
 
     // Keyboard shortcuts
@@ -2491,7 +2470,6 @@ export default function MultiChat() {
 
     useConfigurableShortcut("share-chat", handleShareChat);
 
-    const selectMessage = MessageAPI.useSelectMessage();
     const handleToggleVisionMode = useCallback(async () => {
         const hasPermissions = await checkScreenRecordingPermission();
         const visionModeEnabled = appMetadata["vision_mode_enabled"] === "true";

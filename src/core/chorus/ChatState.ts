@@ -19,9 +19,6 @@ export type MessageSet = {
 
 export type MessageSetDetail = MessageSet & {
     userBlock: UserBlock;
-    chatBlock: ChatBlock;
-    compareBlock: CompareBlock;
-    brainstormBlock: BrainstormBlock;
     toolsBlock: ToolsBlock;
 };
 
@@ -125,49 +122,18 @@ export function createUserMessage({
 // this lets us stop it, retry it, and time it out
 // also should there be an "error" state?
 
-export type BlockType = "user" | "chat" | "compare" | "tools" | "brainstorm";
-export const SELECTABLE_BLOCK_TYPES: BlockType[] = ["tools", "chat", "compare"];
-export const isBlockType = (blockType: string): blockType is BlockType =>
-    SELECTABLE_BLOCK_TYPES.includes(blockType as BlockType);
-export const getBlockTypeDisplayName = (blockType: BlockType): string =>
-    blockType === "tools"
-        ? "Default"
-        : blockType === "chat"
-          ? "Reviews"
-          : blockType === "compare"
-            ? "Compare"
-            : blockType === "brainstorm"
-              ? "Brainstorm"
-              : blockType;
+export type BlockType = "user" | "tools";
 
 export type UserBlock = {
     type: "user";
     message: Message | undefined;
-};
-export type ChatBlock = {
-    type: "chat";
-    message: Message | undefined;
-};
-export type CompareBlock = {
-    type: "compare";
-    messages: Message[];
-    synthesis: Message | undefined;
 };
 export type ToolsBlock = {
     type: "tools";
     chatMessages: Message[];
     synthesis: Message | undefined;
 };
-export type BrainstormBlock = {
-    type: "brainstorm";
-    ideaMessages: Message[];
-};
-export type Block =
-    | UserBlock
-    | ChatBlock
-    | BrainstormBlock
-    | CompareBlock
-    | ToolsBlock;
+export type Block = UserBlock | ToolsBlock;
 
 function encodeSingleToolsMessage(selectedMessage: Message): LLMMessage[] {
     const result: LLMMessage[] = [];
@@ -242,70 +208,12 @@ ${message.parts.map((p) => p.content).join("")}
     ];
 }
 
-function encodeChatBlock(block: ChatBlock): LLMMessage[] {
-    if (!block.message) {
-        return [];
-    }
-
-    return [
-        {
-            role: "assistant",
-            content: block.message.text,
-            model: block.message.model,
-            toolCalls: [],
-        },
-    ];
-}
-
 function encodeUserBlock(block: UserBlock): LLMMessage[] {
     return [
         {
             role: "user",
             content: block.message?.text ?? "",
             attachments: block.message?.attachments || [],
-        },
-    ];
-}
-
-function encodeCompareBlock(block: CompareBlock): LLMMessage[] {
-    if (block.synthesis?.selected) {
-        return [
-            {
-                role: "assistant",
-                content: block.synthesis.text,
-                toolCalls: [],
-            },
-        ];
-    } else {
-        const selectedMessages = block.messages.filter((m) => m.selected);
-        if (selectedMessages.length === 1) {
-            return [
-                {
-                    role: "assistant",
-                    content: selectedMessages[0].text,
-                    toolCalls: [],
-                },
-            ];
-        } else {
-            return [
-                {
-                    role: "assistant",
-                    content: `${selectedMessages.map((m) => m.text).join("\n\n")}`,
-                    toolCalls: [],
-                },
-            ];
-        }
-    }
-}
-
-function encodeBrainstormBlock(block: BrainstormBlock): LLMMessage[] {
-    return [
-        {
-            role: "assistant",
-            content: `${block.ideaMessages
-                .map((m) => `<idea>${m.text}</idea>`)
-                .join("\n")}`,
-            toolCalls: [],
         },
     ];
 }
@@ -349,28 +257,6 @@ function labelPerspectives(messages: Message[]): LabeledPerspective[] {
     return labeledPerspectives;
 }
 
-function encodeCompareBlockForSynthesis(block: CompareBlock): LLMMessage[] {
-    const labeledPerspectives = labelPerspectives(block.messages);
-
-    // include all responses, regardless of whether they're selected
-    return [
-        {
-            role: "user",
-            content: [
-                Prompts.SYNTHESIS_INTERJECTION,
-                ...labeledPerspectives
-                    .map(({ message, senderLabel }) => [
-                        `<perspective sender="${senderLabel}">`,
-                        message.text,
-                        "</perspective>",
-                    ])
-                    .flat(),
-            ].join("\n\n"),
-            attachments: [],
-        },
-    ];
-}
-
 function encodeToolsBlockForSynthesis(block: ToolsBlock): LLMMessage[] {
     const labeledPerspectives = labelPerspectives(block.chatMessages);
 
@@ -401,29 +287,11 @@ function blockIsEmptyTools(block: ToolsBlock): boolean {
     return block.chatMessages.length === 0;
 }
 
-function blockIsEmptyChat(block: ChatBlock): boolean {
-    return !block.message && block.reviews.length === 0;
-}
-
-function blockIsEmptyCompare(block: CompareBlock): boolean {
-    return block.messages.length === 0;
-}
-
-function blockIsEmptyBrainstorm(block: BrainstormBlock): boolean {
-    return block.ideaMessages.length === 0;
-}
-
 export function blockIsEmpty(
     messageSet: MessageSetDetail,
     blockType: BlockType,
 ): boolean {
     switch (blockType) {
-        case "chat":
-            return blockIsEmptyChat(messageSet.chatBlock);
-        case "brainstorm":
-            return blockIsEmptyBrainstorm(messageSet.brainstormBlock);
-        case "compare":
-            return blockIsEmptyCompare(messageSet.compareBlock);
         case "tools":
             return blockIsEmptyTools(messageSet.toolsBlock);
         default:
@@ -485,34 +353,6 @@ export function llmConversation(messageSets: MessageSetDetail[]): LLMMessage[] {
                 }
                 break;
             }
-            case "chat": {
-                if (messageSet.chatBlock) {
-                    conversation.push(
-                        ...removeEphemeralAttachments(
-                            encodeChatBlock(messageSet.chatBlock),
-                        ),
-                    );
-                }
-                break;
-            }
-            case "brainstorm": {
-                conversation.push(
-                    ...removeEphemeralAttachments(
-                        encodeBrainstormBlock(messageSet.brainstormBlock),
-                    ),
-                );
-                break;
-            }
-            case "compare": {
-                if (messageSet.compareBlock) {
-                    conversation.push(
-                        ...removeEphemeralAttachments(
-                            encodeCompareBlock(messageSet.compareBlock),
-                        ),
-                    );
-                }
-                break;
-            }
             case "tools": {
                 if (messageSet.toolsBlock) {
                     conversation.push(
@@ -538,7 +378,6 @@ export function llmConversation(messageSets: MessageSetDetail[]): LLMMessage[] {
 
 export function llmConversationForSynthesis(
     messageSets: MessageSetDetail[],
-    blockType: "compare" | "tools" = "compare",
     targetMessageSetId?: string,
 ): LLMMessage[] {
     // Find the target message set by ID, or fall back to the last one
@@ -551,14 +390,9 @@ export function llmConversationForSynthesis(
         return [];
     }
 
-    const synthesisMessages =
-        blockType === "compare" && targetMessageSet.compareBlock
-            ? encodeCompareBlockForSynthesis(targetMessageSet.compareBlock)
-            : blockType === "tools" && targetMessageSet.toolsBlock
-              ? encodeToolsBlockForSynthesis(targetMessageSet.toolsBlock)
-              : [];
-
-    console.log("synthesisMessages", synthesisMessages);
+    const synthesisMessages = targetMessageSet.toolsBlock
+        ? encodeToolsBlockForSynthesis(targetMessageSet.toolsBlock)
+        : [];
 
     // Include conversation history up to (but not including) the target message set
     return [

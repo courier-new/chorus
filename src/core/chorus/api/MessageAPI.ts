@@ -8,10 +8,7 @@ import {
     blockIsEmpty,
     llmConversationForSynthesis,
     MessagePart,
-    BrainstormBlock,
     ToolsBlock,
-    CompareBlock,
-    ChatBlock,
     UserBlock,
 } from "@core/chorus/ChatState";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -236,15 +233,6 @@ export async function fetchMessageSets(chatId: string) {
         const userBlockMessages = messageSetMessages.filter(
             (m) => m.blockType === "user",
         );
-        const chatBlockMessages = messageSetMessages.filter(
-            (m) => m.blockType === "chat",
-        );
-        const compareBlockMessages = messageSetMessages.filter(
-            (m) => m.blockType === "compare",
-        );
-        const brainstormBlockMessages = messageSetMessages.filter(
-            (m) => m.blockType === "brainstorm",
-        );
         const toolsBlockMessages = messageSetMessages
             .filter(
                 (m) =>
@@ -263,30 +251,6 @@ export async function fetchMessageSets(chatId: string) {
                 userBlockMessages.length > 0 ? userBlockMessages[0] : undefined,
         };
 
-        // chat blocks are deprecated
-        const chatBlock: ChatBlock = {
-            type: "chat",
-            message: chatBlockMessages.find((m) => !m.isReview),
-            reviews: chatBlockMessages.filter((m) => m.isReview),
-        };
-
-        // compare blocks are deprecated
-        const compareBlock: CompareBlock = {
-            type: "compare",
-            synthesis: compareBlockMessages.find(
-                (m) => m.model === "chorus::synthesize",
-            ),
-            messages: compareBlockMessages
-                .filter((m) => m.model !== "chorus::synthesize")
-                .sort((a, b) => a.model.localeCompare(b.model)),
-        };
-
-        // brainstorm blocks are deprecated
-        const brainstormBlock: BrainstormBlock = {
-            type: "brainstorm",
-            ideaMessages: brainstormBlockMessages,
-        };
-
         const toolsBlock: ToolsBlock = {
             type: "tools",
             chatMessages: toolsBlockMessages,
@@ -296,9 +260,6 @@ export async function fetchMessageSets(chatId: string) {
         const messageSetContent: MessageSetDetail = {
             ...set,
             userBlock,
-            chatBlock,
-            compareBlock,
-            brainstormBlock,
             toolsBlock,
         };
         return messageSetContent;
@@ -666,9 +627,6 @@ export function useBranchChat({
     chatId: string;
     messageSetId: string;
     messageId: string;
-    // a reminder that we only expect to branch on tools messages
-    // for other block types, we'd need to figure out how to handle selecting the message
-    blockType: "tools";
     replyToId?: string | null;
 }) {
     const navigate = useNavigate();
@@ -1539,69 +1497,6 @@ export function useSelectMessage() {
 }
 
 /**
- * Updates the selected_block_type field in a message set,
- * and also the current_block_type field in app_metadata
- */
-export function useSelectBlock() {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationKey: ["selectBlock"] as const,
-        mutationFn: async ({
-            blockType,
-            messageSetId,
-        }: {
-            chatId: string;
-            blockType: BlockType;
-            messageSetId: string;
-        }) => {
-            // Update both the message set and the app metadata
-            await db.execute(
-                `UPDATE message_sets SET selected_block_type = $1 WHERE id = $2;
-            UPDATE app_metadata SET value = $1 WHERE key = 'current_block_type'`,
-                [blockType, messageSetId],
-            );
-        },
-        onSuccess: async (_data, variables, _context) => {
-            await queryClient.invalidateQueries({
-                queryKey: messageKeys.messageSets(variables.chatId),
-            });
-        },
-    });
-}
-
-export function useSelectAndPopulateBlock(
-    chatId: string,
-    isQuickChatWindow: boolean,
-) {
-    const selectBlock = useSelectBlock();
-    const populateBlock = usePopulateBlock(chatId, isQuickChatWindow);
-
-    return useMutation({
-        mutationKey: ["selectAndPopulateBlock"] as const,
-        mutationFn: async ({
-            messageSetId,
-            blockType,
-        }: {
-            messageSetId: string;
-            blockType: BlockType;
-        }) => {
-            await selectBlock.mutateAsync({
-                chatId,
-                blockType,
-                messageSetId,
-            });
-
-            await populateBlock.mutateAsync({
-                messageSetId,
-                blockType,
-            });
-        },
-        // no need to invalidate because useSelectBlock and usePopulateBlock will do it
-    });
-}
-
-/**
  * Helper function that performs the actual synthesis streaming for an existing message
  * Used by both useStreamSynthesis (new synthesis) and useRestartSynthesis (regenerate)
  */
@@ -1610,7 +1505,6 @@ async function streamSynthesisForMessage({
     messageSetId,
     messageId,
     streamingToken,
-    blockType,
     queryClient,
     getMessageSets,
     createMessagePart,
@@ -1623,7 +1517,6 @@ async function streamSynthesisForMessage({
     messageSetId: string;
     messageId: string;
     streamingToken: string;
-    blockType: "compare" | "tools";
     queryClient: ReturnType<typeof useQueryClient>;
     getMessageSets: ReturnType<typeof useGetMessageSets>;
     createMessagePart: ReturnType<typeof useCreateMessagePart>;
@@ -1670,11 +1563,7 @@ async function streamSynthesisForMessage({
     });
 
     const messageSets = await getMessageSets(chatId);
-    const conversation = llmConversationForSynthesis(
-        messageSets,
-        blockType,
-        messageSetId,
-    );
+    const conversation = llmConversationForSynthesis(messageSets, messageSetId);
 
     await streamMessagePart.mutateAsync({
         chatId,
@@ -1696,9 +1585,6 @@ async function streamSynthesisForMessage({
     );
 }
 
-/**
- * Precondition: no other messages are selected (for compare mode)
- */
 export function useStreamSynthesis() {
     const queryClient = useQueryClient();
     const getMessageSets = useGetMessageSets();
@@ -1720,36 +1606,20 @@ export function useStreamSynthesis() {
         mutationFn: async ({
             chatId,
             messageSetId,
-            blockType = "compare",
         }: {
             chatId: string;
             messageSetId: string;
-            blockType?: "compare" | "tools";
         }) => {
             const messageSets = await getMessageSets(chatId);
             const messageSet = messageSets.find((m) => m.id === messageSetId);
 
             // Check if synthesis already exists
-            if (blockType === "compare") {
-                if (
-                    messageSet?.compareBlock?.messages.some((m) =>
-                        m.model.endsWith("::synthesize"),
-                    )
-                ) {
-                    console.debug(
-                        "Skipping synthesis because it already exists",
-                        messageSetId,
-                    );
-                    return;
-                }
-            } else if (blockType === "tools") {
-                if (messageSet?.toolsBlock?.synthesis) {
-                    console.debug(
-                        "Skipping synthesis because it already exists",
-                        messageSetId,
-                    );
-                    return;
-                }
+            if (messageSet?.toolsBlock?.synthesis) {
+                console.debug(
+                    "Skipping synthesis because it already exists",
+                    messageSetId,
+                );
+                return;
             }
 
             // Get the base model config
@@ -1777,11 +1647,10 @@ export function useStreamSynthesis() {
                 message: createAIMessage({
                     chatId,
                     messageSetId,
-                    blockType,
+                    blockType: "tools",
                     model: modelConfig.modelId,
-                    // For compare mode: auto-select (replaces other responses)
                     // For tools mode: don't select (appears alongside)
-                    selected: blockType === "compare",
+                    selected: false,
                 }),
                 options: {
                     mode: "unique_model",
@@ -1795,7 +1664,6 @@ export function useStreamSynthesis() {
                 messageSetId,
                 messageId,
                 streamingToken,
-                blockType,
                 queryClient,
                 getMessageSets,
                 createMessagePart,
@@ -1826,24 +1694,11 @@ export function useSelectSynthesis() {
 
     return useMutation({
         mutationKey: ["selectSynthesis"] as const,
-        mutationFn: async ({
-            messageSetId,
-            blockType = "compare",
-        }: {
+        mutationFn: async (_variables: {
             chatId: string;
             messageSetId: string;
-            blockType?: "compare" | "tools";
         }) => {
-            // For compare mode: deselect all messages except synthesis
-            // For tools mode: no SQL update needed (synthesis just appears alongside)
-            if (blockType === "compare") {
-                await db.execute(
-                    `UPDATE messages SET selected = (
-                        CASE WHEN model = $2 THEN 1 ELSE 0 END
-                    ) WHERE message_set_id = $1 AND block_type = 'compare'`,
-                    [messageSetId, "chorus::synthesize"],
-                );
-            }
+            // This is a no-op but triggers the onSuccess which will invoke synthesis
         },
         onSuccess: async (_data, variables, _context) => {
             // invalidate to trigger re-fetch
@@ -1855,7 +1710,6 @@ export function useSelectSynthesis() {
             await streamSynthesis.mutateAsync({
                 chatId: variables.chatId,
                 messageSetId: variables.messageSetId,
-                blockType: variables.blockType,
             });
         },
     });
@@ -1948,9 +1802,7 @@ export function useDeselectSynthesis() {
         }: {
             chatId: string;
             messageSetId: string;
-            blockType?: "tools";
         }) => {
-            // For tools mode: delete the synthesis message
             await db.execute(
                 `DELETE FROM messages WHERE message_set_id = $1 AND block_type = 'tools' AND model LIKE '%::synthesize'`,
                 [messageSetId],
@@ -1982,12 +1834,10 @@ export function useRestartSynthesis() {
             chatId,
             messageSetId,
             messageId,
-            blockType = "tools",
         }: {
             chatId: string;
             messageSetId: string;
             messageId: string;
-            blockType?: "compare" | "tools";
         }) => {
             // Lock and clear the synthesis message
             const streamingToken = uuidv4();
@@ -2022,7 +1872,6 @@ export function useRestartSynthesis() {
                 messageSetId,
                 messageId,
                 streamingToken,
-                blockType,
                 queryClient,
                 getMessageSets,
                 createMessagePart,
@@ -2418,10 +2267,7 @@ function usePopulateToolsBlock(chatId: string) {
 
 /**
  * Populates a block in the LAST message set.
- * Wrapper around
- * - usePopulateChatBlock
- * - usePopulateBrainstormBlock
- * - usePopulateCompareBlock
+ * Wrapper around usePopulateToolsBlock.
  */
 export function usePopulateBlock(chatId: string, isQuickChatWindow: boolean) {
     const populateToolsBlock = usePopulateToolsBlock(chatId);
@@ -2489,7 +2335,7 @@ export function useGetMessageSets(): (
 }
 
 /**
- * Adds a message to the compare block in the LAST message set.
+ * Adds a message to the tools block in the LAST message set.
  */
 export function useAddMessageToToolsBlock(chatId: string) {
     const modelConfigsQuery = useModelConfigs();
@@ -2547,72 +2393,6 @@ export function useAddMessageToToolsBlock(chatId: string) {
                 chatId,
             });
         },
-    });
-}
-
-/**
- * Adds a message to the compare block in the LAST message set.
- */
-export function useAddMessageToCompareBlock(chatId: string) {
-    const createMessage = useCreateMessage();
-    const streamMessageText = useStreamMessageLegacy();
-    const getMessageSets = useGetMessageSets();
-    const modelConfigsQuery = useModelConfigs();
-
-    return useMutation({
-        mutationKey: ["addMessageToCompareBlock"] as const,
-        mutationFn: async ({
-            messageSetId,
-            modelId,
-        }: {
-            messageSetId: string;
-            modelId: string;
-        }) => {
-            const modelConfig = modelConfigsQuery.data?.find(
-                (m: Models.ModelConfig) => m.id === modelId,
-            );
-            if (!modelConfig) {
-                console.warn("model config not found ", modelId);
-                return { skipped: true };
-            }
-
-            const previousMessageSets = (await getMessageSets(chatId)).slice(
-                0,
-                -1,
-            ); // assume this is the last set
-            const conversation = llmConversation(previousMessageSets);
-
-            const result = await createMessage.mutateAsync({
-                message: createAIMessage({
-                    chatId,
-                    messageSetId,
-                    blockType: "compare",
-                    model: modelConfig.id,
-                    selected: false, // Don't auto-select the new message
-                }),
-                options: {
-                    mode: "unique_model",
-                },
-            });
-
-            if (!result) {
-                console.error("Failed to create message for compare block");
-                return;
-            }
-
-            const { messageId, streamingToken } = result;
-
-            await streamMessageText.mutateAsync({
-                chatId,
-                messageSetId,
-                messageId,
-                conversation,
-                modelConfig,
-                streamingToken,
-                messageType: "vanilla",
-            });
-        },
-        // no need to invalidate because it's done by the streamMessageText and createMessage
     });
 }
 
@@ -2728,7 +2508,7 @@ export function useUpdateSelectedModelConfigQuickChat() {
 }
 
 /**
- * Gets the selected model configs for the current chat type (quick chat or compare).
+ * Gets the selected model configs for the current chat type.
  */
 export function useGetSelectedModelConfigs() {
     const queryClient = useQueryClient();
