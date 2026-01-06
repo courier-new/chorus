@@ -21,6 +21,16 @@ type SearchResult = {
     error?: string;
 };
 
+type SearchProviderConfig = {
+    name: "perplexity" | "openrouter";
+    baseURL: string;
+    apiKey: string;
+    model: string;
+    defaultHeaders?: Record<string, string | null>;
+};
+
+const OPENROUTER_PERPLEXITY_MODEL = "perplexity/sonar";
+
 function normalizeUrl(url: string): string {
     if (url.startsWith("http://") && !url.startsWith("https://")) {
         return "https://" + url;
@@ -35,6 +45,47 @@ function getErrorMessage(error: unknown): string {
     } else {
         return "Unknown error";
     }
+}
+
+function getSearchProviderConfig(
+    apiKeys: ApiKeys,
+): SearchProviderConfig | null {
+    if (apiKeys.perplexity) {
+        return {
+            name: "perplexity",
+            baseURL: "https://api.perplexity.ai",
+            apiKey: apiKeys.perplexity,
+            model: "sonar",
+            defaultHeaders: {
+                "Content-Type": "application/json",
+                // unset headers that are not supported by the Perplexity API
+                // Perplexity's API does not allow x-stainless-* headers added by the OpenAI JS SDK
+                "x-stainless-arch": null,
+                "x-stainless-lang": null,
+                "x-stainless-os": null,
+                "x-stainless-package-version": null,
+                "x-stainless-retry-count": null,
+                "x-stainless-runtime": null,
+                "x-stainless-runtime-version": null,
+                "x-stainless-timeout": null,
+            },
+        };
+    }
+
+    if (apiKeys.openrouter) {
+        return {
+            name: "openrouter",
+            baseURL: "https://openrouter.ai/api/v1",
+            apiKey: apiKeys.openrouter,
+            model: OPENROUTER_PERPLEXITY_MODEL,
+            defaultHeaders: {
+                "HTTP-Referer": "https://chorus.sh",
+                "X-Title": "Chorus",
+            },
+        };
+    }
+
+    return null;
 }
 
 export class WebTools {
@@ -65,25 +116,31 @@ export class WebTools {
         apiKeys: ApiKeys,
     ): Promise<SearchResult> {
         try {
-            if (!apiKeys.perplexity) {
+            const providerConfig = getSearchProviderConfig(apiKeys);
+
+            if (!providerConfig) {
                 return {
                     content:
-                        "<web_search_system_message>Please add your Perplexity API key in Settings to use web search.</web_search_system_message>",
-                    error: "Perplexity API key not configured",
+                        "<web_search_system_message>Please add your Perplexity or OpenRouter API key in Settings to use web search.</web_search_system_message>",
+                    error: "No web search API key configured",
                 };
             }
 
             const client = new OpenAI({
-                baseURL: "https://api.perplexity.ai",
-                apiKey: apiKeys.perplexity,
-                defaultHeaders: {
-                    "Content-Type": "application/json",
-                },
+                baseURL: providerConfig.baseURL,
+                apiKey: providerConfig.apiKey,
+                defaultHeaders: providerConfig.defaultHeaders
+                    ? Object.fromEntries(
+                          Object.entries(providerConfig.defaultHeaders).filter(
+                              ([, value]) => value !== null,
+                          ),
+                      )
+                    : undefined,
                 dangerouslyAllowBrowser: true,
             });
 
             const completion = await client.chat.completions.create({
-                model: "sonar",
+                model: providerConfig.model,
                 messages: [
                     {
                         role: "system",
