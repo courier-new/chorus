@@ -250,7 +250,6 @@ export class ToolsetsManager {
                     env: customConfig.env,
                 };
                 if (toolsetsConfig[customConfig.name]?.enabled === "true") {
-                    console.log("starting custom toolset", config);
                     await toolset.ensureStart(config);
                 } else {
                     await toolset.ensureStop();

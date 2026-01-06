@@ -15,7 +15,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     useEffect(() => {
         const checkWindowType = () => {
             const window = getCurrentWindow();
-            console.log("window label:", window.label);
             setIsQuickChatWindow(window.label === "quick-chat");
         };
         void checkWindowType();

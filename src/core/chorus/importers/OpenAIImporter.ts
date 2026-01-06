@@ -233,10 +233,6 @@ export class OpenAIImporter {
             messageSetLevel++;
         }
 
-        console.log(
-            `Imported ${messageSetLevel} message sets for "${conversation.title}"`,
-        );
-
         // Restore the original updated_at timestamp since chat table trigger will override it
         await restoreChatUpdatedAt(
             chatId,

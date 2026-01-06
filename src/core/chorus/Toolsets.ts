@@ -305,12 +305,10 @@ export abstract class MCPServer {
             return true;
         }
 
-        console.info("Starting MCP server", config);
         this._status = { status: "starting" };
         this._logs = ""; // clear any previous logs
 
         try {
-            console.log("starting mcp server");
             const serverParams = this.getExecutionParameters(config);
 
             this.mcp.onerror = (error: Error) => {

@@ -178,9 +178,7 @@ export function useUpdateNewChat() {
         },
         onSuccess: (chatId: string) => {
             cacheUpdateChat(chatId, (chat) => {
-                console.log("updating chat", chat);
                 chat.updatedAt = new Date().toISOString();
-                console.log("updated chat", chat);
             });
 
             navigate(`/chat/${chatId}`);
@@ -269,7 +267,6 @@ export function useGetOrCreateNewQuickChat() {
             );
 
             if (existingNewChat.length > 0) {
-                console.log("existing new chat", existingNewChat);
                 await updateNewChat.mutateAsync({
                     chatId: existingNewChat[0].id,
                 });

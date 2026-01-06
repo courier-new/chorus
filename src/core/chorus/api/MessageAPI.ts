@@ -569,7 +569,6 @@ export async function fetchMessageAttachments(
         ORDER BY attachments.created_at`,
         [messageId],
     );
-    console.log("fetchMessageAttachments", result);
     return result.map(readAttachment);
 }
 
@@ -681,8 +680,6 @@ export function useBranchChat({
     return useMutation({
         mutationKey: ["branchChat"] as const,
         mutationFn: async () => {
-            console.log("branching on message", messageId);
-
             // Create a new chat with the same metadata
             const result = await db.select<{ id: string }[]>(
                 `WITH source_chat AS (
@@ -3082,7 +3079,6 @@ export function useForceRefreshMessageSets() {
     };
 }
 
-// TODO-GC: this relies on getUserMessageSets
 export function useGenerateChatTitle() {
     const queryClient = useQueryClient();
     const getMessageSets = useGetMessageSets();
@@ -3135,7 +3131,6 @@ ${userMessageText}
                 .slice(0, 40)
                 .replace(/["']/g, "");
             if (cleanTitle) {
-                console.log("Setting chat title to:", cleanTitle);
                 await db.execute("UPDATE chats SET title = $1 WHERE id = $2", [
                     cleanTitle,
                     chatId,
@@ -3158,7 +3153,6 @@ export function useUpdateSelectedModelConfigQuickChat() {
     return useMutation({
         mutationKey: ["updateSelectedModelConfigQuickChat"] as const,
         mutationFn: async ({ modelConfig }: { modelConfig: ModelConfig }) => {
-            console.log("Updating quick chat model config to:", modelConfig.id);
             await db.execute(
                 "UPDATE app_metadata SET value = ? WHERE key = 'quick_chat_model_config_id'",
                 [modelConfig.id],

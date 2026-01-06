@@ -126,7 +126,6 @@ async function convertMessage(
                                     url: pngUrl,
                                 },
                             });
-                            console.log("Added image to contents");
                         }
                     } catch (error) {
                         console.error("Failed to convert PDF to PNG:", error);

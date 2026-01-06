@@ -36,7 +36,6 @@ export function QuickChatModelSelector({
 
     const onChangeOpen = useCallback(
         (newOpen: boolean) => {
-            console.log("Popover onOpenChange called", newOpen);
             setIsOpen(newOpen);
             onOpenChange?.(newOpen);
         },
@@ -141,10 +140,6 @@ export function QuickChatModelSelector({
                             <CommandItem
                                 key={config.id}
                                 onSelect={() => {
-                                    console.log(
-                                        "CommandItem onSelect called",
-                                        config.id,
-                                    );
                                     handleModelSelect(config.id);
                                     onChangeOpen(false); // Close after selection
                                 }}

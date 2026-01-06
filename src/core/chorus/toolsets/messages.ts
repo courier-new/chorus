@@ -33,7 +33,6 @@ export class ToolsetMessages extends Toolset {
             },
             async (args) => {
                 const messages = await getUnreadMessages(args.limit as number);
-                console.log(messages);
                 return JSON.stringify(messages);
             },
             "Fetch unread messages",
@@ -615,10 +614,7 @@ async function getUnreadMessages(limit = 100): Promise<Message[]> {
             return { stdout: output.stdout };
         });
 
-        console.log(stdout, "stdout");
-
         if (!stdout.trim()) {
-            console.error("No unread messages found");
             return [];
         }
 

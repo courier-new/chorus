@@ -155,7 +155,6 @@ function AppContent() {
             dismissedAlertVersion !== currentAppVersion
         ) {
             // New user with no chats - auto-dismiss the educational tooltip
-            console.log("auto-dismissing educational tooltip for new user");
             setDismissedAlertVersion.mutate({ version: currentAppVersion });
         }
     }, [
@@ -269,7 +268,6 @@ function AppContent() {
     const handleDeepLink = useCallback(
         (urls: string[]) => {
             const url = urls[0];
-            console.log("handleDeepLink", url);
             try {
                 const urlObj = new URL(url);
                 if (urlObj.protocol === "chorus:") {
@@ -399,8 +397,6 @@ function AppContent() {
                 console.log("Already downloading update, skipping");
                 return;
             }
-
-            console.log("Downloading update:", update);
             isDownloadingRef.current = true;
             setIsDownloadingUpdate(true);
             let totalSize = 0;
@@ -552,7 +548,6 @@ function AppContent() {
                     );
                     return;
                 }
-                console.log("Menu new chat event received");
                 if (isDialogOpen) {
                     dialogActions.closeDialog();
                 }
@@ -586,7 +581,6 @@ function AppContent() {
                     );
                     return;
                 }
-                console.log("Menu new project event received");
                 if (isDialogOpen) {
                     dialogActions.closeDialog();
                 }
@@ -604,7 +598,6 @@ function AppContent() {
                     );
                     return;
                 }
-                console.log("Menu settings event received");
                 if (isQuickChatWindow) {
                     return;
                 }
@@ -690,11 +683,6 @@ function AppContent() {
         const listenNav = listen(
             "open_quick_chat_in_main_window",
             (event: { payload: string }) => {
-                console.log(
-                    "open_quick_chat_in_main_window event received",
-                    event,
-                );
-
                 void (async () => {
                     const chatId = event.payload;
                     try {

@@ -8,8 +8,6 @@ export async function captureWholeScreenCompressed() {
     try {
         const base64Image = await invoke<string>("capture_whole_screen");
 
-        console.log("response from capture_whole_screen", base64Image);
-
         console.timeEnd("captureWholeScreen");
 
         const response = await fetch(`data:image/png;base64,${base64Image}`);
