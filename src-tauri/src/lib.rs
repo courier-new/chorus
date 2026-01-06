@@ -469,12 +469,8 @@ pub fn run() {
             command::show,
             command::hide,
             command::open_in_main_window,
-            command::new_quick_chat,
-            command::refresh_projects_state,
-            command::chat_deleted,
             #[cfg(target_os = "macos")]
             command::update_panel_theme,
-            command::capture_window,
             command::capture_whole_screen,
             command::resize_image,
             command::open_screen_recording_settings,
