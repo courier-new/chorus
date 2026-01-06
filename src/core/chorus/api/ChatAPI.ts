@@ -3,7 +3,6 @@ import { produce } from "immer";
 import { useNavigate } from "react-router-dom";
 import { db } from "../DB";
 import { getVersion } from "@tauri-apps/api/app";
-import { usePostHog } from "posthog-js/react";
 
 const chatKeys = {
     all: () => ["chats"] as const,
@@ -191,7 +190,6 @@ export function useUpdateNewChat() {
 }
 
 export function useCreateNewChat() {
-    const posthog = usePostHog();
     const queryClient = useQueryClient();
 
     return useMutation({
@@ -215,16 +213,12 @@ export function useCreateNewChat() {
             console.log("created new chat", chatId);
 
             const version = await getVersion();
-            posthog?.capture("chat_created", {
-                version,
-            });
         },
     });
 }
 
 export function useCreateGroupChat() {
     const navigate = useNavigate();
-    const posthog = usePostHog();
     const queryClient = useQueryClient();
 
     return useMutation({
@@ -247,9 +241,6 @@ export function useCreateGroupChat() {
             console.log("created new group chat", chatId);
 
             const version = await getVersion();
-            posthog?.capture("gc_prototype_chat_created", {
-                version,
-            });
 
             navigate(`/chat/${chatId}`);
         },

@@ -12,8 +12,6 @@ import { MessageSetDetail } from "@core/chorus/ChatState";
 import * as MessageAPI from "@core/chorus/api/MessageAPI";
 import { useSettings } from "./hooks/useSettings";
 import { toast } from "sonner";
-import { usePostHog } from "posthog-js/react";
-import { getVersion } from "@tauri-apps/api/app";
 import { createUserMessage } from "@core/chorus/ChatState";
 import { MouseTrackingEyeRef } from "./MouseTrackingEye";
 import { useWaitForAppMetadata } from "@ui/hooks/useWaitForAppMetadata";
@@ -190,8 +188,6 @@ export function ChatInput({
 
     const { data: settings } = useSettings();
 
-    const posthog = usePostHog();
-
     const createMessageSetPair = MessageAPI.useCreateMessageSetPair();
     const createMessage = MessageAPI.useCreateMessage();
     const forceRefreshMessageSets = MessageAPI.useForceRefreshMessageSets();
@@ -279,15 +275,6 @@ export function ChatInput({
                     throw error; // re-throw so we get exception handling from wrapper
                 }
             }
-
-            void getVersion().then((version) => {
-                posthog?.capture("message_sent", {
-                    version,
-                    isQuickChat: isQuickChatWindow,
-                    blockType: BLOCK_TYPE,
-                    isReply,
-                });
-            });
 
             const userMessageText = draft.trim();
 
