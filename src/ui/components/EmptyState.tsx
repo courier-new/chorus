@@ -65,6 +65,8 @@ const useEmptyStateTips = () => {
                 </>,
                 shortcuts.quickChat &&
                     `Press ${shortcuts.quickChat} to open an Ambient Chat.`,
+                "Click to choose the active message to keep in conversation.",
+                `Use ${comboToDisplayString("Shift+Click", true)} to select multiple messages to keep in conversation.`,
             ].filter((tip): tip is string | JSX.Element => tip !== null),
         [shortcuts],
     );
