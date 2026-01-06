@@ -2,12 +2,7 @@ import { useReactQueryAutoSync } from "use-react-query-auto-sync";
 import { db } from "../DB";
 import { fetchMessageDraft } from "./MessageAPI";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-    Attachment,
-    AttachmentAssociationDraft,
-    AttachmentDBRow,
-    readAttachment,
-} from "./AttachmentsAPI";
+import { Attachment, AttachmentDBRow, readAttachment } from "./AttachmentsAPI";
 
 export const draftKeys = {
     messageDraft: (chatId: string) => ["messageDraft", chatId] as const,
@@ -57,11 +52,16 @@ export function useDraftAttachments(chatId: string) {
     });
 }
 
-export function useDeleteAttachmentFromDraft({ chatId }: { chatId: string }) {
+export function useDeleteDraftAttachment() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationKey: ["deleteAttachmentFromDraft"] as const,
-        mutationFn: async ({ attachmentId }: { attachmentId: string }) => {
+        mutationKey: ["deleteDraftAttachment"] as const,
+        mutationFn: async ({
+            attachmentId,
+        }: {
+            attachmentId: string;
+            chatId: string;
+        }) => {
             // Delete from draft_attachments first to maintain referential integrity
             await db.execute(
                 "DELETE FROM draft_attachments WHERE attachment_id = ?",
@@ -71,37 +71,9 @@ export function useDeleteAttachmentFromDraft({ chatId }: { chatId: string }) {
                 attachmentId,
             ]);
         },
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({
-                queryKey: draftKeys.messageDraftAttachments(chatId),
-            });
-        },
-    });
-}
-
-export function useDeleteDraftAttachment() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationKey: ["deleteDraftAttachment"] as const,
-        mutationFn: async ({
-            attachmentId,
-        }: {
-            attachmentId: string;
-            association: AttachmentAssociationDraft;
-        }) => {
-            await db.execute("DELETE FROM attachments WHERE id = ?", [
-                attachmentId,
-            ]);
-            await db.execute(
-                "DELETE FROM draft_attachments WHERE attachment_id = ?",
-                [attachmentId],
-            );
-        },
         onSuccess: async (_data, variables) => {
             await queryClient.invalidateQueries({
-                queryKey: draftKeys.messageDraftAttachments(
-                    variables.association.chatId,
-                ),
+                queryKey: draftKeys.messageDraftAttachments(variables.chatId),
             });
         },
     });

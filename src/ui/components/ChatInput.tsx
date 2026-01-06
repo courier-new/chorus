@@ -12,8 +12,6 @@ import { MessageSetDetail } from "@core/chorus/ChatState";
 import * as MessageAPI from "@core/chorus/api/MessageAPI";
 import { useSettings } from "./hooks/useSettings";
 import { toast } from "sonner";
-import { usePostHog } from "posthog-js/react";
-import { getVersion } from "@tauri-apps/api/app";
 import { createUserMessage } from "@core/chorus/ChatState";
 import { MouseTrackingEyeRef } from "./MouseTrackingEye";
 import { useWaitForAppMetadata } from "@ui/hooks/useWaitForAppMetadata";
@@ -129,7 +127,6 @@ export function ChatInput({
     const attachmentsQuery = DraftAPI.useDraftAttachments(chatId);
     const convertDraftAttachmentsToMessageAttachments =
         MessageAPI.useConvertDraftAttachmentsToMessageAttachments();
-    const removeAttachment = DraftAPI.useDeleteAttachmentFromDraft({ chatId });
     const deleteDraftAttachment = DraftAPI.useDeleteDraftAttachment();
     const fileDrop = useFileDrop({
         association: { type: "draft", chatId },
@@ -190,8 +187,6 @@ export function ChatInput({
 
     const { data: settings } = useSettings();
 
-    const posthog = usePostHog();
-
     const createMessageSetPair = MessageAPI.useCreateMessageSetPair();
     const createMessage = MessageAPI.useCreateMessage();
     const forceRefreshMessageSets = MessageAPI.useForceRefreshMessageSets();
@@ -232,7 +227,7 @@ export function ChatInput({
                     loadingAttachments.map((attachment) =>
                         deleteDraftAttachment.mutateAsync({
                             attachmentId: attachment.id,
-                            association: { type: "draft", chatId },
+                            chatId,
                         }),
                     ),
                 );
@@ -279,15 +274,6 @@ export function ChatInput({
                     throw error; // re-throw so we get exception handling from wrapper
                 }
             }
-
-            void getVersion().then((version) => {
-                posthog?.capture("message_sent", {
-                    version,
-                    isQuickChat: isQuickChatWindow,
-                    blockType: BLOCK_TYPE,
-                    isReply,
-                });
-            });
 
             const userMessageText = draft.trim();
 
@@ -650,7 +636,7 @@ export function ChatInput({
                 attachments={attachmentsQuery.data ?? []}
                 onFileDrop={fileDrop.mutate}
                 onRemove={(attachmentId) =>
-                    removeAttachment.mutate({ attachmentId })
+                    deleteDraftAttachment.mutate({ attachmentId, chatId })
                 }
             />
             {/* Input form */}
@@ -838,7 +824,7 @@ export function ChatInput({
                 attachments={attachmentsQuery.data ?? []}
                 onFileDrop={fileDrop.mutate}
                 onRemove={(attachmentId) =>
-                    removeAttachment.mutate({ attachmentId })
+                    deleteDraftAttachment.mutate({ attachmentId, chatId })
                 }
             />
             <AutoExpandingTextarea

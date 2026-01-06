@@ -32,8 +32,6 @@ export type ShortcutId =
     | "focus-input"
     | "synthesize"
     | "share-chat"
-    | "toggle-reviews"
-    | "new-group-chat"
     | "find-in-page"
     | "find-next"
     | "find-previous"
@@ -181,7 +179,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     "model-picker": {
         id: "model-picker",
         label: "Model Picker",
-        description: "Opens the model picker to select or compare AI models.",
+        description: "Opens the model picker to select AI models.",
         scope: "chat",
         defaultCombo: "Meta+J",
         requiresRestart: false,
@@ -190,7 +188,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     "clear-models": {
         id: "clear-models",
         label: "Clear Models",
-        description: "Clears all models from the compare view.",
+        description: "Clears all models currently selected.",
         scope: "chat",
         defaultCombo: "Meta+Shift+Backspace",
         requiresRestart: false,
@@ -208,7 +206,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     synthesize: {
         id: "synthesize",
         label: "Synthesize",
-        description: "Generates a synthesis from compared model responses.",
+        description: "Generates a synthesis from model responses.",
         scope: "chat",
         defaultCombo: "Meta+S",
         requiresRestart: false,
@@ -222,24 +220,6 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
         defaultCombo: "Meta+Shift+S",
         requiresRestart: false,
         visible: true,
-    },
-    "toggle-reviews": {
-        id: "toggle-reviews",
-        label: "Toggle Reviews",
-        description: "Toggles the reviews mode for the current chat.",
-        scope: "chat",
-        defaultCombo: "Meta+Shift+R",
-        requiresRestart: false,
-        visible: false,
-    },
-    "new-group-chat": {
-        id: "new-group-chat",
-        label: "New Group Chat",
-        description: "Creates a new group chat.",
-        scope: "chat",
-        defaultCombo: "Meta+Shift+G",
-        requiresRestart: false,
-        visible: false,
     },
     "find-in-page": {
         id: "find-in-page",

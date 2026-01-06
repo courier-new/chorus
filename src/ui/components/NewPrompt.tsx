@@ -14,7 +14,6 @@ import {
 } from "./ui/select";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
-import { posthog } from "posthog-js";
 import * as ModelsAPI from "@core/chorus/api/ModelsAPI";
 import { useShortcut } from "@ui/hooks/useShortcut";
 import { useShortcutDisplay } from "@core/utilities/ShortcutsAPI";
@@ -63,7 +62,6 @@ export function NewPromptInner() {
 
     const handleSubmit = useCallback(
         async (e?: React.FormEvent) => {
-            posthog?.capture("new_prompt_created");
             e?.preventDefault();
             if (!name || !baseModel) {
                 toast.error("Error", {

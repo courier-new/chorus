@@ -121,23 +121,6 @@ export class StdioClientTransportChorus implements Transport {
                       },
                   );
 
-        // this._process = spawn(
-        //     this._serverParams.command,
-        //     this._serverParams.args ?? [],
-        //     {
-        //         env: this._serverParams.env ?? getDefaultEnvironment(),
-        //         stdio: [
-        //             "pipe",
-        //             "pipe",
-        //             this._serverParams.stderr ?? "inherit",
-        //         ],
-        //         shell: false,
-        //         signal: this._abortController.signal,
-        //         windowsHide: process.platform === "win32" && isElectron(),
-        //         cwd: this._serverParams.cwd,
-        //     },
-        // );
-
         this._command.on("error", (error) => {
             const err = new Error(error);
             this.onerror?.(err);
@@ -148,28 +131,20 @@ export class StdioClientTransportChorus implements Transport {
             this.onclose?.();
         });
 
-        // this._process.stdin?.on("error", (error) => {
-        //     this.onerror?.(error);
-        // });
-
         this._command.stdout?.on("data", (chunk) => {
-            console.log("Received chunk:", chunk);
+            console.debug("Received chunk:", chunk);
             this._readBuffer.append(Buffer.from(chunk));
             this.processReadBuffer();
         });
 
         this._command.stderr?.on("data", (chunk) => {
-            console.log("Received stderr chunk:", chunk, this.onerror);
+            console.debug("Received stderr chunk:", chunk, this.onerror);
             this.onerror?.(new Error(chunk));
         });
 
-        // this._command.stdout?.on("error", (error) => {
-        //     this.onerror?.(error);
-        // });
-
         this._process = await this._command.spawn();
 
-        console.log("[MCPStdioTauri] Started server");
+        console.debug("[MCPStdioTauri] Started server");
     }
 
     private processReadBuffer() {
@@ -179,7 +154,7 @@ export class StdioClientTransportChorus implements Transport {
                 if (message === null) {
                     break;
                 }
-                console.log("Received message:", message);
+                console.debug("Received message:", message);
                 this.onmessage?.(message);
             } catch (error) {
                 this.onerror?.(error as Error);
@@ -196,7 +171,7 @@ export class StdioClientTransportChorus implements Transport {
     }
 
     async send(message: JSONRPCMessage): Promise<void> {
-        console.log("Sending message:", message);
+        console.debug("Sending message:", message);
         const json = serializeMessage(message);
         await this._process?.write(json);
     }

@@ -49,14 +49,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let tables = get_tables(&conn)?;
     let indices = get_indices(&conn)?;
     
-    // Generate SQL_SCHEMA.md in the root directory
-    let schema_path = Path::new("../SQL_SCHEMA.md");
+    // Generate SCHEMA.md in the root directory
+    let schema_path = Path::new("../SCHEMA.md");
     let mut file = File::create(schema_path)?;
     
     // Write header
     writeln!(file, "# Database Schema")?;
     writeln!(file)?;
-    writeln!(file, "_This file is auto-generated from migrations.rs. Do not edit manually._")?;
+    writeln!(file, "_This file is auto-generated from migrations.rs. Do not edit manually. Regenerate with `pnpm run generate-schema`._")?;
     writeln!(file)?;
     writeln!(file, "Last updated: {}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S"))?;
     writeln!(file)?;
@@ -122,7 +122,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     
-    println!("Schema generated successfully at ../SQL_SCHEMA.md");
+    println!("Schema generated successfully at ../SCHEMA.md");
     Ok(())
 }
 

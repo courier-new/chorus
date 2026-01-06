@@ -305,21 +305,19 @@ export abstract class MCPServer {
             return true;
         }
 
-        console.info("Starting MCP server", config);
         this._status = { status: "starting" };
         this._logs = ""; // clear any previous logs
 
         try {
-            console.log("starting mcp server");
             const serverParams = this.getExecutionParameters(config);
 
             this.mcp.onerror = (error: Error) => {
-                console.log("[Toolset] MCP server error", error);
+                console.error("[Toolset] MCP server error", error);
                 this._logs += error.message + "\n";
             };
 
             this.mcp.onclose = () => {
-                console.log("[Toolset] MCP server closed");
+                console.debug("[Toolset] MCP server closed");
                 this._status = {
                     status: "stopped",
                 };

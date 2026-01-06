@@ -203,11 +203,6 @@ export class ProviderAnthropic implements IProvider {
 
         const finalMessage = (await stream.finalMessage()) as Anthropic.Message;
 
-        console.log(
-            "Raw tool calls from Anthropic",
-            finalMessage.content.filter((item) => item.type === "tool_use"),
-        );
-
         const toolCalls: UserToolCall[] = finalMessage.content
             .filter((item) => item.type === "tool_use")
             .map((tool) => {
@@ -287,11 +282,6 @@ async function formatMessageWithAttachments(
                 break;
             }
             case "image": {
-                const fileExtension = attachment.path
-                    .split(".")
-                    .pop()
-                    ?.toLowerCase();
-
                 // Get the image data
                 const imageData = await readImageAttachment(attachment);
 
@@ -323,10 +313,6 @@ async function formatMessageWithAttachments(
                 const acceptedImageType: AcceptedImageType = isResizedImage
                     ? "image/jpeg"
                     : detectedFormat;
-
-                console.log(
-                    `Image ${attachment.path} detected as ${acceptedImageType}, file extension: ${fileExtension}, is resized: ${isResizedImage}`,
-                );
 
                 attachmentBlocks.push({
                     // @ts-expect-error: Anthropic sdk types are outdated

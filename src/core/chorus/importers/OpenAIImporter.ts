@@ -158,7 +158,7 @@ export class OpenAIImporter {
         conversation: OpenAIConversation,
         projectId: string,
     ): Promise<void> {
-        console.log(`Importing conversation: ${conversation.title}`);
+        console.debug(`Importing conversation: ${conversation.title}`);
 
         // Create a new chat using conversation-level timestamps
         // Format dates as SQLite datetime format: "YYYY-MM-DD HH:MM:SS"
@@ -232,10 +232,6 @@ export class OpenAIImporter {
 
             messageSetLevel++;
         }
-
-        console.log(
-            `Imported ${messageSetLevel} message sets for "${conversation.title}"`,
-        );
 
         // Restore the original updated_at timestamp since chat table trigger will override it
         await restoreChatUpdatedAt(

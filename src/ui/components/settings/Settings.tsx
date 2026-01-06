@@ -615,9 +615,6 @@ const CORE_BUILTIN_TOOLSETS_DATA = ToolsetsManager.instance
         description: toolset.description,
     }));
 
-// # todos:
-// get api key button? show avaiable tools in multichat. pick a new default server instead of Apple, maybe eleven labs? postgres?
-
 function ToolsTab() {
     // Database state (persisted toolsets)
     const { data: customToolsetConfigs = [] } =

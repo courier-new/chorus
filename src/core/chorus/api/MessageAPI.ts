@@ -8,13 +8,9 @@ import {
     blockIsEmpty,
     llmConversationForSynthesis,
     MessagePart,
-    BrainstormBlock,
     ToolsBlock,
-    CompareBlock,
-    ChatBlock,
     UserBlock,
 } from "@core/chorus/ChatState";
-import * as Reviews from "../reviews";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
     LLMMessage,
@@ -24,7 +20,6 @@ import type {
 } from "../Models";
 import * as Models from "../Models";
 import { UpdateQueue } from "../UpdateQueue";
-import posthog from "posthog-js";
 import { v4 as uuidv4 } from "uuid";
 import { simpleLLM } from "../simpleLLM";
 import { SimpleCompletionMode } from "../ModelProviders/simple/ISimpleCompletionProvider";
@@ -34,7 +29,6 @@ import { ToolsetsManager } from "../ToolsetsManager";
 import { UserTool, UserToolCall, UserToolResult } from "../Toolsets";
 import { produce } from "immer";
 import _ from "lodash";
-import { useAppContext } from "@ui/hooks/useAppContext";
 import { db } from "../DB";
 import { draftKeys } from "./DraftAPI";
 import { updateSavedModelConfigChat } from "./ModelConfigChatAPI";
@@ -63,7 +57,6 @@ import { fetchAppMetadata } from "./AppMetadataAPI";
 import {
     modelConfigQueries,
     useModelConfigs,
-    useModelConfigsPromise,
     fetchModelConfigById,
 } from "./ModelsAPI";
 import { Attachment, AttachmentDBRow, readAttachment } from "./AttachmentsAPI";
@@ -114,8 +107,6 @@ export interface MessageDBRow {
     state: "streaming" | "idle";
     streaming_token: string | null;
     error_message: string | null;
-    is_review: number;
-    review_state: "applied" | null;
     block_type: BlockType;
     level: number | null;
     reply_chat_id: string | null;
@@ -154,8 +145,6 @@ export function readMessage(
         state: row.state,
         streamingToken: row.streaming_token ?? undefined,
         errorMessage: row.error_message ?? undefined,
-        isReview: Boolean(row.is_review),
-        reviewState: row.review_state ?? undefined,
         level: row.level ?? undefined,
         parts: messagePartsRows.map(readMessagePart),
         replyChatId: row.reply_chat_id ?? undefined,
@@ -244,15 +233,6 @@ export async function fetchMessageSets(chatId: string) {
         const userBlockMessages = messageSetMessages.filter(
             (m) => m.blockType === "user",
         );
-        const chatBlockMessages = messageSetMessages.filter(
-            (m) => m.blockType === "chat",
-        );
-        const compareBlockMessages = messageSetMessages.filter(
-            (m) => m.blockType === "compare",
-        );
-        const brainstormBlockMessages = messageSetMessages.filter(
-            (m) => m.blockType === "brainstorm",
-        );
         const toolsBlockMessages = messageSetMessages
             .filter(
                 (m) =>
@@ -271,30 +251,6 @@ export async function fetchMessageSets(chatId: string) {
                 userBlockMessages.length > 0 ? userBlockMessages[0] : undefined,
         };
 
-        // chat blocks are deprecated
-        const chatBlock: ChatBlock = {
-            type: "chat",
-            message: chatBlockMessages.find((m) => !m.isReview),
-            reviews: chatBlockMessages.filter((m) => m.isReview),
-        };
-
-        // compare blocks are deprecated
-        const compareBlock: CompareBlock = {
-            type: "compare",
-            synthesis: compareBlockMessages.find(
-                (m) => m.model === "chorus::synthesize",
-            ),
-            messages: compareBlockMessages
-                .filter((m) => m.model !== "chorus::synthesize")
-                .sort((a, b) => a.model.localeCompare(b.model)),
-        };
-
-        // brainstorm blocks are deprecated
-        const brainstormBlock: BrainstormBlock = {
-            type: "brainstorm",
-            ideaMessages: brainstormBlockMessages,
-        };
-
         const toolsBlock: ToolsBlock = {
             type: "tools",
             chatMessages: toolsBlockMessages,
@@ -304,9 +260,6 @@ export async function fetchMessageSets(chatId: string) {
         const messageSetContent: MessageSetDetail = {
             ...set,
             userBlock,
-            chatBlock,
-            compareBlock,
-            brainstormBlock,
             toolsBlock,
         };
         return messageSetContent;
@@ -527,13 +480,11 @@ export async function duplicateMessagesForMessageSet(
                 model,
                 selected,
                 streaming_token,
-                is_review,
-                review_state,
                 block_type,
                 state,
                 level,
                 branched_from_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              RETURNING id`,
             [
                 newMessageId,
@@ -543,8 +494,6 @@ export async function duplicateMessagesForMessageSet(
                 message.model,
                 message.selected,
                 null, // Reset streaming token
-                message.is_review,
-                message.review_state,
                 message.block_type,
                 "idle", // Reset state to idle
                 message.level,
@@ -579,7 +528,6 @@ export async function fetchMessageAttachments(
         ORDER BY attachments.created_at`,
         [messageId],
     );
-    console.log("fetchMessageAttachments", result);
     return result.map(readAttachment);
 }
 
@@ -679,9 +627,6 @@ export function useBranchChat({
     chatId: string;
     messageSetId: string;
     messageId: string;
-    // a reminder that we only expect to branch on tools messages
-    // for other block types, we'd need to figure out how to handle selecting the message
-    blockType: "tools";
     replyToId?: string | null;
 }) {
     const navigate = useNavigate();
@@ -691,8 +636,6 @@ export function useBranchChat({
     return useMutation({
         mutationKey: ["branchChat"] as const,
         mutationFn: async () => {
-            console.log("branching on message", messageId);
-
             // Create a new chat with the same metadata
             const result = await db.select<{ id: string }[]>(
                 `WITH source_chat AS (
@@ -778,12 +721,6 @@ export function useBranchChat({
         },
         onSuccess: async (newChatId: string) => {
             if (replyToId) {
-                posthog.capture("reply_created", {
-                    chatId,
-                    newChatId,
-                    messageId,
-                    replyToId,
-                });
                 // Navigate to the parent chat with the replyId query parameter
                 navigate(`/chat/${chatId}?replyId=${newChatId}`);
             } else {
@@ -791,24 +728,6 @@ export function useBranchChat({
                 navigate(`/chat/${newChatId}`);
             }
             await queryClient.invalidateQueries(chatQueries.list());
-        },
-    });
-}
-
-export function useSetReviewsEnabled() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationKey: ["setReviewsEnabled"] as const,
-        mutationFn: async ({ enabled }: { enabled: boolean }) => {
-            await db.execute(
-                "UPDATE app_metadata SET value = $1 WHERE key = 'reviews_enabled'",
-                [enabled ? "true" : "false"],
-            );
-        },
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({
-                queryKey: appMetadataKeys.appMetadata(),
-            });
         },
     });
 }
@@ -839,7 +758,7 @@ export function useRestartMessage(
                 [streamingToken, messageId],
             );
             if (lockResult.rowsAffected === 0) {
-                console.log(
+                console.error(
                     "Not restarting because lock could not be acquired",
                 );
                 return undefined;
@@ -854,7 +773,7 @@ export function useRestartMessage(
                 [messageId, streamingToken],
             );
             if (deleteResult.rowsAffected === 0) {
-                console.log(
+                console.error(
                     "Restart interrupted because streaming lock was lost",
                 );
                 return undefined;
@@ -882,91 +801,6 @@ export function useRestartMessage(
             });
 
             // defensive: invalidate chatIsLoading
-            await queryClient.invalidateQueries(
-                chatIsLoadingQueries.detail(chatId),
-            );
-        },
-    });
-}
-
-/**
- * Uses the old message text field rather than message parts
- */
-export function useRestartMessageLegacy(
-    chatId: string,
-    messageSetId: string,
-    messageId: string,
-) {
-    const queryClient = useQueryClient();
-    const streamMessageText = useStreamMessageLegacy();
-    const getMessageSets = useGetMessageSets();
-    const deleteReviews = useDeleteReviews();
-    const generateReviews = useGenerateReviews();
-
-    return useMutation({
-        mutationKey: ["restartMessageLegacy"] as const,
-        mutationFn: async ({
-            modelConfig,
-        }: {
-            modelConfig: Models.ModelConfig;
-        }) => {
-            const streamingToken = uuidv4();
-            const result = await db.execute(
-                `UPDATE messages
-                SET text = '', error_message = NULL, streaming_token = $1, state = 'streaming'
-                WHERE id = $2 AND state = 'idle' AND streaming_token IS NULL`,
-                [streamingToken, messageId],
-            );
-
-            if (result.rowsAffected === 0) {
-                console.warn(
-                    "failed to restart message - lock may have been unavailable for messageId:",
-                    messageId,
-                );
-                return;
-            }
-
-            // Delete any existing reviews (if applicable)
-            await deleteReviews.mutateAsync({
-                chatId,
-                messageSetId,
-            });
-
-            // invalidate to show empty text + streaming state
-            await queryClient.invalidateQueries({
-                queryKey: messageKeys.messageSets(chatId),
-            });
-
-            const messageSets = await getMessageSets(chatId);
-
-            // assume this is the last message set
-            const previousMessageSets = messageSets?.slice(0, -1);
-            const conversation = llmConversation(previousMessageSets);
-
-            await streamMessageText.mutateAsync({
-                chatId,
-                messageSetId,
-                messageId,
-                conversation,
-                modelConfig,
-                streamingToken,
-                messageType: "vanilla",
-            });
-
-            await generateReviews.mutateAsync({
-                chatId,
-                messageSetId,
-            });
-
-            return streamingToken;
-        },
-        onSuccess: async () => {
-            // defensive: invalidate message set
-            await queryClient.invalidateQueries({
-                queryKey: messageKeys.messageSets(chatId),
-            });
-
-            // defensive: invalidate projects
             await queryClient.invalidateQueries(
                 chatIsLoadingQueries.detail(chatId),
             );
@@ -1044,7 +878,6 @@ export function useStreamMessagePart() {
             const chat = await queryClient.ensureQueryData(
                 chatQueries.detail(chatId),
             );
-            console.log(chat);
             const project = await queryClient.ensureQueryData(
                 projectQueries.detail(chat.projectId),
             );
@@ -1303,11 +1136,10 @@ export function useStreamMessagePart() {
             };
 
             const onError = (errorMessage: string) => {
-                console.log(
+                console.error(
                     `streaming for ${messageId} ${partLevel} ending with error`,
                     errorMessage,
                 );
-
                 UpdateQueue.getInstance().closeUpdateStream(streamKey);
                 resolveStreamPromise({ result: "error", errorMessage });
             };
@@ -1353,362 +1185,6 @@ export function useStreamMessagePart() {
     });
 }
 
-/**
- * Uses the old message text field rather than message parts
- */
-export function useStreamMessageLegacy() {
-    const queryClient = useQueryClient();
-    const getProjectContext = useGetProjectContextLLMMessage();
-    const createMessagePart = useCreateMessagePart();
-
-    // overall strategy: mutation is long-running, handles the entire stream
-    // it makes optimistic cache updates along the way
-    // when it resolves (success or error), it invalidates the message set
-
-    return useMutation({
-        mutationKey: ["streamMessageLegacy"] as const,
-        mutationFn: async ({
-            chatId,
-            messageSetId,
-            messageId,
-            conversation: conversationRaw,
-            modelConfig: modelConfigRaw,
-            streamingToken,
-            messageType,
-        }: {
-            chatId: string;
-            messageSetId: string;
-            messageId: string;
-            conversation: LLMMessage[];
-            modelConfig: Models.ModelConfig;
-            streamingToken: string;
-            messageType: "vanilla" | "review" | "brainstorm";
-        }): Promise<void> => {
-            // get api keys and tools
-            const apiKeys = await getApiKeys();
-
-            const chat = await queryClient.ensureQueryData(
-                chatQueries.detail(chatId),
-            );
-            const project = await queryClient.ensureQueryData(
-                projectQueries.detail(chat.projectId),
-            );
-
-            const appMetadata = await queryClient.ensureQueryData({
-                queryKey: appMetadataKeys.appMetadata(),
-                queryFn: () => fetchAppMetadata(),
-            });
-            const modelConfig = Prompts.injectSystemPrompts(modelConfigRaw, {
-                isInProject: project.id !== "default",
-                universalSystemPrompt: appMetadata["universal_system_prompt"],
-            });
-
-            const projectContext = await getProjectContext(project.id, chatId);
-            const llmConversation = [...projectContext, ...conversationRaw];
-
-            // Create a single message part (level 0) for double-writing
-            await createMessagePart.mutateAsync({
-                messagePart: {
-                    chatId,
-                    messageId,
-                    level: 0,
-                    content: "",
-                    toolCalls: [],
-                    toolResults: undefined,
-                },
-                messageSetId,
-                streamingToken,
-            });
-
-            // streamPromise will be resolved when streaming completes
-            let resolveStreamPromise: () => void;
-            let rejectStreamPromise: (reason?: unknown) => void;
-            const streamPromise = new Promise<void>((resolve, reject) => {
-                resolveStreamPromise = resolve;
-                rejectStreamPromise = reject;
-            });
-
-            // see https://tanstack.com/query/latest/docs/framework/react/guides/optimistic-updates for template
-            let partialResponse = "";
-            let priority = 0;
-            const streamKey = UpdateQueue.getInstance().startUpdateStream();
-
-            const optimisticUpdateMessageText = (
-                messageId: string,
-                text: string,
-                streamingToken: string,
-            ) => {
-                queryClient.setQueryData(
-                    messageKeys.messageSets(chatId),
-                    (old: MessageSetDetail[] | undefined) =>
-                        produce(old, (draft) => {
-                            if (draft === undefined) return;
-                            const messageSet = draft.find(
-                                (ms) => ms.id === messageSetId,
-                            );
-                            if (!messageSet) return;
-
-                            // Check toolsBlock.synthesis
-                            if (
-                                messageSet.toolsBlock.synthesis?.id ===
-                                    messageId &&
-                                messageSet.toolsBlock.synthesis
-                                    ?.streamingToken === streamingToken
-                            ) {
-                                messageSet.toolsBlock.synthesis.text = text;
-                                return;
-                            }
-
-                            // Also check compareBlock.synthesis for backwards compatibility
-                            if (
-                                messageSet.compareBlock.synthesis?.id ===
-                                    messageId &&
-                                messageSet.compareBlock.synthesis
-                                    ?.streamingToken === streamingToken
-                            ) {
-                                messageSet.compareBlock.synthesis.text = text;
-                                return;
-                            }
-
-                            // Check chatBlock for legacy support
-                            if (
-                                messageSet.chatBlock.message?.id ===
-                                    messageId &&
-                                messageSet.chatBlock.message?.streamingToken ===
-                                    streamingToken
-                            ) {
-                                messageSet.chatBlock.message.text = text;
-                            }
-                        }),
-                );
-            };
-
-            const onChunk = (chunk: string) => {
-                partialResponse += chunk;
-                priority += 1;
-
-                // optimistic update
-                optimisticUpdateMessageText(
-                    messageId,
-                    partialResponse,
-                    streamingToken,
-                );
-
-                UpdateQueue.getInstance().addUpdate(
-                    streamKey,
-                    priority,
-                    async () => {
-                        // Double-write: update both message.text and message_parts.content
-                        await db.execute(
-                            "UPDATE messages SET text = $1 WHERE id = $2 AND streaming_token = $3",
-                            [partialResponse, messageId, streamingToken],
-                        );
-                        await db.execute(
-                            `UPDATE message_parts SET content = $1
-                             FROM messages
-                             WHERE message_parts.message_id = messages.id
-                             AND message_parts.chat_id = $2
-                             AND message_parts.message_id = $3
-                             AND message_parts.level = 0
-                             AND messages.streaming_token = $4`,
-                            [
-                                partialResponse,
-                                chatId,
-                                messageId,
-                                streamingToken,
-                            ],
-                        );
-                    },
-                );
-            };
-
-            const onComplete = async (
-                finalText: string | undefined,
-                toolCalls?: UserToolCall[],
-                usageData?: UsageData,
-            ) => {
-                if (toolCalls && toolCalls.length > 0) {
-                    console.error("Dropping unexpected tool calls", toolCalls);
-                }
-                // if the provider didn't give us final text, then we use the
-                // one we've been accumulating
-                finalText = finalText ?? partialResponse;
-
-                // optimistic update
-                optimisticUpdateMessageText(
-                    messageId,
-                    finalText,
-                    streamingToken,
-                );
-
-                // Calculate cost - use OpenRouter's actual cost when available
-                let costUsd: number | undefined;
-                let actualPromptTokens = usageData?.prompt_tokens;
-                let actualCompletionTokens = usageData?.completion_tokens;
-
-                // For OpenRouter models with generation ID, fetch actual costs
-                if (
-                    usageData?.generation_id &&
-                    modelConfig.modelId.startsWith("openrouter::") &&
-                    apiKeys.openrouter
-                ) {
-                    const openRouterCost = await fetchOpenRouterCost(
-                        usageData.generation_id,
-                        apiKeys.openrouter,
-                    );
-                    if (openRouterCost) {
-                        costUsd = openRouterCost.cost;
-                        // Use native token counts from OpenRouter
-                        actualPromptTokens = openRouterCost.promptTokens;
-                        actualCompletionTokens =
-                            openRouterCost.completionTokens;
-                    }
-                }
-
-                // Fallback to calculated cost for non-OpenRouter or if fetch failed
-                if (
-                    costUsd === undefined &&
-                    usageData?.prompt_tokens !== undefined &&
-                    usageData?.completion_tokens !== undefined &&
-                    modelConfig.promptPricePerToken !== undefined &&
-                    modelConfig.completionPricePerToken !== undefined
-                ) {
-                    costUsd = calculateCost(
-                        usageData.prompt_tokens,
-                        usageData.completion_tokens,
-                        modelConfig.promptPricePerToken,
-                        modelConfig.completionPricePerToken,
-                    );
-                }
-
-                // Update the message in the database including tool calls if present
-                // Use actual token counts (from OpenRouter when available, otherwise from usage data)
-                const totalTokens =
-                    actualPromptTokens !== undefined &&
-                    actualCompletionTokens !== undefined
-                        ? actualPromptTokens + actualCompletionTokens
-                        : (usageData?.total_tokens ?? null);
-
-                // Double-write: update both message.text and message_parts.content
-                await db.execute(
-                    `UPDATE messages
-                    SET streaming_token = NULL, state = 'idle', text = ?,
-                        prompt_tokens = ?, completion_tokens = ?, total_tokens = ?, cost_usd = ?
-                    WHERE id = ? AND streaming_token = ?`,
-                    [
-                        finalText,
-                        actualPromptTokens ?? null,
-                        actualCompletionTokens ?? null,
-                        totalTokens,
-                        costUsd ?? null,
-                        messageId,
-                        streamingToken,
-                    ],
-                );
-                await db.execute(
-                    `UPDATE message_parts SET content = $1
-                     WHERE chat_id = $2
-                     AND message_id = $3
-                     AND level = 0`,
-                    [finalText, chatId, messageId],
-                );
-
-                // Update chat and project costs if we have usage data
-                if (usageData) {
-                    const projectId = await updateChatAndProjectCosts(chatId);
-
-                    // Invalidate queries to refresh UI with updated costs
-                    await queryClient.invalidateQueries(chatQueries.list());
-                    await queryClient.invalidateQueries(
-                        chatQueries.detail(chatId),
-                    );
-                    if (projectId) {
-                        await queryClient.invalidateQueries(
-                            projectQueries.list(),
-                        );
-                    }
-                }
-
-                UpdateQueue.getInstance().closeUpdateStream(streamKey);
-
-                // invalidate to ensure consistency
-                await queryClient.invalidateQueries({
-                    queryKey: messageKeys.messageSets(chatId),
-                });
-
-                resolveStreamPromise();
-            };
-
-            const onError = async (errorMessage: string) => {
-                console.warn(
-                    "streaming error (will be saved in db)",
-                    errorMessage,
-                );
-                await db.execute(
-                    `UPDATE messages
-                    SET streaming_token = NULL, state = 'idle', error_message = $1
-                        WHERE id = $2 AND streaming_token = $3`,
-                    [errorMessage, messageId, streamingToken],
-                );
-                UpdateQueue.getInstance().closeUpdateStream(streamKey);
-
-                // invalidate to ensure consistency
-                await queryClient.invalidateQueries({
-                    queryKey: messageKeys.messageSets(chatId),
-                });
-                rejectStreamPromise(errorMessage);
-            };
-
-            const customBaseUrl = await getCustomBaseUrl();
-
-            const params: Models.StreamResponseParams = {
-                modelConfig,
-                llmConversation,
-                tools: [],
-                onChunk,
-                onComplete,
-                onError: (errorMessage) => void onError(errorMessage),
-                apiKeys,
-                customBaseUrl,
-            };
-
-            switch (messageType) {
-                case "review":
-                case "brainstorm":
-                case "vanilla": {
-                    void Models.streamResponse(params);
-                    break;
-                }
-                default: {
-                    const unknownType: never = messageType;
-                    throw new Error(
-                        `Unknown message type: ${JSON.stringify(unknownType)}`,
-                    );
-                }
-            }
-
-            return streamPromise;
-        },
-        onMutate: async (variables) => {
-            // invalidate to show loading state
-            await queryClient.invalidateQueries(
-                chatIsLoadingQueries.detail(variables.chatId),
-            );
-        },
-        onSuccess: async (_data, variables, _context) => {
-            // invalidate the message set to trigger a re-fetch
-            await queryClient.invalidateQueries({
-                queryKey: messageKeys.messageSets(variables.chatId),
-            });
-
-            // invalidate to stop showing loading state
-            await queryClient.invalidateQueries(
-                chatIsLoadingQueries.detail(variables.chatId),
-            );
-        },
-    });
-}
-
 export function useCreateMessageSetPair() {
     return useMutation({
         mutationKey: ["createMessageSetPair"] as const,
@@ -1726,10 +1202,10 @@ export function useCreateMessageSetPair() {
 
             // possible (but extremely hypothetical) race condition here because this is not in a transaction
 
-            // stop streaming on all previous messages (except review messages)
+            // stop streaming on all previous messages
             await db.execute(
                 `UPDATE messages SET streaming_token = NULL, state = 'idle'
-                    WHERE chat_id = $1 AND state = 'streaming' AND is_review <> 1`,
+                    WHERE chat_id = $1 AND state = 'streaming'`,
                 [chatId],
             );
 
@@ -1871,31 +1347,29 @@ export function useCreateMessage() {
                     selected,
                     state,
                     streaming_token,
-                    is_review,
-                    review_state,
                     block_type,
                     level,
                     instance_id
-                ) SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, ${
+                ) SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, ${
                     message.level !== undefined
-                        ? `$12` // use provided level
+                        ? `$10` // use provided level
                         : `(
                             -- automatically set level
                             SELECT COALESCE(MAX(level), -1) + 1
                             FROM messages
-                            WHERE message_set_id = $3 AND block_type = $11
+                            WHERE message_set_id = $3 AND block_type = $9
                           )`
-                }, $13
+                }, $11
                 ${
                     options.mode === "first"
                         ? `WHERE NOT EXISTS (
-                                SELECT 1 FROM messages 
-                                WHERE message_set_id = $3 AND block_type = $11
+                                SELECT 1 FROM messages
+                                WHERE message_set_id = $3 AND block_type = $9
                             )`
                         : options.mode === "unique_model"
                           ? `WHERE NOT EXISTS (
-                                SELECT 1 FROM messages 
-                                WHERE message_set_id = $3 AND block_type = $11 AND model = $5
+                                SELECT 1 FROM messages
+                                WHERE message_set_id = $3 AND block_type = $9 AND model = $5
                             )`
                           : ""
                 }`,
@@ -1908,8 +1382,6 @@ export function useCreateMessage() {
                     message.selected ? 1 : 0,
                     state,
                     streamingToken,
-                    message.isReview ? 1 : 0,
-                    message.reviewState ?? null,
                     message.blockType,
                     message.level,
                     message.instanceId ?? null,
@@ -2025,73 +1497,6 @@ export function useSelectMessage() {
 }
 
 /**
- * Updates the selected_block_type field in a message set,
- * and also the current_block_type field in app_metadata
- */
-export function useSelectBlock() {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationKey: ["selectBlock"] as const,
-        mutationFn: async ({
-            blockType,
-            messageSetId,
-        }: {
-            chatId: string;
-            blockType: BlockType;
-            messageSetId: string;
-        }) => {
-            // Update both the message set and the app metadata
-            await db.execute(
-                `UPDATE message_sets SET selected_block_type = $1 WHERE id = $2;
-            UPDATE app_metadata SET value = $1 WHERE key = 'current_block_type'`,
-                [blockType, messageSetId],
-            );
-        },
-        onSuccess: async (_data, variables, _context) => {
-            await queryClient.invalidateQueries({
-                queryKey: messageKeys.messageSets(variables.chatId),
-            });
-
-            posthog?.capture("block_selected", {
-                blockType: variables.blockType,
-            });
-        },
-    });
-}
-
-export function useSelectAndPopulateBlock(
-    chatId: string,
-    isQuickChatWindow: boolean,
-) {
-    const selectBlock = useSelectBlock();
-    const populateBlock = usePopulateBlock(chatId, isQuickChatWindow);
-
-    return useMutation({
-        mutationKey: ["selectAndPopulateBlock"] as const,
-        mutationFn: async ({
-            messageSetId,
-            blockType,
-        }: {
-            messageSetId: string;
-            blockType: BlockType;
-        }) => {
-            await selectBlock.mutateAsync({
-                chatId,
-                blockType,
-                messageSetId,
-            });
-
-            await populateBlock.mutateAsync({
-                messageSetId,
-                blockType,
-            });
-        },
-        // no need to invalidate because useSelectBlock and usePopulateBlock will do it
-    });
-}
-
-/**
  * Helper function that performs the actual synthesis streaming for an existing message
  * Used by both useStreamSynthesis (new synthesis) and useRestartSynthesis (regenerate)
  */
@@ -2100,7 +1505,6 @@ async function streamSynthesisForMessage({
     messageSetId,
     messageId,
     streamingToken,
-    blockType,
     queryClient,
     getMessageSets,
     createMessagePart,
@@ -2113,7 +1517,6 @@ async function streamSynthesisForMessage({
     messageSetId: string;
     messageId: string;
     streamingToken: string;
-    blockType: "compare" | "tools";
     queryClient: ReturnType<typeof useQueryClient>;
     getMessageSets: ReturnType<typeof useGetMessageSets>;
     createMessagePart: ReturnType<typeof useCreateMessagePart>;
@@ -2160,11 +1563,7 @@ async function streamSynthesisForMessage({
     });
 
     const messageSets = await getMessageSets(chatId);
-    const conversation = llmConversationForSynthesis(
-        messageSets,
-        blockType,
-        messageSetId,
-    );
+    const conversation = llmConversationForSynthesis(messageSets, messageSetId);
 
     await streamMessagePart.mutateAsync({
         chatId,
@@ -2186,9 +1585,6 @@ async function streamSynthesisForMessage({
     );
 }
 
-/**
- * Precondition: no other messages are selected (for compare mode)
- */
 export function useStreamSynthesis() {
     const queryClient = useQueryClient();
     const getMessageSets = useGetMessageSets();
@@ -2210,36 +1606,20 @@ export function useStreamSynthesis() {
         mutationFn: async ({
             chatId,
             messageSetId,
-            blockType = "compare",
         }: {
             chatId: string;
             messageSetId: string;
-            blockType?: "compare" | "tools";
         }) => {
             const messageSets = await getMessageSets(chatId);
             const messageSet = messageSets.find((m) => m.id === messageSetId);
 
             // Check if synthesis already exists
-            if (blockType === "compare") {
-                if (
-                    messageSet?.compareBlock?.messages.some((m) =>
-                        m.model.endsWith("::synthesize"),
-                    )
-                ) {
-                    console.debug(
-                        "Skipping synthesis because it already exists",
-                        messageSetId,
-                    );
-                    return;
-                }
-            } else if (blockType === "tools") {
-                if (messageSet?.toolsBlock?.synthesis) {
-                    console.debug(
-                        "Skipping synthesis because it already exists",
-                        messageSetId,
-                    );
-                    return;
-                }
+            if (messageSet?.toolsBlock?.synthesis) {
+                console.debug(
+                    "Skipping synthesis because it already exists",
+                    messageSetId,
+                );
+                return;
             }
 
             // Get the base model config
@@ -2263,20 +1643,14 @@ export function useStreamSynthesis() {
                     synthesisPrompt || Prompts.SYNTHESIS_SYSTEM_PROMPT,
             };
 
-            posthog.capture("synthesize_created", {
-                blockType,
-                model: synthesisModelConfigId,
-            });
-
             const result = await createMessage.mutateAsync({
                 message: createAIMessage({
                     chatId,
                     messageSetId,
-                    blockType,
+                    blockType: "tools",
                     model: modelConfig.modelId,
-                    // For compare mode: auto-select (replaces other responses)
                     // For tools mode: don't select (appears alongside)
-                    selected: blockType === "compare",
+                    selected: false,
                 }),
                 options: {
                     mode: "unique_model",
@@ -2290,7 +1664,6 @@ export function useStreamSynthesis() {
                 messageSetId,
                 messageId,
                 streamingToken,
-                blockType,
                 queryClient,
                 getMessageSets,
                 createMessagePart,
@@ -2321,24 +1694,11 @@ export function useSelectSynthesis() {
 
     return useMutation({
         mutationKey: ["selectSynthesis"] as const,
-        mutationFn: async ({
-            messageSetId,
-            blockType = "compare",
-        }: {
+        mutationFn: async (_variables: {
             chatId: string;
             messageSetId: string;
-            blockType?: "compare" | "tools";
         }) => {
-            // For compare mode: deselect all messages except synthesis
-            // For tools mode: no SQL update needed (synthesis just appears alongside)
-            if (blockType === "compare") {
-                await db.execute(
-                    `UPDATE messages SET selected = (
-                        CASE WHEN model = $2 THEN 1 ELSE 0 END
-                    ) WHERE message_set_id = $1 AND block_type = 'compare'`,
-                    [messageSetId, "chorus::synthesize"],
-                );
-            }
+            // This is a no-op but triggers the onSuccess which will invoke synthesis
         },
         onSuccess: async (_data, variables, _context) => {
             // invalidate to trigger re-fetch
@@ -2350,37 +1710,6 @@ export function useSelectSynthesis() {
             await streamSynthesis.mutateAsync({
                 chatId: variables.chatId,
                 messageSetId: variables.messageSetId,
-                blockType: variables.blockType,
-            });
-        },
-    });
-}
-
-export function useApplyRevision() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationKey: ["applyRevision"] as const,
-        mutationFn: async ({
-            messageSetId,
-            reviewMessage,
-        }: {
-            chatId: string;
-            messageSetId: string;
-            reviewMessage: Message;
-        }) => {
-            // set this revision to applied, and all other revisions to NULL state
-            await db.execute(
-                "UPDATE messages SET review_state = (CASE WHEN id = $1 THEN 'applied' ELSE NULL END) WHERE message_set_id = $2 AND block_type = 'chat'",
-                [reviewMessage.id, messageSetId],
-            );
-        },
-        onSuccess: async (_data, variables, _context) => {
-            posthog?.capture("revision_applied", {
-                reviewer: variables.reviewMessage.model,
-            });
-
-            await queryClient.invalidateQueries({
-                queryKey: messageKeys.messageSets(variables.chatId),
             });
         },
     });
@@ -2464,132 +1793,20 @@ export function useEditMessage(chatId: string, isQuickChatWindow: boolean) {
     });
 }
 
-export function useUnapplyRevisions() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationKey: ["unapplyRevisions"] as const,
-        mutationFn: async ({
-            messageSetId,
-        }: {
-            chatId: string;
-            messageSetId: string;
-        }) => {
-            await db.execute(
-                "UPDATE messages SET review_state = NULL WHERE message_set_id = $1 AND block_type = 'chat'",
-                [messageSetId],
-            );
-        },
-        onSuccess: async (_data, variables, _context) => {
-            await queryClient.invalidateQueries({
-                queryKey: messageKeys.messageSets(variables.chatId),
-            });
-        },
-    });
-}
-
-/**
- * Deletes all reviews for a message set
- * Can be used to set up a message set for reviews to be freshly generated
- */
-export function useDeleteReviews() {
-    const queryClient = useQueryClient();
-    const { isQuickChatWindow } = useAppContext();
-
-    return useMutation({
-        mutationKey: ["deleteReviews"] as const,
-        mutationFn: async ({
-            chatId: _chatId,
-            messageSetId,
-        }: {
-            chatId: string;
-            messageSetId: string;
-        }) => {
-            if (isQuickChatWindow) return { skipped: true };
-
-            await db.execute(
-                "DELETE FROM messages WHERE message_set_id = $1 AND is_review = 1 AND block_type = 'chat'",
-                [messageSetId],
-            );
-        },
-        onSuccess: async (data, variables, _context) => {
-            if (data?.skipped) return;
-
-            await queryClient.invalidateQueries({
-                queryKey: messageKeys.messageSets(variables.chatId),
-            });
-        },
-    });
-}
-
-/**
- * Apply a revision in a destructive way (overwriting original text) and delete all reviews
- * Can be used to set up a message set for reviews to be freshly generated
- */
-export function useHardApplyAndDeleteReviews() {
-    const deleteReviews = useDeleteReviews();
-
-    return useMutation({
-        mutationKey: ["hardApplyAndDeleteReviews"] as const,
-        mutationFn: async ({
-            chatId,
-            messageSetId,
-            revision,
-        }: {
-            chatId: string;
-            messageSetId: string;
-            revision: string;
-        }) => {
-            // overwrite the main chat message with the revision text
-            await db.execute(
-                `UPDATE messages SET text = $1 WHERE message_set_id = $2 AND is_review = 0 AND block_type = 'chat'`,
-                [revision, messageSetId],
-            );
-
-            // delete all reviews
-            await deleteReviews.mutateAsync({
-                chatId,
-                messageSetId,
-            });
-        },
-    });
-}
-
 export function useDeselectSynthesis() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationKey: ["deselectSynthesis"] as const,
         mutationFn: async ({
             messageSetId,
-            blockType = "compare",
         }: {
             chatId: string;
             messageSetId: string;
-            blockType?: "compare" | "tools";
         }) => {
-            if (blockType === "tools") {
-                // For tools mode: delete the synthesis message
-                await db.execute(
-                    `DELETE FROM messages WHERE message_set_id = $1 AND block_type = 'tools' AND model LIKE '%::synthesize'`,
-                    [messageSetId],
-                );
-            } else {
-                // For compare mode: reselect first non-synthesis message
-                const result = await db.execute(
-                    `
-            WITH to_select AS (
-                SELECT id
-                FROM messages
-                WHERE message_set_id = $1 AND model <> $2
-                LIMIT 1
-            )
-            UPDATE messages SET selected = (
-                CASE WHEN id = (SELECT id FROM to_select) THEN 1 ELSE 0 END
-            ) WHERE message_set_id = $1 AND block_type = 'compare'
-            `,
-                    [messageSetId, "chorus::synthesize"],
-                );
-                return result.rowsAffected > 0;
-            }
+            await db.execute(
+                `DELETE FROM messages WHERE message_set_id = $1 AND block_type = 'tools' AND model LIKE '%::synthesize'`,
+                [messageSetId],
+            );
         },
         onSuccess: async (_data, variables, _context) => {
             await queryClient.invalidateQueries({
@@ -2617,12 +1834,10 @@ export function useRestartSynthesis() {
             chatId,
             messageSetId,
             messageId,
-            blockType = "tools",
         }: {
             chatId: string;
             messageSetId: string;
             messageId: string;
-            blockType?: "compare" | "tools";
         }) => {
             // Lock and clear the synthesis message
             const streamingToken = uuidv4();
@@ -2657,7 +1872,6 @@ export function useRestartSynthesis() {
                 messageSetId,
                 messageId,
                 streamingToken,
-                blockType,
                 queryClient,
                 getMessageSets,
                 createMessagePart,
@@ -2702,7 +1916,7 @@ export function useSummarizeChat() {
                 chatQueries.detail(chatId),
             );
             if (chat?.summary && !forceRefresh) {
-                console.log("Skipping summary generation for chat", chatId);
+                console.debug("Skipping summary generation for chat", chatId);
                 return { summary: chat.summary };
             }
 
@@ -2733,113 +1947,6 @@ export function useSummarizeChat() {
                 chatId,
             ]);
             return { summary };
-        },
-    });
-}
-
-// ------------------------------------------------------------------------------------------------
-// Populate functions
-// ------------------------------------------------------------------------------------------------
-
-export function useGenerateReviews() {
-    const queryClient = useQueryClient();
-    const getMessageSets = useGetMessageSets();
-    const streamMessageText = useStreamMessageLegacy();
-    const modelConfigsPromise = useModelConfigsPromise();
-    const createMessage = useCreateMessage();
-    const { isQuickChatWindow } = useAppContext();
-
-    return useMutation({
-        mutationKey: ["generateReviews"] as const,
-        mutationFn: async ({
-            chatId,
-            messageSetId,
-        }: {
-            chatId: string;
-            messageSetId: string;
-        }) => {
-            if (isQuickChatWindow) return { skipped: true };
-
-            const appMetadata = await queryClient.ensureQueryData({
-                queryKey: appMetadataKeys.appMetadata(),
-                queryFn: () => fetchAppMetadata(),
-            });
-            if (appMetadata["reviews_enabled"] !== "true") {
-                // abort
-                console.debug(
-                    "Skipping reviews generation because reviews are disabled",
-                    appMetadata,
-                );
-                return;
-            }
-
-            const messageSets = await getMessageSets(chatId);
-            const messageSet = messageSets.find((m) => m.id === messageSetId);
-
-            if (!messageSet) {
-                throw new Error(`Message set not found: ${messageSetId}`);
-            }
-
-            const message = messageSet.chatBlock?.message;
-            if (!message) {
-                throw new Error(
-                    `Message not found in message set: ${messageSetId}`,
-                );
-            }
-
-            const modelConfigs = await modelConfigsPromise;
-
-            const reviewConfigs: ModelConfig[] =
-                Reviews.ACTIVE_REVIEWERS_ORDER.map((key) => {
-                    const modelConfig = modelConfigs.find((m) => m.id === key)!;
-                    return modelConfig;
-                }).filter((m) => m !== undefined);
-
-            const conversation = llmConversation(messageSets);
-
-            await Promise.all(
-                reviewConfigs.map(async (reviewConfig) => {
-                    const message = await createMessage.mutateAsync({
-                        message: createAIMessage({
-                            chatId,
-                            messageSetId,
-                            blockType: "chat",
-                            model: reviewConfig.id,
-                            selected: false, // review messages are not selected
-                            isReview: true,
-                        }),
-                        options: {
-                            mode: "always",
-                        },
-                    });
-                    if (!message) {
-                        throw new Error(
-                            `Failed to create message for review: ${reviewConfig.id}`,
-                        );
-                    }
-
-                    const { messageId, streamingToken } = message;
-
-                    await streamMessageText.mutateAsync({
-                        chatId,
-                        messageSetId,
-                        messageId,
-                        conversation,
-                        modelConfig: reviewConfig,
-                        streamingToken,
-                        messageType: "review",
-                    });
-                }),
-            );
-        },
-        onSuccess: async (data, variables, _context) => {
-            if (data?.skipped) return;
-
-            await queryClient.invalidateQueries({
-                queryKey: messageKeys.messageSets(variables.chatId),
-            });
-
-            posthog?.capture("reviews_generated");
         },
     });
 }
@@ -2919,7 +2026,7 @@ function useStreamToolsMessage() {
                     ...llmConversation(previousMessageSetsPlusThisMessage),
                 ];
 
-                console.log(`[level ${level}] streaming ai message`);
+                console.debug(`[level ${level}] streaming ai message`);
                 await createMessagePart.mutateAsync({
                     messagePart: {
                         chatId,
@@ -2954,7 +2061,7 @@ function useStreamToolsMessage() {
                     break;
                 }
 
-                console.log("completed stream. processing tool calls.");
+                console.debug("completed stream. processing tool calls.");
                 level += 1;
 
                 // If no tool calls, we're done
@@ -2962,11 +2069,11 @@ function useStreamToolsMessage() {
                     !streamResult.toolCalls ||
                     streamResult.toolCalls.length === 0
                 ) {
-                    console.log("No tool calls, done with loop");
+                    console.debug("No tool calls, done with loop");
                     break;
                 }
 
-                console.log(
+                console.debug(
                     `[level ${level}] handling tool calls`,
                     streamResult.toolCalls,
                 );
@@ -2999,14 +2106,6 @@ function useStreamToolsMessage() {
                     streamingToken,
                 });
                 level += 1;
-
-                // report tool call to posthog
-                streamResult.toolCalls.forEach((toolCall, _index) => {
-                    posthog?.capture("tool_called", {
-                        modelConfigId: modelConfig.id,
-                        namespacedToolName: toolCall.namespacedToolName,
-                    });
-                });
 
                 // Invalidate to ensure the UI shows the messages
                 await queryClient.invalidateQueries({
@@ -3168,10 +2267,7 @@ function usePopulateToolsBlock(chatId: string) {
 
 /**
  * Populates a block in the LAST message set.
- * Wrapper around
- * - usePopulateChatBlock
- * - usePopulateBrainstormBlock
- * - usePopulateCompareBlock
+ * Wrapper around usePopulateToolsBlock.
  */
 export function usePopulateBlock(chatId: string, isQuickChatWindow: boolean) {
     const populateToolsBlock = usePopulateToolsBlock(chatId);
@@ -3239,7 +2335,7 @@ export function useGetMessageSets(): (
 }
 
 /**
- * Adds a message to the compare block in the LAST message set.
+ * Adds a message to the tools block in the LAST message set.
  */
 export function useAddMessageToToolsBlock(chatId: string) {
     const modelConfigsQuery = useModelConfigs();
@@ -3292,88 +2388,11 @@ export function useAddMessageToToolsBlock(chatId: string) {
                 modelConfig,
             });
         },
-        onSuccess: async (_data, variables) => {
-            posthog.capture("model_config_added_to_message_set", {
-                modelConfigAdded: variables.modelId,
-            });
-
+        onSuccess: async (_data, _variables) => {
             await markProjectContextSummaryAsStale.mutateAsync({
                 chatId,
             });
         },
-    });
-}
-
-/**
- * Adds a message to the compare block in the LAST message set.
- */
-export function useAddMessageToCompareBlock(chatId: string) {
-    const createMessage = useCreateMessage();
-    const streamMessageText = useStreamMessageLegacy();
-    const getMessageSets = useGetMessageSets();
-    const modelConfigsQuery = useModelConfigs();
-
-    return useMutation({
-        mutationKey: ["addMessageToCompareBlock"] as const,
-        mutationFn: async ({
-            messageSetId,
-            modelId,
-        }: {
-            messageSetId: string;
-            modelId: string;
-        }) => {
-            const modelConfig = modelConfigsQuery.data?.find(
-                (m: Models.ModelConfig) => m.id === modelId,
-            );
-            if (!modelConfig) {
-                console.warn("model config not found ", modelId);
-                return { skipped: true };
-            }
-
-            const previousMessageSets = (await getMessageSets(chatId)).slice(
-                0,
-                -1,
-            ); // assume this is the last set
-            const conversation = llmConversation(previousMessageSets);
-
-            const result = await createMessage.mutateAsync({
-                message: createAIMessage({
-                    chatId,
-                    messageSetId,
-                    blockType: "compare",
-                    model: modelConfig.id,
-                    selected: false, // Don't auto-select the new message
-                }),
-                options: {
-                    mode: "unique_model",
-                },
-            });
-
-            if (!result) {
-                console.error("Failed to create message for compare block");
-                return;
-            }
-
-            const { messageId, streamingToken } = result;
-
-            await streamMessageText.mutateAsync({
-                chatId,
-                messageSetId,
-                messageId,
-                conversation,
-                modelConfig,
-                streamingToken,
-                messageType: "vanilla",
-            });
-        },
-        onSuccess: (data, variables, _context) => {
-            if (data?.skipped) return;
-
-            posthog.capture("model_config_added_to_message_set", {
-                modelConfigAdded: variables.modelId,
-            });
-        },
-        // no need to invalidate because it's done by the streamMessageText and createMessage
     });
 }
 
@@ -3391,7 +2410,6 @@ export function useForceRefreshMessageSets() {
     };
 }
 
-// TODO-GC: this relies on getUserMessageSets
 export function useGenerateChatTitle() {
     const queryClient = useQueryClient();
     const getMessageSets = useGetMessageSets();
@@ -3408,7 +2426,7 @@ export function useGenerateChatTitle() {
                 // if the previous title was "Untitled Chat", might as well try to regenerate it
                 chat.title !== "Untitled Chat"
             ) {
-                console.log("Skipping title generation for chat", chatId);
+                console.debug("Skipping title generation for chat", chatId);
                 return { skipped: true };
             }
 
@@ -3419,7 +2437,7 @@ export function useGenerateChatTitle() {
                 .find((m) => m !== undefined);
 
             if (!userMessageText) {
-                console.log("Skipping title generation for chat", chatId);
+                console.debug("Skipping title generation for chat", chatId);
                 return { skipped: true };
             }
 
@@ -3444,7 +2462,6 @@ ${userMessageText}
                 .slice(0, 40)
                 .replace(/["']/g, "");
             if (cleanTitle) {
-                console.log("Setting chat title to:", cleanTitle);
                 await db.execute("UPDATE chats SET title = $1 WHERE id = $2", [
                     cleanTitle,
                     chatId,
@@ -3462,13 +2479,11 @@ ${userMessageText}
     });
 }
 
-// TODO-GC: remove after migration to GC
 export function useUpdateSelectedModelConfigQuickChat() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationKey: ["updateSelectedModelConfigQuickChat"] as const,
         mutationFn: async ({ modelConfig }: { modelConfig: ModelConfig }) => {
-            console.log("Updating quick chat model config to:", modelConfig.id);
             await db.execute(
                 "UPDATE app_metadata SET value = ? WHERE key = 'quick_chat_model_config_id'",
                 [modelConfig.id],
@@ -3492,9 +2507,8 @@ export function useUpdateSelectedModelConfigQuickChat() {
     });
 }
 
-// TODO-GC: remove after migration to GC
 /**
- * Gets the selected model configs for the current chat type (quick chat or compare).
+ * Gets the selected model configs for the current chat type.
  */
 export function useGetSelectedModelConfigs() {
     const queryClient = useQueryClient();

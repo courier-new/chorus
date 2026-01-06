@@ -277,7 +277,6 @@ export function ManageModelsBox({
                 console.error("Can't find the scroll container");
                 return;
             }
-            console.log("resetting scroll on", listRef.current.scrollTop);
             listRef.current.scrollTop = 0;
         });
     }, [searchQuery]);

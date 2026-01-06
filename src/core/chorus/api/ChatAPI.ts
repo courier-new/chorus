@@ -2,8 +2,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { produce } from "immer";
 import { useNavigate } from "react-router-dom";
 import { db } from "../DB";
-import { getVersion } from "@tauri-apps/api/app";
-import { usePostHog } from "posthog-js/react";
 
 const chatKeys = {
     all: () => ["chats"] as const,
@@ -35,7 +33,6 @@ export type Chat = {
     projectContextSummary: string | undefined;
     projectContextSummaryIsStale: boolean;
     replyToId: string | null;
-    gcPrototype: boolean;
 
     pinned: boolean; // deprecated
 
@@ -57,7 +54,6 @@ type ChatDBRow = {
     project_context_summary: string | null;
     project_context_summary_is_stale: number;
     reply_to_id: string | null;
-    gc_prototype_chat: number;
     total_cost_usd: number | null;
 };
 
@@ -77,7 +73,6 @@ function readChat(row: ChatDBRow): Chat {
         projectContextSummaryIsStale:
             row.project_context_summary_is_stale === 1,
         replyToId: row.reply_to_id,
-        gcPrototype: row.gc_prototype_chat === 1,
         totalCostUsd: row.total_cost_usd ?? undefined,
     };
 }
@@ -85,7 +80,7 @@ function readChat(row: ChatDBRow): Chat {
 export async function fetchChat(chatId: string): Promise<Chat> {
     const rows = await db.select<ChatDBRow[]>(
         `SELECT id, title, quick_chat, pinned, project_id, updated_at, created_at, summary, is_new_chat,
-        parent_chat_id, project_context_summary, project_context_summary_is_stale, reply_to_id, gc_prototype_chat, total_cost_usd
+        parent_chat_id, project_context_summary, project_context_summary_is_stale, reply_to_id, total_cost_usd
         FROM chats
         WHERE id = $1;`,
         [chatId],
@@ -100,7 +95,7 @@ export async function fetchChats(): Promise<Chat[]> {
     return await db
         .select<ChatDBRow[]>(
             `SELECT id, title, quick_chat, pinned, project_id, updated_at, created_at, summary, is_new_chat, parent_chat_id,
-            project_context_summary, project_context_summary_is_stale, reply_to_id, gc_prototype_chat, total_cost_usd
+            project_context_summary, project_context_summary_is_stale, reply_to_id, total_cost_usd
             FROM chats
             WHERE reply_to_id IS NULL
             ORDER BY updated_at DESC`,
@@ -180,9 +175,7 @@ export function useUpdateNewChat() {
         },
         onSuccess: (chatId: string) => {
             cacheUpdateChat(chatId, (chat) => {
-                console.log("updating chat", chat);
                 chat.updatedAt = new Date().toISOString();
-                console.log("updated chat", chat);
             });
 
             navigate(`/chat/${chatId}`);
@@ -191,15 +184,14 @@ export function useUpdateNewChat() {
 }
 
 export function useCreateNewChat() {
-    const posthog = usePostHog();
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationKey: ["createNewChat"] as const,
         mutationFn: async ({ projectId }: { projectId: string }) => {
             const result = await db.select<{ id: string }[]>(
-                `INSERT INTO chats (id, created_at, updated_at, is_new_chat, project_id, quick_chat) 
-                 VALUES (lower(hex(randomblob(16))), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, ?, ?) 
+                `INSERT INTO chats (id, created_at, updated_at, is_new_chat, project_id, quick_chat)
+                 VALUES (lower(hex(randomblob(16))), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, ?, ?)
                  RETURNING id`,
                 [projectId, projectId === "quick-chat" ? 1 : 0],
             );
@@ -209,49 +201,8 @@ export function useCreateNewChat() {
             }
             return result[0].id;
         },
-        onSuccess: async (chatId: string) => {
+        onSuccess: async () => {
             await queryClient.invalidateQueries(chatQueries.list());
-
-            console.log("created new chat", chatId);
-
-            const version = await getVersion();
-            posthog?.capture("chat_created", {
-                version,
-            });
-        },
-    });
-}
-
-export function useCreateGroupChat() {
-    const navigate = useNavigate();
-    const posthog = usePostHog();
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationKey: ["createGroupChat"] as const,
-        mutationFn: async () => {
-            const result = await db.select<{ id: string }[]>(
-                `INSERT INTO chats (id, created_at, updated_at, is_new_chat, project_id, gc_prototype_chat) 
-                 VALUES (lower(hex(randomblob(16))), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 'default', 1) 
-                 RETURNING id`,
-            );
-
-            if (!result.length) {
-                throw new Error("Failed to create group chat");
-            }
-            return result[0].id;
-        },
-        onSuccess: async (chatId: string) => {
-            await queryClient.invalidateQueries(chatQueries.list());
-
-            console.log("created new group chat", chatId);
-
-            const version = await getVersion();
-            posthog?.capture("gc_prototype_chat_created", {
-                version,
-            });
-
-            navigate(`/chat/${chatId}`);
         },
     });
 }
@@ -267,7 +218,7 @@ export function useGetOrCreateNewChat() {
             const existingNewChat = await db.select<{ id: string }[]>(
                 `UPDATE chats 
                  SET updated_at = CURRENT_TIMESTAMP 
-                 WHERE is_new_chat = 1 AND project_id = ? AND gc_prototype_chat = 0
+                 WHERE is_new_chat = 1 AND project_id = ?
                  RETURNING id`,
                 [projectId],
             );
@@ -307,13 +258,12 @@ export function useGetOrCreateNewQuickChat() {
             const existingNewChat = await db.select<{ id: string }[]>(
                 `UPDATE chats 
                  SET updated_at = CURRENT_TIMESTAMP 
-                 WHERE is_new_chat = 1 AND quick_chat = 1 AND project_id = 'quick-chat' AND gc_prototype_chat = 0
+                 WHERE is_new_chat = 1 AND quick_chat = 1 AND project_id = 'quick-chat'
                  RETURNING id`,
                 [],
             );
 
             if (existingNewChat.length > 0) {
-                console.log("existing new chat", existingNewChat);
                 await updateNewChat.mutateAsync({
                     chatId: existingNewChat[0].id,
                 });

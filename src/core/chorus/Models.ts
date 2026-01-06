@@ -17,7 +17,6 @@ import { ollamaClient } from "./OllamaClient";
 import { ProviderOllama } from "./ModelProviders/ProviderOllama";
 import { ProviderLMStudio } from "./ModelProviders/ProviderLMStudio";
 import { ProviderGrok } from "./ModelProviders/ProviderGrok";
-import posthog from "posthog-js";
 import { UserTool, UserToolCall, UserToolResult } from "./Toolsets";
 import { Attachment } from "./api/AttachmentsAPI";
 
@@ -91,18 +90,6 @@ export const allowedExtensions: Record<AttachmentType, string[]> = {
     ],
     webpage: [],
 };
-
-/**
- * LEGACY -- TODO get rid of this one when we deprecate old-style tools
- */
-export interface ToolConfig {
-    name: string; // "Web Search"
-    generic_tool_name: string; //  a generic name for the tool, e.g. "web_search"
-    provider_tool_id: string; // provider specific id for the tool, e.g. "web_search_preview" for OpenAI
-    description: string; // "Search the web for information"
-    default_enabled: boolean; // whether the tool should be enabled by default
-    toggleable: boolean; // whether the tool should be toggleable by the user
-}
 
 export type LLMMessageUser = {
     role: "user";
@@ -372,11 +359,6 @@ export async function streamResponse(
         console.error(error);
         const errorMessage = getErrorMessage(error);
         void params.onError(errorMessage);
-        posthog.capture("response_errored", {
-            modelProvider: providerName,
-            modelId: params.modelConfig.modelId,
-            errorMessage,
-        });
     });
 }
 
@@ -409,18 +391,6 @@ export async function saveModelAndDefaultConfig(
         "INSERT OR REPLACE INTO model_configs (id, display_name, author, model_id, system_prompt) VALUES (?, ?, ?, ?, ?)",
         [model.id, modelConfigDisplayName, "system", model.id, ""],
     );
-}
-
-/**
- * Downloads models from external sources to refresh the database.
- */
-export async function DEPRECATED_USE_HOOK_INSTEAD_downloadModels(
-    db: Database,
-): Promise<number> {
-    await downloadOpenRouterModels(db);
-    await downloadOllamaModels(db);
-    await downloadLMStudioModels(db);
-    return 0;
 }
 
 /**

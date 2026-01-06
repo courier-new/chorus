@@ -152,7 +152,6 @@ pub fn run() {
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_deep_link::init())
-        .plugin(tauri_plugin_stronghold::Builder::new(|_pass| todo!()).build())
         .plugin(
             tauri_plugin_sql::Builder::default()
                 .add_migrations(DB_URL, migrations)
@@ -470,12 +469,8 @@ pub fn run() {
             command::show,
             command::hide,
             command::open_in_main_window,
-            command::new_quick_chat,
-            command::refresh_projects_state,
-            command::chat_deleted,
             #[cfg(target_os = "macos")]
             command::update_panel_theme,
-            command::capture_window,
             command::capture_whole_screen,
             command::resize_image,
             command::open_screen_recording_settings,

@@ -1,4 +1,3 @@
-import { scan } from "react-scan"; // must import before react
 import {
     BrowserRouter as Router,
     Route,
@@ -78,12 +77,6 @@ import * as ToolsetsAPI from "@core/chorus/api/ToolsetsAPI";
 import * as ChatAPI from "@core/chorus/api/ChatAPI";
 import * as ProjectAPI from "@core/chorus/api/ProjectAPI";
 
-scan({
-    enabled: true,
-    log: true, // logs render info to console (default: false)
-    clearLog: false, // clears the console per group of renders (default: false)
-});
-
 const mutationCache = new MutationCache({
     onError: (error, variables, context) => {
         console.error("Mutation error:", error, variables, context); // default error handler. makes sure we don't miss errors in mutations
@@ -101,34 +94,6 @@ const queryClient = new QueryClient({
         },
     },
 });
-
-// function DeeplinkTester({ onTest }: { onTest: (urls: string[]) => void }) {
-//     const [testUrl, setTestUrl] = useState("");
-
-//     const handleTestDeeplink = () => {
-//         if (testUrl.trim()) {
-//             onTest([testUrl]);
-//         }
-//     };
-
-//     return (
-//         <div className="fixed bottom-12 right-4 z-50 flex gap-2 bg-card p-2 rounded-md border shadow-md">
-//             <input
-//                 type="text"
-//                 value={testUrl}
-//                 onChange={(e) => setTestUrl(e.target.value)}
-//                 placeholder="chorus://..."
-//                 className="px-2 py-1 text-sm border rounded"
-//             />
-//             <button
-//                 onClick={handleTestDeeplink}
-//                 className="px-2 py-1 text-sm bg-primary text-primary-foreground rounded"
-//             >
-//                 Open deep link
-//             </button>
-//         </div>
-//     );
-// }
 
 function AppContent() {
     const navigate = useNavigate();
@@ -162,7 +127,6 @@ function AppContent() {
             dismissedAlertVersion !== currentAppVersion
         ) {
             // New user with no chats - auto-dismiss the educational tooltip
-            console.log("auto-dismissing educational tooltip for new user");
             setDismissedAlertVersion.mutate({ version: currentAppVersion });
         }
     }, [
@@ -179,7 +143,6 @@ function AppContent() {
         currentAppVersion !== null &&
         dismissedAlertVersion !== currentAppVersion;
 
-    const [reviewsDialogOpen, setReviewsDialogOpen] = useState(false);
     const [_waitlistDialogOpen, _setWaitlistDialogOpen] = useState(false);
     const [defaultSettingsTab, setDefaultSettingsTab] =
         useState<SettingsTabId>("general");
@@ -274,16 +237,9 @@ function AppContent() {
         isGlobal: true,
     });
 
-    const createGroupChat = ChatAPI.useCreateGroupChat();
-    useConfigurableShortcut("new-group-chat", createGroupChat.mutate, {
-        isEnabled: !isQuickChatWindow && !isDialogOpen,
-        isGlobal: true,
-    });
-
     const handleDeepLink = useCallback(
         (urls: string[]) => {
             const url = urls[0];
-            console.log("handleDeepLink", url);
             try {
                 const urlObj = new URL(url);
                 if (urlObj.protocol === "chorus:") {
@@ -363,7 +319,7 @@ function AppContent() {
     // Deep link listener for when app is already running
     useEffect(() => {
         const unlistenPromise = onOpenUrl((urls) => {
-            console.log("Deep link received:", urls);
+            console.debug("Deep link received:", urls);
             void handleDeepLink(urls);
         });
 
@@ -410,11 +366,9 @@ function AppContent() {
         async (update: Update, showProgress = true) => {
             // Check if already downloading using ref to prevent race conditions
             if (isDownloadingRef.current) {
-                console.log("Already downloading update, skipping");
+                console.debug("Already downloading update, skipping");
                 return;
             }
-
-            console.log("Downloading update:", update);
             isDownloadingRef.current = true;
             setIsDownloadingUpdate(true);
             let totalSize = 0;
@@ -467,7 +421,7 @@ function AppContent() {
                 // Listen for download progress
                 await update.downloadAndInstall((event: DownloadEvent) => {
                     if (event.event === "Started") {
-                        console.log("Download started");
+                        console.debug("Download started");
                         totalSize = 0;
                     } else if (event.event === "Progress") {
                         // Update total downloaded
@@ -475,7 +429,7 @@ function AppContent() {
                         // Show progress as chunks received
                         updateToast(Math.min(99, totalSize / 1000000)); // Estimate progress based on MB downloaded
                     } else if (event.event === "Finished") {
-                        console.log("Download finished");
+                        console.debug("Download finished");
                         updateToast(100);
                         // Dismiss the progress toast after a short delay
                         setTimeout(() => {
@@ -522,7 +476,7 @@ function AppContent() {
             }
 
             // Automatically start downloading in the background
-            console.log("Auto-downloading update in background");
+            console.debug("Auto-downloading update in background");
             void downloadUpdate(update, false).catch(console.error);
         }
     }, [isQuickChatWindow, downloadUpdate, isDownloadingUpdate]);
@@ -561,12 +515,11 @@ function AppContent() {
                 const currentWindow = getCurrentWindow();
                 const isFocused = await currentWindow.isFocused();
                 if (!isFocused) {
-                    console.log(
+                    console.debug(
                         "Menu new chat event received but window not focused, ignoring",
                     );
                     return;
                 }
-                console.log("Menu new chat event received");
                 if (isDialogOpen) {
                     dialogActions.closeDialog();
                 }
@@ -588,19 +541,18 @@ function AppContent() {
                 const currentWindow = getCurrentWindow();
                 const isFocused = await currentWindow.isFocused();
                 if (!isFocused) {
-                    console.log(
+                    console.debug(
                         "Menu new project event received but window not focused, ignoring",
                     );
                     return;
                 }
                 // Don't create projects from quick chat window
                 if (isQuickChatWindow) {
-                    console.log(
+                    console.debug(
                         "Menu new project event received in quick chat window, ignoring",
                     );
                     return;
                 }
-                console.log("Menu new project event received");
                 if (isDialogOpen) {
                     dialogActions.closeDialog();
                 }
@@ -613,12 +565,11 @@ function AppContent() {
                 const currentWindow = getCurrentWindow();
                 const isFocused = await currentWindow.isFocused();
                 if (!isFocused) {
-                    console.log(
+                    console.debug(
                         "Menu settings event received but window not focused, ignoring",
                     );
                     return;
                 }
-                console.log("Menu settings event received");
                 if (isQuickChatWindow) {
                     return;
                 }
@@ -635,7 +586,7 @@ function AppContent() {
                 const currentWindow = getCurrentWindow();
                 const isFocused = await currentWindow.isFocused();
                 if (!isFocused) {
-                    console.log(
+                    console.debug(
                         "Menu changelog event received but window not focused, ignoring",
                     );
                     return;
@@ -651,7 +602,7 @@ function AppContent() {
                 const currentWindow = getCurrentWindow();
                 const isFocused = await currentWindow.isFocused();
                 if (!isFocused) {
-                    console.log(
+                    console.debug(
                         "Menu about event received but window not focused, ignoring",
                     );
                     return;
@@ -704,11 +655,6 @@ function AppContent() {
         const listenNav = listen(
             "open_quick_chat_in_main_window",
             (event: { payload: string }) => {
-                console.log(
-                    "open_quick_chat_in_main_window event received",
-                    event,
-                );
-
                 void (async () => {
                     const chatId = event.payload;
                     try {
@@ -736,21 +682,6 @@ function AppContent() {
     const onCompleteOnboarding = () => {
         skipOnboarding.mutate();
     };
-
-    // Check if we should show the reviews dialog
-    useEffect(() => {
-        const checkReviewsDialog = async () => {
-            const result = await db.select<{ value: string }[]>(
-                "SELECT value FROM app_metadata WHERE key = 'needs_reviews_primer'",
-            );
-
-            if (result.length > 0 && result[0].value === "true") {
-                setReviewsDialogOpen(true);
-            }
-        };
-
-        void checkReviewsDialog();
-    }, [db]);
 
     // Listen for events to open API keys settings
     useEffect(() => {
@@ -833,46 +764,6 @@ function AppContent() {
             {!hasDismissedOnboarding && !isQuickChatWindow && (
                 <Onboarding onComplete={onCompleteOnboarding} />
             )}
-
-            <AlertDialog
-                open={reviewsDialogOpen}
-                onOpenChange={setReviewsDialogOpen}
-            >
-                <AlertDialogContent className="max-w-2xl">
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Introducing Reviews</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            <p>
-                                AIs now review each other&rsquo;s messages for
-                                accuracy and clarity. Only one AI responds at a
-                                time.
-                            </p>
-                            <img
-                                src="/review.jpg"
-                                alt="Reviews"
-                                className="w-full rounded-lg border my-6"
-                            />
-                            <p>
-                                If you prefer to see responses side-by-side,
-                                turn on Legacy Mode in settings.
-                            </p>
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogAction
-                            variant="default"
-                            onClick={() => {
-                                setReviewsDialogOpen(false);
-                                void db.execute(
-                                    "UPDATE app_metadata SET value = 'false' WHERE key = 'needs_reviews_primer'",
-                                );
-                            }}
-                        >
-                            Got it
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
 
             <div
                 className={`select-none ${isQuickChatWindow ? "bg-transparent" : "bg-background"}`}

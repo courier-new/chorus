@@ -2,146 +2,6 @@
 import { ModelConfig } from "../Models";
 import { ToolsetStatus } from "../Toolsets";
 
-export const IDEA_INTERJECTION = `!! SYSTEM_MESSAGE !!
-Please generate several ideas.`;
-
-export const IDEA_SYSTEM_PROMPT = `
-At some point in the conversation, you will receive a system message (noted by "!! SYSTEM_MESSAGE !!").
-Your job is to generate several different ideas in response to the user's question. Be concrete.
-Your answer should consist of <idea> tags, each containing one distinct idea.
-If appropriate, include an <advantage> tag saying why the user might want to use this idea.
-Keep the advantage as terse as possible, and put a single key one-word (or, if absolutely necessary, two-word) phrase in bold.
-Use markdown formatting, including code snippets, where appropriate.
-
-<example>
-<query>What should I name my dog?</query>
-<response>
-<idea>Fido</idea>
-<idea>Buddy</idea>
-<idea>Max</idea>
-<idea>Rex</idea>
-</response>
-</example>
-<example>
-<query>"The quick brown fox jumped over the lazy dog." How could I improve this sentence?</query>
-<response>
-<idea>The fox jumped over the dog.</idea>
-<idea>The fox jumped over the sleeping dog at breakneck speed.</idea>
-<idea>The fox leaped over the indolent dog.</idea>
-</response>
-</example>
-<example>
-<query>what's the best tool for making graph diagrams on mac?</query>
-<response>
-<idea>
-draw.io
-<advantage>**Easy** web-based tool</advantage>
-</idea>
-<idea>
-Mermaid.js
-<advantage>Turn **readable markup** into a diagram</advantage>
-</idea>
-<idea>
-Graphviz (brew install graphviz)
-<advantage>Powerful **CLI** tool</advantage>
-</idea>
-</response>
-</example>
-`;
-
-export const REVIEW_INTERJECTION = `!! SYSTEM_MESSAGE !!
-In response to the user's message, we received this response from an assistant:`;
-
-export const REVIEW_SYSTEM_PROMPT = `
-At some point in the conversation, you will receive a system message (noted by "!! SYSTEM_MESSAGE !!").
-Your job is to review the answer that comes after the system message.
-
-Your explanation must include a <decision> tag containing AGREE, DISAGREE, or INFO, along with an <explanation> tag.
-
-## DISAGREE
-Pick this if the answer is wrong or misleading in an important way.
-
-The <explanation> tag should contain a terse one-sentence explanation of how the answer is wrong or misleading.
-
-If you pick disagree, you must also include a <revision> tag.
-The <revision> tag should contain a correct answer.
-
-## INFO
-Pick this if any of these are true:
-
-- The answer is missing key information
-- The answer could be made much simpler and clearer
-- The answer is correct, but there's another approach to the user's problem that could be much better.
-
-This last one is especially important. Consider both the user's explicit request and the probable intention behind their request.
-
-The <explanation> tag should contain a terse one-sentence summary of your new insight.
-Do NOT comment on the quality of the original answer, there's no need.
-Your goal is to help the user understand, with as little effort as possible, whether they should take the time to read your revision.
-
-If you pick INFO, you must also include a <revision> tag.
-The <revision> tag should contain a revised version of the entire original answer, beginning to end.
-It should be as similar as possible to the original answer -- don't make any unnecessary changes.
-
-## AGREE
-Pick this if you broadly agree with the given answer.
-
-The <explanation> tag should contain a terse one-sentence summary of which major points you can independently verify.
-
-## Examples
-
-<example>
-<decision>AGREE</decision>
-<explanation>I would also recommend Mt. Everest as the best place to visit in Nepal.</explanation>
-</example>
-
-<example>
-<decision>DISAGREE</decision>
-<explanation>Strawberry has three 'r's, not two.</explanation>
-<revision>Strawberry has three 'r's, one in the first syllable and two in the second.</revision>
-</example>
-
-<example>
-<decision>DISAGREE</decision>
-<explanation>The code will not run because XYZLib does not have a .sync() method. Use .upload() and .download() instead.</explanation>
-<revision>[... response with code that uses upload() and download()]</revision>
-</example>
-
-<example>
-<decision>INFO</decision>
-<explanation>Use the newer async/await syntax instead of Promises—it's more readable.</explanation>
-<revision>[... response with code that uses async/await]</revision>
-</example>
-
-<example>
-<decision>INFO</decision>
-<explanation>No need to store the user's name in React state. Compute it directly from props.</explanation>
-<revision>[... response with simplified code]</revision>
-</example>
-
-<example>
-<decision>INFO</decision>
-<explanation>Here are three more restaurants that are at least as good as Wildseed and Ramenwell.</explanation>
-<revision>[... response with updated list including more suggestions]</revision>
-</example>
-
-## Good vs. bad example
-
-A common mistake is to be too verbose:
-
-Bad: INFO - "The instructions are slightly misleading because selecting 'A' will also select 'B'."
-Good: INFO - "Clarification: 'A' will also select 'B'."
-
-Bad: DISAGREE - "The original answer offers step‐by‐step instructions that are inaccurate because Mac doesn't support .exe files."
-Good: DISAGREE - "Mac doesn't support .exe files. Use .dmg instead."
-`;
-
-export const SYNTHESIS_INPUT_PROMPT = `
-[SYSTEM MESSAGE: A managing assistant is going to handle this question.
-Your task is to provide notes on outlining your best response to the question.
-The managing assistant will look at your notes, along with notes from other assistants, and write a final report for the user.
-The managing assistant has to work quickly, so be clear and concise, and put the most important information at the front.]`;
-
 export const SYNTHESIS_INTERJECTION = `!! SYSTEM_MESSAGE !!
 In response to the user's message, we received these perspectives from knowledgeable assistants.`;
 
@@ -209,7 +69,6 @@ ${conversation}
 </conversation>
 `;
 
-// transcribe, no diagrams, 5-10 pages
 export const getOutOfContextSummarizePrompt = (
     title: string,
     conversation: string,
@@ -419,7 +278,7 @@ export const PROJECT_TEMPLATE_PAIR_PROGRAMMER = `I'm experiencing persistent per
 Please use the terminal tool to read my files alongside me. My codebase is in [project directory].   
     `;
 
-export const PROJECT_TEMPLATE_HAMEL_WRITING_GUIDE = `1. Do not add any filler words. 
+export const PROJECT_TEMPLATE_HAMEL_WRITING_GUIDE = `1. Do not add any filler words.
 2. Make every sentence information-dense and do not repeat things or add fluff.  
 3. Get to the point, but still provide background and motivation to set context for the reader.  
 4. Shorter words are better than longer words and fewer words is better than more to keep the writing light.

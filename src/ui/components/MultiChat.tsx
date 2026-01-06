@@ -69,8 +69,6 @@ import {
     DialogTrigger,
 } from "./ui/dialog";
 import { MessageMarkdown } from "./renderers/MessageMarkdown";
-import { catchAsyncErrors } from "@core/chorus/utilities";
-import GroupChat from "./gc-prototype/GroupChat";
 import { MouseTrackingEye, MouseTrackingEyeRef } from "./MouseTrackingEye";
 import {
     Message,
@@ -87,7 +85,6 @@ import { SUMMARY_DIALOG_ID, SummaryDialog } from "./SummaryDialog";
 import { FindInPage } from "./FindInPage";
 import { useEditable } from "use-editable";
 import { EditableTitle } from "./EditableTitle";
-import { DeprecatedBlockView } from "@ui/components/MultiChatDeprecationPath";
 import { Separator } from "./ui/separator";
 import { Toggle } from "./ui/toggle";
 import { CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
@@ -130,7 +127,7 @@ import * as ModelsAPI from "@core/chorus/api/ModelsAPI";
 import * as ModelGroupsAPI from "@core/chorus/api/ModelGroupsAPI";
 import * as AttachmentsAPI from "@core/chorus/api/AttachmentsAPI";
 import * as DraftAPI from "@core/chorus/api/DraftAPI";
-import SimpleCopyButton from "./unused/CopyButton";
+import SimpleCopyButton from "./CopyButton";
 import { MessageCostDisplay } from "./MessageCostDisplay";
 import * as AppMetadataAPI from "@core/chorus/api/AppMetadataAPI";
 import {
@@ -1226,8 +1223,6 @@ export function ToolsMessageView({
     toolsBlock: ToolsBlock;
 }) {
     const navigate = useNavigate();
-    // const [raw, setRaw] = useState(false);
-    // const [streamStartTime, setStreamStartTime] = useState<Date>();
 
     const { data: settings } = useSettings();
     const showCost = settings?.showCost ?? false;
@@ -1249,13 +1244,11 @@ export function ToolsMessageView({
         chatId: message.chatId,
         messageSetId: message.messageSetId,
         messageId: message.id,
-        blockType: "tools",
     });
     const replyToMessage = MessageAPI.useBranchChat({
         chatId: message.chatId,
         messageSetId: message.messageSetId,
         messageId: message.id,
-        blockType: "tools",
         replyToId: message.id,
     });
     const { mutate: deselectSynthesis, isPending: isDeselectingSynthesis } =
@@ -1283,7 +1276,6 @@ export function ToolsMessageView({
                 chatId: message.chatId,
                 messageSetId: message.messageSetId,
                 messageId: message.id,
-                blockType: "tools",
             });
         } else if (modelConfig) {
             restartMessage({ modelConfig });
@@ -1352,7 +1344,6 @@ export function ToolsMessageView({
         deselectSynthesis({
             chatId: message.chatId,
             messageSetId: message.messageSetId,
-            blockType: "tools",
         });
     }, [deselectSynthesis, message.chatId, message.messageSetId]);
 
@@ -1372,13 +1363,6 @@ export function ToolsMessageView({
             isCollapsed: true,
         });
     }, [setMessageCollapsed, message.id, message.chatId]);
-
-    // // Set stream start time when streaming begins
-    // useEffect(() => {
-    //     if (message.state === "streaming" && !streamStartTime) {
-    //         setStreamStartTime(new Date());
-    //     }
-    // }, [message.state, streamStartTime]);
 
     // this should only happen in some intermediate state
     if (!message) {
@@ -1952,11 +1936,7 @@ function ToolsBlockView({
 
     const handleSynthesize = useCallback(() => {
         if (!canSynthesize) return;
-        selectSynthesis({
-            chatId: chatId!,
-            messageSetId,
-            blockType: "tools",
-        });
+        selectSynthesis({ chatId: chatId!, messageSetId });
     }, [canSynthesize, chatId, messageSetId, selectSynthesis]);
 
     // The keyboard shortcut targets the last row only.
@@ -2142,12 +2122,6 @@ const MessageSetView = memo(
 
         const messageSet = messageSetQuery.data?.[0];
 
-        if (messageSet?.selectedBlockType === "compare" && isQuickChatWindow) {
-            console.error(
-                "Error: shouldn't render compare block in quick chat window",
-            );
-        }
-
         return (
             <div
                 ref={messageSetRef}
@@ -2182,9 +2156,7 @@ const MessageSetView = memo(
                             isLastRow={isLastRow}
                             isQuickChatWindow={isQuickChatWindow}
                         />
-                    ) : (
-                        <DeprecatedBlockView />
-                    )}
+                    ) : null}
                 </div>
             </div>
         );
@@ -2194,6 +2166,7 @@ const MessageSetView = memo(
 const COPY_SHARE_URL_SHORTCUT = ["Enter"];
 const OPEN_SHARE_URL_SHORTCUT = ["Meta", "Enter"];
 const CLOSE_SHARE_URL_SHORTCUT = ["Escape"];
+const HIDE_QUICK_CHAT_SHORTCUT = ["Escape"];
 
 // ----------------------------------
 // Main Component
@@ -2206,7 +2179,6 @@ function ModelSelectorWrapper() {
 
     const handleModelSelect = useCallback(
         (modelId: string) => {
-            console.log("ModelSelector: selecting model", modelId);
             const modelConfig = modelConfigsQuery.data?.find(
                 (m) => m.id === modelId,
             );
@@ -2315,10 +2287,6 @@ export default function MultiChat() {
     const currentMessageSet =
         messageSetsQuery.data && messageSetsQuery.data.length > 0
             ? messageSetsQuery.data[messageSetsQuery.data.length - 1]
-            : undefined;
-    const currentCompareBlock =
-        currentMessageSet?.selectedBlockType === "compare"
-            ? currentMessageSet.compareBlock
             : undefined;
 
     // Keyboard shortcuts
@@ -2493,9 +2461,6 @@ export default function MultiChat() {
 
     useConfigurableShortcut("share-chat", handleShareChat);
 
-    const selectMessage = MessageAPI.useSelectMessage();
-    const { mutate: setReviewsEnabled } = MessageAPI.useSetReviewsEnabled();
-
     const handleToggleVisionMode = useCallback(async () => {
         const hasPermissions = await checkScreenRecordingPermission();
         const visionModeEnabled = appMetadata["vision_mode_enabled"] === "true";
@@ -2517,14 +2482,6 @@ export default function MultiChat() {
         }
     }, [appMetadata, setVisionModeEnabled]);
 
-    const toggleReviews = useCallback(() => {
-        setReviewsEnabled({
-            enabled: appMetadata["reviews_enabled"] !== "true",
-        });
-    }, [appMetadata, setReviewsEnabled]);
-
-    useConfigurableShortcut("toggle-reviews", toggleReviews);
-
     useConfigurableShortcut("open-in-main", handleOpenQuickChatInMainWindow, {
         isEnabled: isQuickChatWindow,
     });
@@ -2533,54 +2490,13 @@ export default function MultiChat() {
         isEnabled: isQuickChatWindow,
     });
 
-    // Non-configurable keyboard shortcuts (cmd+1-8, Escape for quick chat)
-    useEffect(() => {
-        // eslint-disable-next-line @typescript-eslint/require-await
-        const handleKeyDown = catchAsyncErrors(async (e: KeyboardEvent) => {
-            if (e.metaKey && /^[1-8]$/.test(e.key)) {
-                // cmd + 1-8: select message at index
-                e.preventDefault();
-                if (currentMessageSet?.selectedBlockType !== "compare") {
-                    console.warn(
-                        "skipping cmd+1-8 because we're not in compare mode",
-                    );
-                    return;
-                }
-                // Get message at index (1-based)
-                const index = parseInt(e.key) - 1;
-                if (
-                    !currentCompareBlock ||
-                    currentCompareBlock.messages.length <= index
-                ) {
-                    console.warn(
-                        `couldn't select message at ${index} from cmd+${index + 1}`,
-                    );
-                    return;
-                }
-                const message = currentCompareBlock.messages[index];
+    const hideQuickChat = useCallback(() => {
+        void invoke("hide");
+    }, []);
 
-                selectMessage.mutate({
-                    chatId: chatId!,
-                    messageSetId: currentMessageSet.id,
-                    messageId: message.id,
-                });
-            }
-
-            if (isQuickChatWindow && e.key === "Escape") {
-                e.preventDefault();
-                void invoke("hide");
-            }
-        });
-
-        document.addEventListener("keydown", handleKeyDown);
-        return () => document.removeEventListener("keydown", handleKeyDown);
-    }, [
-        chatId,
-        currentMessageSet,
-        currentCompareBlock,
-        isQuickChatWindow,
-        selectMessage,
-    ]);
+    useShortcut(HIDE_QUICK_CHAT_SHORTCUT, hideQuickChat, {
+        isEnabled: isQuickChatWindow,
+    });
 
     const scrollToLatestMessageSet = useCallback(() => {
         // autoscroll on new message
@@ -2607,11 +2523,6 @@ export default function MultiChat() {
                 console.error("Error creating project:", error);
             });
     };
-
-    // Check if this is a group chat
-    if (chatQuery.data && chatQuery.data.gcPrototype) {
-        return <GroupChat />;
-    }
 
     return (
         <div

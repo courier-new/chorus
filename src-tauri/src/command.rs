@@ -62,90 +62,11 @@ pub fn open_in_main_window(app_handle: AppHandle, chat_id: String) {
 }
 
 #[tauri::command]
-pub fn new_quick_chat(app_handle: AppHandle) {
-    app_handle.emit_to("main", "new_quick_chat", ()).unwrap();
-}
-
-#[tauri::command]
-pub fn refresh_projects_state(app_handle: AppHandle) {
-    app_handle.emit("refresh_projects_state", ()).unwrap();
-}
-
-#[tauri::command]
-pub fn chat_deleted(app_handle: AppHandle, chat_id: String) {
-    app_handle.emit("chat_deleted", chat_id).unwrap();
-}
-
-#[tauri::command]
 #[cfg(target_os = "macos")]
 pub fn update_panel_theme(app_handle: AppHandle, is_dark_mode: bool) {
     if let Some(window) = app_handle.get_webview_window(SPOTLIGHT_LABEL) {
         window.update_theme(is_dark_mode);
     }
-}
-
-#[tauri::command]
-#[cfg(target_os = "macos")]
-pub fn capture_window() -> Result<String, String> {
-    use std::fs;
-    use std::process::Command;
-    use std::time::Instant;
-
-    // Start timing the operation
-    let start_time = Instant::now();
-    println!("Starting window capture...");
-
-    // Create a temporary file path
-    let raw_screenshot_path = std::env::temp_dir().join("screenshot_raw.png");
-
-    // Run screencapture command
-    let capture_time = Instant::now();
-    let output = Command::new("screencapture")
-        .arg("-w") // Window capture mode - allows user to select a window
-        .arg(raw_screenshot_path.to_str().unwrap())
-        .output()
-        .map_err(|e| e.to_string())?;
-
-    println!("Raw capture completed in: {:?}", capture_time.elapsed());
-
-    // Check if the command failed
-    if !output.status.success() {
-        return Err("Screen recording permission is required. Please enable it in System Preferences > Security & Privacy > Privacy > Screen Recording".to_string());
-    }
-
-    // Check if file exists and has content
-    if !raw_screenshot_path.exists() {
-        return Err("Screen recording permission denied. Please enable it in System Preferences > Security & Privacy > Privacy > Screen Recording".to_string());
-    }
-
-    // Use our resize_image function to handle the resizing
-    let resized_path = resize_image(
-        raw_screenshot_path.to_string_lossy().to_string(),
-        TARGET_SIZE_BYTES,
-    )?;
-
-    // Read the resized file and convert to base64
-    let image_data = fs::read(&resized_path).map_err(|e| e.to_string())?;
-
-    // Clean up the temporary files
-    let _ = fs::remove_file(&raw_screenshot_path);
-    if resized_path != raw_screenshot_path.to_string_lossy().to_string() {
-        let _ = fs::remove_file(&resized_path);
-    }
-
-    println!(
-        "Total window capture process took: {:?}",
-        start_time.elapsed()
-    );
-    Ok(BASE64.encode(&image_data))
-}
-
-#[tauri::command]
-#[cfg(not(target_os = "macos"))]
-pub fn capture_window() -> Result<String, String> {
-    // For non-macOS platforms, just capture the active window
-    // This is a placeholder - you may want to implement platform-specific window capture
-    Err("Window capture not implemented for this platform".to_string())
 }
 
 #[tauri::command]

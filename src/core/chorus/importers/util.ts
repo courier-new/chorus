@@ -41,7 +41,7 @@ export async function createProject(
     );
 
     if (existingProject.length > 0) {
-        console.log(`Using existing '${name}' project`);
+        console.debug(`Using existing '${name}' project`);
         return existingProject[0].id;
     }
 
@@ -54,7 +54,7 @@ export async function createProject(
         [projectId, name, now, now],
     );
 
-    console.log(`Created '${name}' project for conversation import`);
+    console.debug(`Created '${name}' project for conversation import`);
     return projectId;
 }
 
@@ -127,9 +127,9 @@ export async function createMessageSet(
 
     await db.execute(
         `INSERT INTO messages (
-                id, chat_id, message_set_id, text, model, selected, 
-                block_type, state, is_review, level
-            ) VALUES (?, ?, ?, ?, 'user', 1, 'user', 'idle', 0, NULL)`,
+                id, chat_id, message_set_id, text, model, selected,
+                block_type, state, level
+            ) VALUES (?, ?, ?, ?, 'user', 1, 'user', 'idle', NULL)`,
         [userMessageId, messageSet.chat_id, userMessageSetId, humanMessage],
     );
 
@@ -149,9 +149,9 @@ export async function createMessageSet(
         // Create assistant message with block_type='tools' to match the selected_block_type
         await db.execute(
             `INSERT INTO messages (
-                    id, chat_id, message_set_id, text, model, selected, 
-                    block_type, state, is_review, level
-                ) VALUES (?, ?, ?, ?, 'anthropic::claude-3-sonnet', 1, 'tools', 'idle', 0, 0)`,
+                    id, chat_id, message_set_id, text, model, selected,
+                    block_type, state, level
+                ) VALUES (?, ?, ?, ?, 'anthropic::claude-3-sonnet', 1, 'tools', 'idle', 0)`,
             [
                 assistantMessageId,
                 messageSet.chat_id,

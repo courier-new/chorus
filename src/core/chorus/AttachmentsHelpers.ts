@@ -49,13 +49,13 @@ export async function resizeImageCore(
 
     // If the file is already smaller than our target, return it as is
     if (fileSizeMB <= targetSizeMB) {
-        console.log(
+        console.debug(
             `File already under size limit (${fileSizeMB.toFixed(2)}MB). Skipping compression.`,
         );
         return { resizedData: fileData, wasResized: false };
     }
 
-    console.log(
+    console.debug(
         `Compressing file from ${fileSizeMB.toFixed(2)}MB to target ${targetSizeMB}MB`,
     );
 
@@ -81,7 +81,7 @@ export async function resizeImageCore(
 
         // Log compression result
         const compressedSizeMB = resizedData.length / (1024 * 1024);
-        console.log(
+        console.debug(
             `Compressed to ${compressedSizeMB.toFixed(2)}MB (${Math.round((compressedSizeMB / fileSizeMB) * 100)}% of original)`,
         );
 
@@ -183,7 +183,7 @@ export const resizeAndStoreFileData = async (
 
     // check if it's an image and if so, resize it
     if (typeInfo?.mime?.startsWith("image/")) {
-        console.log("resizing image...");
+        console.debug("resizing image...");
 
         const { resizedData } = await resizeImageCore(uint8Arr, file.name);
 
@@ -194,7 +194,7 @@ export const resizeAndStoreFileData = async (
         });
 
         // print final size in mb
-        console.log("final size", resizedData.length / 1024 / 1024);
+        console.debug("final size", resizedData.length / 1024 / 1024);
     } else {
         await invoke("write_file_async", {
             path: resolvedStorePath,
@@ -206,7 +206,7 @@ export const resizeAndStoreFileData = async (
 
 // Storage handlers
 export const storeFile = async (filePath: string) => {
-    console.log("storing file", filePath);
+    console.debug("storing file", filePath);
     const storedPath = await generateStorePath(filePath);
 
     // Check if file is an image that needs resizing

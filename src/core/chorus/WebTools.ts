@@ -42,7 +42,7 @@ export class WebTools {
         url: string,
         headers: Record<string, string>,
     ): Promise<Response> {
-        console.log("fetching url", url);
+        console.debug("fetching url", url);
         const response = await fetch(url, {
             headers: {
                 "User-Agent":
@@ -50,7 +50,7 @@ export class WebTools {
                 ...headers,
             },
         });
-        console.log("response", response);
+        console.debug("response", response);
 
         if (!response.ok) {
             throw new Error(
@@ -144,7 +144,7 @@ export class WebTools {
                 headers,
             );
             let content = await response.text();
-            console.log("raw text content", content);
+            console.debug("raw text content", content);
 
             // Check for empty content early
             if (content.length === 0) {

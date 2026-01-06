@@ -2591,5 +2591,59 @@ You have full access to bash commands on the user''''s computer. If you write a 
                 ALTER TABLE messages ADD COLUMN instance_id TEXT;
             "#,
         },
+        Migration {
+            version: 142,
+            description: "drop archived and temporary tables",
+            kind: MigrationKind::Up,
+            sql: r#"
+                DROP TABLE IF EXISTS messages_archive_20250102;
+                DROP TABLE IF EXISTS models_archive_20250111;
+                DROP TABLE IF EXISTS temp_group_parent;
+                DROP TABLE IF EXISTS temp_groupings;
+                DROP TABLE IF EXISTS temp_hierarchy;
+                DROP TABLE IF EXISTS temp_message_sets;
+            "#,
+        },
+        Migration {
+            version: 143,
+            description: "clean up deprecated app_metadata rows",
+            kind: MigrationKind::Up,
+            sql: r#"
+                -- Remove deprecated app_metadata rows
+                DELETE FROM app_metadata WHERE key IN (
+                    'selected_model_config_chat',
+                    'reviews_enabled',
+                    'review_mode'
+                );
+            "#,
+        },
+        Migration {
+            version: 144,
+            description: "drop is_review and review_state columns from messages",
+            kind: MigrationKind::Up,
+            sql: r#"
+                ALTER TABLE messages DROP COLUMN is_review;
+                ALTER TABLE messages DROP COLUMN review_state;
+            "#,
+        },
+        Migration {
+            version: 145,
+            description: "drop group chat prototype tables and deprecated columns",
+            kind: MigrationKind::Up,
+            sql: r#"
+                -- Drop group chat prototype tables
+                DROP TABLE IF EXISTS gc_prototype_conductors;
+                DROP TABLE IF EXISTS gc_prototype_messages;
+
+                -- Drop deprecated columns from chats table
+                ALTER TABLE chats DROP COLUMN gc_prototype_chat;
+
+                -- Drop deprecated columns from messages table
+                ALTER TABLE messages DROP COLUMN dep_attachments_archive;
+
+                -- Drop deprecated columns from message_sets table
+                ALTER TABLE message_sets DROP COLUMN deprecated_parent_id;
+            "#,
+        },
     ];
 }

@@ -335,10 +335,6 @@ export function useRegenerateProjectContextSummaries() {
                 return { skipped: true, projectId: project.id };
             }
 
-            console.log(
-                "regenerating project summaries for project",
-                project.name,
-            );
             const otherChatsInProject = chats
                 .filter((otherChat) => otherChat.projectId === project.id)
                 .filter((otherChat) => otherChat.id !== chatId);
@@ -353,10 +349,6 @@ export function useRegenerateProjectContextSummaries() {
                         );
                         return;
                     }
-                    console.log(
-                        "regenerating project summary for chat",
-                        chat.title,
-                    );
                     return regenerateProjectContextSummary.mutateAsync({
                         chatId: chat.id,
                     });
@@ -378,7 +370,6 @@ export function useRegenerateProjectContextSummaries() {
     });
 }
 
-// todo-gc: we'll need to update this to work with group chats
 function useRegenerateProjectContextSummary() {
     const cacheUpdateChat = useCacheUpdateChat();
     const getMessageSets = useGetMessageSets();

@@ -252,7 +252,7 @@ export function useAttachUrl({
                 if (association.type === "draft") {
                     await deleteDraftAttachment.mutateAsync({
                         attachmentId,
-                        association,
+                        chatId: association.chatId,
                     });
                 } else if (association.type === "project") {
                     await deleteAttachmentForProject.mutateAsync({
