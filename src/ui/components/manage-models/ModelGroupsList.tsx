@@ -34,7 +34,7 @@ export function ModelGroupsList({
     // Disable "Add" button if fewer than 2 models selected
     const isAddDisabled = selectedModelConfigs.length < 2;
 
-    const handleCancel = useCallback(() => {
+    const closeForm = useCallback(() => {
         setIsCreating(false);
         setName("");
         setDescription("");
@@ -54,8 +54,9 @@ export function ModelGroupsList({
                     instanceId: m.instanceId,
                 })),
             });
+            closeForm();
         },
-        [selectedModelConfigs, createGroup],
+        [selectedModelConfigs, createGroup, closeForm],
     );
 
     const handleDeleteGroup = useCallback(
@@ -127,7 +128,7 @@ export function ModelGroupsList({
                             onNameChange={setName}
                             onDescriptionChange={setDescription}
                             onSave={handleSave}
-                            onCancel={handleCancel}
+                            onCancel={closeForm}
                             idPrefix="group"
                         />
                     )}
