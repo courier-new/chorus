@@ -49,7 +49,6 @@ To start working on a feature, you should:
 3. Review
 
 -   When the work is done, verify that the diff looks good with `git diff main`
--   While you should attempt to write code that adheres to our coding style, don't worry about manually linting or formatting your changes. There are Husky pre-commit Git hooks that will do this for you.
 -   Push the branch to GitHub
 -   Open a PR.
     -   The PR title should not include the issue number
