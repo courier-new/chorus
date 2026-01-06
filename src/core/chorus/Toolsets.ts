@@ -312,12 +312,12 @@ export abstract class MCPServer {
             const serverParams = this.getExecutionParameters(config);
 
             this.mcp.onerror = (error: Error) => {
-                console.log("[Toolset] MCP server error", error);
+                console.error("[Toolset] MCP server error", error);
                 this._logs += error.message + "\n";
             };
 
             this.mcp.onclose = () => {
-                console.log("[Toolset] MCP server closed");
+                console.debug("[Toolset] MCP server closed");
                 this._status = {
                     status: "stopped",
                 };

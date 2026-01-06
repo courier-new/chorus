@@ -122,7 +122,7 @@ export class AnthropicImporter {
         conversation: AnthropicConversation,
         projectId: string,
     ): Promise<void> {
-        console.log(`Importing conversation: ${conversation.name}`);
+        console.debug(`Importing conversation: ${conversation.name}`);
 
         const chatId = await createChat(
             conversation.name,

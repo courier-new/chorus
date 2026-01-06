@@ -347,7 +347,7 @@ function AppContent() {
     // Deep link listener for when app is already running
     useEffect(() => {
         const unlistenPromise = onOpenUrl((urls) => {
-            console.log("Deep link received:", urls);
+            console.debug("Deep link received:", urls);
             void handleDeepLink(urls);
         });
 
@@ -394,7 +394,7 @@ function AppContent() {
         async (update: Update, showProgress = true) => {
             // Check if already downloading using ref to prevent race conditions
             if (isDownloadingRef.current) {
-                console.log("Already downloading update, skipping");
+                console.debug("Already downloading update, skipping");
                 return;
             }
             isDownloadingRef.current = true;
@@ -449,7 +449,7 @@ function AppContent() {
                 // Listen for download progress
                 await update.downloadAndInstall((event: DownloadEvent) => {
                     if (event.event === "Started") {
-                        console.log("Download started");
+                        console.debug("Download started");
                         totalSize = 0;
                     } else if (event.event === "Progress") {
                         // Update total downloaded
@@ -457,7 +457,7 @@ function AppContent() {
                         // Show progress as chunks received
                         updateToast(Math.min(99, totalSize / 1000000)); // Estimate progress based on MB downloaded
                     } else if (event.event === "Finished") {
-                        console.log("Download finished");
+                        console.debug("Download finished");
                         updateToast(100);
                         // Dismiss the progress toast after a short delay
                         setTimeout(() => {
@@ -504,7 +504,7 @@ function AppContent() {
             }
 
             // Automatically start downloading in the background
-            console.log("Auto-downloading update in background");
+            console.debug("Auto-downloading update in background");
             void downloadUpdate(update, false).catch(console.error);
         }
     }, [isQuickChatWindow, downloadUpdate, isDownloadingUpdate]);
@@ -543,7 +543,7 @@ function AppContent() {
                 const currentWindow = getCurrentWindow();
                 const isFocused = await currentWindow.isFocused();
                 if (!isFocused) {
-                    console.log(
+                    console.debug(
                         "Menu new chat event received but window not focused, ignoring",
                     );
                     return;
@@ -569,14 +569,14 @@ function AppContent() {
                 const currentWindow = getCurrentWindow();
                 const isFocused = await currentWindow.isFocused();
                 if (!isFocused) {
-                    console.log(
+                    console.debug(
                         "Menu new project event received but window not focused, ignoring",
                     );
                     return;
                 }
                 // Don't create projects from quick chat window
                 if (isQuickChatWindow) {
-                    console.log(
+                    console.debug(
                         "Menu new project event received in quick chat window, ignoring",
                     );
                     return;
@@ -593,7 +593,7 @@ function AppContent() {
                 const currentWindow = getCurrentWindow();
                 const isFocused = await currentWindow.isFocused();
                 if (!isFocused) {
-                    console.log(
+                    console.debug(
                         "Menu settings event received but window not focused, ignoring",
                     );
                     return;
@@ -614,7 +614,7 @@ function AppContent() {
                 const currentWindow = getCurrentWindow();
                 const isFocused = await currentWindow.isFocused();
                 if (!isFocused) {
-                    console.log(
+                    console.debug(
                         "Menu changelog event received but window not focused, ignoring",
                     );
                     return;
@@ -630,7 +630,7 @@ function AppContent() {
                 const currentWindow = getCurrentWindow();
                 const isFocused = await currentWindow.isFocused();
                 if (!isFocused) {
-                    console.log(
+                    console.debug(
                         "Menu about event received but window not focused, ignoring",
                     );
                     return;

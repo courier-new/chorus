@@ -85,7 +85,7 @@ export function ThemeProvider({
 
         // Listen for system theme changes
         const handleChange = () => {
-            console.log(
+            console.debug(
                 "[Theme] System theme changed:",
                 mediaQuery.matches ? "dark" : "light",
             );
@@ -109,7 +109,7 @@ export function ThemeProvider({
     const value = {
         mode,
         setMode: (mode: ThemeMode) => {
-            console.log("[Theme] Setting mode:", mode);
+            console.debug("[Theme] Setting mode:", mode);
             localStorage.setItem(`${storageKey}-mode`, mode);
             setMode(mode);
         },

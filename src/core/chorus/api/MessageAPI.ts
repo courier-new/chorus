@@ -802,7 +802,7 @@ export function useRestartMessage(
                 [streamingToken, messageId],
             );
             if (lockResult.rowsAffected === 0) {
-                console.log(
+                console.error(
                     "Not restarting because lock could not be acquired",
                 );
                 return undefined;
@@ -817,7 +817,7 @@ export function useRestartMessage(
                 [messageId, streamingToken],
             );
             if (deleteResult.rowsAffected === 0) {
-                console.log(
+                console.error(
                     "Restart interrupted because streaming lock was lost",
                 );
                 return undefined;
@@ -1007,7 +1007,6 @@ export function useStreamMessagePart() {
             const chat = await queryClient.ensureQueryData(
                 chatQueries.detail(chatId),
             );
-            console.log(chat);
             const project = await queryClient.ensureQueryData(
                 projectQueries.detail(chat.projectId),
             );
@@ -1266,11 +1265,10 @@ export function useStreamMessagePart() {
             };
 
             const onError = (errorMessage: string) => {
-                console.log(
+                console.error(
                     `streaming for ${messageId} ${partLevel} ending with error`,
                     errorMessage,
                 );
-
                 UpdateQueue.getInstance().closeUpdateStream(streamKey);
                 resolveStreamPromise({ result: "error", errorMessage });
             };
@@ -2512,7 +2510,7 @@ export function useSummarizeChat() {
                 chatQueries.detail(chatId),
             );
             if (chat?.summary && !forceRefresh) {
-                console.log("Skipping summary generation for chat", chatId);
+                console.debug("Skipping summary generation for chat", chatId);
                 return { summary: chat.summary };
             }
 
@@ -2626,7 +2624,7 @@ function useStreamToolsMessage() {
                     ...llmConversation(previousMessageSetsPlusThisMessage),
                 ];
 
-                console.log(`[level ${level}] streaming ai message`);
+                console.debug(`[level ${level}] streaming ai message`);
                 await createMessagePart.mutateAsync({
                     messagePart: {
                         chatId,
@@ -2661,7 +2659,7 @@ function useStreamToolsMessage() {
                     break;
                 }
 
-                console.log("completed stream. processing tool calls.");
+                console.debug("completed stream. processing tool calls.");
                 level += 1;
 
                 // If no tool calls, we're done
@@ -2669,11 +2667,11 @@ function useStreamToolsMessage() {
                     !streamResult.toolCalls ||
                     streamResult.toolCalls.length === 0
                 ) {
-                    console.log("No tool calls, done with loop");
+                    console.debug("No tool calls, done with loop");
                     break;
                 }
 
-                console.log(
+                console.debug(
                     `[level ${level}] handling tool calls`,
                     streamResult.toolCalls,
                 );
@@ -3095,7 +3093,7 @@ export function useGenerateChatTitle() {
                 // if the previous title was "Untitled Chat", might as well try to regenerate it
                 chat.title !== "Untitled Chat"
             ) {
-                console.log("Skipping title generation for chat", chatId);
+                console.debug("Skipping title generation for chat", chatId);
                 return { skipped: true };
             }
 
@@ -3106,7 +3104,7 @@ export function useGenerateChatTitle() {
                 .find((m) => m !== undefined);
 
             if (!userMessageText) {
-                console.log("Skipping title generation for chat", chatId);
+                console.debug("Skipping title generation for chat", chatId);
                 return { skipped: true };
             }
 
