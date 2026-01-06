@@ -104,6 +104,7 @@ import { SidebarTrigger } from "@ui/components/ui/sidebar";
 import { useSidebar } from "@ui/hooks/useSidebar";
 import { useShortcut } from "@ui/hooks/useShortcut";
 import { useConfigurableShortcut } from "@ui/hooks/useConfigurableShortcut";
+import { useShiftKeyRef } from "@ui/components/hooks/useShiftKey";
 import { cn, projectDisplayName, sendTauriNotification } from "@ui/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { ManageModelsBox } from "./manage-models/ManageModelsBox";
@@ -1214,6 +1215,7 @@ export function ToolsMessageView({
     isOnlyMessage,
     isReply = false,
     isSynthesis = false,
+    toolsBlock,
 }: {
     message: Message;
     isQuickChatWindow: boolean;
@@ -1221,6 +1223,7 @@ export function ToolsMessageView({
     isOnlyMessage: boolean;
     isReply?: boolean;
     isSynthesis?: boolean;
+    toolsBlock: ToolsBlock;
 }) {
     const navigate = useNavigate();
     // const [raw, setRaw] = useState(false);
@@ -1234,6 +1237,7 @@ export function ToolsMessageView({
     const { mutate: setMessageCollapsed } = MessageAPI.useSetMessageCollapsed();
 
     const selectMessage = MessageAPI.useSelectMessage();
+    const shiftKeyRef = useShiftKeyRef();
     const stopMessage = MessageAPI.useStopMessage();
     const { mutate: restartMessage } = MessageAPI.useRestartMessage(
         message.chatId,
@@ -1424,19 +1428,39 @@ export function ToolsMessageView({
                         style={{
                             overflowWrap: "anywhere", // tailwind doesn't support this yet
                         }}
-                        onClick={(e) => {
-                            if (message.selected) return;
+                        onMouseDown={(e) => {
+                            if (!isLastRow) return;
+
                             // Don't trigger selection if user is selecting text
                             if (window.getSelection()?.toString()) {
                                 e.stopPropagation();
                                 return;
                             }
-                            if (isLastRow) {
+
+                            if (shiftKeyRef.current) {
+                                // Prevent the default shift+click behavior
+                                // (starts text selection)
+                                e.preventDefault();
+                                const selectedCount =
+                                    toolsBlock.chatMessages.filter(
+                                        (m) => m.selected,
+                                    ).length;
+                                if (message.selected && selectedCount <= 1) {
+                                    return; // Don't allow deselecting the last selected message
+                                }
                                 selectMessage.mutate({
                                     chatId: message.chatId,
                                     messageSetId: message.messageSetId,
                                     messageId: message.id,
-                                    blockType: "tools",
+                                    deselectOthers: false,
+                                });
+                            } else {
+                                // Regular click: single-select (if not already selected)
+                                if (message.selected) return;
+                                selectMessage.mutate({
+                                    chatId: message.chatId,
+                                    messageSetId: message.messageSetId,
+                                    messageId: message.id,
                                 });
                             }
                         }}
@@ -2006,6 +2030,7 @@ function ToolsBlockView({
                                     isQuickChatWindow={isQuickChatWindow}
                                     isOnlyMessage={false}
                                     isSynthesis={true}
+                                    toolsBlock={toolsBlock}
                                 />
                             </div>
                         )}
@@ -2028,6 +2053,7 @@ function ToolsBlockView({
                         isQuickChatWindow={isQuickChatWindow}
                         isOnlyMessage={toolsBlock.chatMessages.length === 1}
                         isSynthesis={false}
+                        toolsBlock={toolsBlock}
                     />
                 </div>
             ))}
@@ -2537,7 +2563,6 @@ export default function MultiChat() {
                     chatId: chatId!,
                     messageSetId: currentMessageSet.id,
                     messageId: message.id,
-                    blockType: "compare",
                 });
             }
 

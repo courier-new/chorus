@@ -179,12 +179,10 @@ export type Block =
     | CompareBlock
     | ToolsBlock;
 
-function encodeToolsBlock(block: ToolsBlock): LLMMessage[] {
-    // Build LLMMessages from the sorted chat messages
+function encodeSingleToolsMessage(selectedMessage: Message): LLMMessage[] {
     const result: LLMMessage[] = [];
 
-    const selectedMessage = block.chatMessages.find((m) => m.selected);
-    if (!selectedMessage || !selectedMessage.parts.length) {
+    if (!selectedMessage.parts.length) {
         return [];
     }
 
@@ -224,6 +222,34 @@ function encodeToolsBlock(block: ToolsBlock): LLMMessage[] {
     }
 
     return result;
+}
+
+function encodeToolsBlock(block: ToolsBlock): LLMMessage[] {
+    const selectedMessages = block.chatMessages.filter((m) => m.selected);
+    if (selectedMessages.length === 0) {
+        return [];
+    }
+
+    // Single selection: use full encoding with tool calls/results
+    if (selectedMessages.length === 1) {
+        return encodeSingleToolsMessage(selectedMessages[0]);
+    }
+
+    // Multiple selections: use perspective format (like synthesis)
+    return [
+        {
+            role: "assistant",
+            content: selectedMessages
+                .map(
+                    (message) =>
+                        `<perspective sender="${message.model}">
+${message.parts.map((p) => p.content).join("")}
+</perspective>`,
+                )
+                .join("\n\n"),
+            toolCalls: [],
+        },
+    ];
 }
 
 function encodeChatBlock(block: ChatBlock): LLMMessage[] {

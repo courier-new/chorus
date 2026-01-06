@@ -753,7 +753,6 @@ export function useBranchChat({
                 chatId: newChatId,
                 messageSetId: messageSetIdMap[messageSetId],
                 messageId: messageIdMap[messageId],
-                blockType: "tools",
             });
 
             if (replyToId) {
@@ -1977,8 +1976,8 @@ function useStopMessageStreaming() {
 }
 
 /**
- * Selects the given message and deselects all other messages in the block.
- * Can be used with both compare blocks and connections/tools blocks.
+ * Selects the given message, optionally deselecting all other messages in the
+ * same block.
  */
 export function useSelectMessage() {
     const queryClient = useQueryClient();
@@ -1990,24 +1989,28 @@ export function useSelectMessage() {
         mutationFn: async ({
             messageSetId,
             messageId,
-            blockType,
+            deselectOthers = true,
         }: {
             chatId: string;
             messageSetId: string;
             messageId: string;
-            blockType: BlockType;
+            deselectOthers?: boolean;
         }) => {
-            if (!["compare", "tools"].includes(blockType)) {
-                console.warn(
-                    "selectMessage used with unexpected block type",
-                    blockType,
+            if (deselectOthers) {
+                // Select this message and deselect all others in the block
+                // We look up the block_type from the message being selected
+                await db.execute(
+                    `UPDATE messages SET selected = (CASE WHEN id = ? THEN 1 ELSE 0 END)
+                     WHERE message_set_id = ? AND block_type = (SELECT block_type FROM messages WHERE id = ?)`,
+                    [messageId, messageSetId, messageId],
+                );
+            } else {
+                // Toggle selection of just this message
+                await db.execute(
+                    "UPDATE messages SET selected = NOT selected WHERE id = ?",
+                    [messageId],
                 );
             }
-
-            await db.execute(
-                "UPDATE messages SET selected = (CASE WHEN id = ? THEN 1 ELSE 0 END) WHERE message_set_id = ? AND block_type = ?",
-                [messageId, messageSetId, blockType],
-            );
         },
         onSuccess: async (_data, variables, _context) => {
             await queryClient.invalidateQueries({

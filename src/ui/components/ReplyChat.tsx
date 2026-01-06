@@ -29,14 +29,18 @@ export default function ReplyChat({ chatId, replyToId }: ReplyChatProps) {
         setShowScrollbar(false);
     };
 
-    const repliedToMessage = useMemo(() => {
+    const repliedToMessageData = useMemo(() => {
         if (!messageSetsQuery.data) return;
 
         for (const messageSet of messageSetsQuery.data) {
             const foundMessage = messageSet.toolsBlock.chatMessages.find(
                 (message) => message.branchedFromId === replyToId,
             );
-            if (foundMessage) return foundMessage;
+            if (foundMessage)
+                return {
+                    message: foundMessage,
+                    toolsBlock: messageSet.toolsBlock,
+                };
         }
     }, [messageSetsQuery.data, replyToId]);
 
@@ -93,14 +97,15 @@ export default function ReplyChat({ chatId, replyToId }: ReplyChatProps) {
             >
                 <div className="pl-4 pr-3 pt-4 pb-3">
                     {/* Show the replied-to message first if we have one */}
-                    {repliedToMessage && (
+                    {repliedToMessageData && (
                         <div className="flex w-full select-none">
                             <ToolsMessageView
-                                message={repliedToMessage}
+                                message={repliedToMessageData.message}
                                 isQuickChatWindow={false}
                                 isLastRow={false}
                                 isOnlyMessage={true}
                                 isReply={true}
+                                toolsBlock={repliedToMessageData.toolsBlock}
                             />
                         </div>
                     )}
@@ -162,6 +167,9 @@ export default function ReplyChat({ chatId, replyToId }: ReplyChatProps) {
                                                         }
                                                         isOnlyMessage={true}
                                                         isReply={true}
+                                                        toolsBlock={
+                                                            replyMessageSet.toolsBlock
+                                                        }
                                                     />
                                                 </div>
                                             ))}
@@ -199,7 +207,7 @@ export default function ReplyChat({ chatId, replyToId }: ReplyChatProps) {
                     }}
                     sentAttachmentTypes={[]}
                     isReply={true}
-                    defaultReplyToModel={repliedToMessage?.model}
+                    defaultReplyToModel={repliedToMessageData?.message.model}
                 />
             </div>
         </div>
