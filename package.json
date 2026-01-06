@@ -93,6 +93,7 @@
         "dotenv": "^16.5.0",
         "exa-js": "^1.6.13",
         "file-type": "^19.6.0",
+        "framer-motion": "^12.9.1",
         "highlight.js": "^11.11.1",
         "html-entities": "^2.6.0",
         "immer": "^10.1.1",
