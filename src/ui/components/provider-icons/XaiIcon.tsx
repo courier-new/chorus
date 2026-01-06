@@ -20,4 +20,3 @@ export function XaiIcon(props: SVGProps<SVGSVGElement>) {
         </svg>
     );
 }
-

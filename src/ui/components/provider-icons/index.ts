@@ -22,4 +22,3 @@ export { QwenIcon } from "./QwenIcon";
 export { RelaceIcon } from "./RelaceIcon";
 export { XaiIcon } from "./XaiIcon";
 export { ZaiIcon } from "./ZaiIcon";
-

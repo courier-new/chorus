@@ -16,4 +16,3 @@ export function ZaiIcon(props: SVGProps<SVGSVGElement>) {
         </svg>
     );
 }
-

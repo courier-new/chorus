@@ -16,4 +16,3 @@ export function InflectionIcon(props: SVGProps<SVGSVGElement>) {
         </svg>
     );
 }
-

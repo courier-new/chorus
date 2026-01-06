@@ -32,4 +32,3 @@ export function OpenRouterIcon(props: SVGProps<SVGSVGElement>) {
         </svg>
     );
 }
-

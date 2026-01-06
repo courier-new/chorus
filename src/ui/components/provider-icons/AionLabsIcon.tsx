@@ -17,4 +17,3 @@ export function AionLabsIcon(props: SVGProps<SVGSVGElement>) {
         </svg>
     );
 }
-

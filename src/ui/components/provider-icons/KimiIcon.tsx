@@ -17,4 +17,3 @@ export function KimiIcon(props: SVGProps<SVGSVGElement>) {
         </svg>
     );
 }
-

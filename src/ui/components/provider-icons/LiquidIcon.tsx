@@ -16,4 +16,3 @@ export function LiquidIcon(props: SVGProps<SVGSVGElement>) {
         </svg>
     );
 }
-

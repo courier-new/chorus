@@ -19,4 +19,3 @@ export function ByteDanceIcon(props: SVGProps<SVGSVGElement>) {
         </svg>
     );
 }
-

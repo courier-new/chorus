@@ -16,4 +16,3 @@ export function QwenIcon(props: SVGProps<SVGSVGElement>) {
         </svg>
     );
 }
-

@@ -16,4 +16,3 @@ export function RelaceIcon(props: SVGProps<SVGSVGElement>) {
         </svg>
     );
 }
-

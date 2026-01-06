@@ -16,4 +16,3 @@ export function MinimaxIcon(props: SVGProps<SVGSVGElement>) {
         </svg>
     );
 }
-

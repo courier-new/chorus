@@ -16,4 +16,3 @@ export function MorphIcon(props: SVGProps<SVGSVGElement>) {
         </svg>
     );
 }
-

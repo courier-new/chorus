@@ -16,4 +16,3 @@ export function NvidiaIcon(props: SVGProps<SVGSVGElement>) {
         </svg>
     );
 }
-

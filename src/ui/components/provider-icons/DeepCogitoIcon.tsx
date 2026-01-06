@@ -16,4 +16,3 @@ export function DeepCogitoIcon(props: SVGProps<SVGSVGElement>) {
         </svg>
     );
 }
-

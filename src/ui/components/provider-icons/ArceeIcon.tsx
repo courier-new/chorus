@@ -16,4 +16,3 @@ export function ArceeIcon(props: SVGProps<SVGSVGElement>) {
         </svg>
     );
 }
-

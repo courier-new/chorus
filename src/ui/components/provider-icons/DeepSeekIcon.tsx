@@ -16,4 +16,3 @@ export function DeepSeekIcon(props: SVGProps<SVGSVGElement>) {
         </svg>
     );
 }
-
