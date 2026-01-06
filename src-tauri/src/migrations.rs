@@ -2626,5 +2626,24 @@ You have full access to bash commands on the user''''s computer. If you write a 
                 ALTER TABLE messages DROP COLUMN review_state;
             "#,
         },
+        Migration {
+            version: 145,
+            description: "drop group chat prototype tables and deprecated columns",
+            kind: MigrationKind::Up,
+            sql: r#"
+                -- Drop group chat prototype tables
+                DROP TABLE IF EXISTS gc_prototype_conductors;
+                DROP TABLE IF EXISTS gc_prototype_messages;
+
+                -- Drop deprecated columns from chats table
+                ALTER TABLE chats DROP COLUMN gc_prototype_chat;
+
+                -- Drop deprecated columns from messages table
+                ALTER TABLE messages DROP COLUMN dep_attachments_archive;
+
+                -- Drop deprecated columns from message_sets table
+                ALTER TABLE message_sets DROP COLUMN deprecated_parent_id;
+            "#,
+        },
     ];
 }
