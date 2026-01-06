@@ -33,3 +33,6 @@ src-tauri/target
 
 # claude
 settings.local.json
+
+# Git LFS hooks
+.husky
