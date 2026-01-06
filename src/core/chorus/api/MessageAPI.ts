@@ -3153,7 +3153,6 @@ ${userMessageText}
     });
 }
 
-// TODO-GC: remove after migration to GC
 export function useUpdateSelectedModelConfigQuickChat() {
     const queryClient = useQueryClient();
     return useMutation({
@@ -3183,7 +3182,6 @@ export function useUpdateSelectedModelConfigQuickChat() {
     });
 }
 
-// TODO-GC: remove after migration to GC
 /**
  * Gets the selected model configs for the current chat type (quick chat or compare).
  */

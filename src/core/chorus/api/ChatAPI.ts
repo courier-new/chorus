@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { produce } from "immer";
 import { useNavigate } from "react-router-dom";
 import { db } from "../DB";
-import { getVersion } from "@tauri-apps/api/app";
 
 const chatKeys = {
     all: () => ["chats"] as const,
@@ -196,8 +195,8 @@ export function useCreateNewChat() {
         mutationKey: ["createNewChat"] as const,
         mutationFn: async ({ projectId }: { projectId: string }) => {
             const result = await db.select<{ id: string }[]>(
-                `INSERT INTO chats (id, created_at, updated_at, is_new_chat, project_id, quick_chat) 
-                 VALUES (lower(hex(randomblob(16))), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, ?, ?) 
+                `INSERT INTO chats (id, created_at, updated_at, is_new_chat, project_id, quick_chat)
+                 VALUES (lower(hex(randomblob(16))), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, ?, ?)
                  RETURNING id`,
                 [projectId, projectId === "quick-chat" ? 1 : 0],
             );
@@ -209,40 +208,6 @@ export function useCreateNewChat() {
         },
         onSuccess: async (chatId: string) => {
             await queryClient.invalidateQueries(chatQueries.list());
-
-            console.log("created new chat", chatId);
-
-            const version = await getVersion();
-        },
-    });
-}
-
-export function useCreateGroupChat() {
-    const navigate = useNavigate();
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationKey: ["createGroupChat"] as const,
-        mutationFn: async () => {
-            const result = await db.select<{ id: string }[]>(
-                `INSERT INTO chats (id, created_at, updated_at, is_new_chat, project_id, gc_prototype_chat) 
-                 VALUES (lower(hex(randomblob(16))), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 'default', 1) 
-                 RETURNING id`,
-            );
-
-            if (!result.length) {
-                throw new Error("Failed to create group chat");
-            }
-            return result[0].id;
-        },
-        onSuccess: async (chatId: string) => {
-            await queryClient.invalidateQueries(chatQueries.list());
-
-            console.log("created new group chat", chatId);
-
-            const version = await getVersion();
-
-            navigate(`/chat/${chatId}`);
         },
     });
 }

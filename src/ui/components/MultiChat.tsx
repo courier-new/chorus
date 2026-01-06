@@ -70,7 +70,6 @@ import {
 } from "./ui/dialog";
 import { MessageMarkdown } from "./renderers/MessageMarkdown";
 import { catchAsyncErrors } from "@core/chorus/utilities";
-import GroupChat from "./gc-prototype/GroupChat";
 import { MouseTrackingEye, MouseTrackingEyeRef } from "./MouseTrackingEye";
 import {
     Message,
@@ -2597,11 +2596,6 @@ export default function MultiChat() {
                 console.error("Error creating project:", error);
             });
     };
-
-    // Check if this is a group chat
-    if (chatQuery.data && chatQuery.data.gcPrototype) {
-        return <GroupChat />;
-    }
 
     return (
         <div

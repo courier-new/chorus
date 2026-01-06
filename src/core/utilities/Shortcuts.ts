@@ -32,7 +32,6 @@ export type ShortcutId =
     | "focus-input"
     | "synthesize"
     | "share-chat"
-    | "new-group-chat"
     | "find-in-page"
     | "find-next"
     | "find-previous"
@@ -221,15 +220,6 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
         defaultCombo: "Meta+Shift+S",
         requiresRestart: false,
         visible: true,
-    },
-    "new-group-chat": {
-        id: "new-group-chat",
-        label: "New Group Chat",
-        description: "Creates a new group chat.",
-        scope: "chat",
-        defaultCombo: "Meta+Shift+G",
-        requiresRestart: false,
-        visible: false,
     },
     "find-in-page": {
         id: "find-in-page",

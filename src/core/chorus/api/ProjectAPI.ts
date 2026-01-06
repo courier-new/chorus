@@ -378,7 +378,6 @@ export function useRegenerateProjectContextSummaries() {
     });
 }
 
-// todo-gc: we'll need to update this to work with group chats
 function useRegenerateProjectContextSummary() {
     const cacheUpdateChat = useCacheUpdateChat();
     const getMessageSets = useGetMessageSets();

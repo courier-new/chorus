@@ -266,12 +266,6 @@ function AppContent() {
         isGlobal: true,
     });
 
-    const createGroupChat = ChatAPI.useCreateGroupChat();
-    useConfigurableShortcut("new-group-chat", createGroupChat.mutate, {
-        isEnabled: !isQuickChatWindow && !isDialogOpen,
-        isGlobal: true,
-    });
-
     const handleDeepLink = useCallback(
         (urls: string[]) => {
             const url = urls[0];
