@@ -21,11 +21,7 @@ export interface Settings {
         firecrawl?: string;
     };
     quickChat?: {
-        /** @deprecated Use the "ambient-chat" shortcut instead */
-        enabled?: boolean;
         modelConfigId?: string;
-        /** @deprecated Use the "ambient-chat" shortcut instead */
-        shortcut?: string;
     };
     synthesis: {
         modelConfigId: string;
@@ -54,19 +50,6 @@ export class SettingsManager {
             const store = await getStore(this.storeName);
             const settings = (await store.get("settings")) as Partial<Settings>;
 
-            // If we're accessing shortcut settings for the first time, we'll
-            // prefer the quick chat shortcut setting from the new shortcuts
-            // object, but fall back to the deprecated quick chat setting to
-            // ensure we preserve any previous user setting.
-            const quickChatEnabled =
-                settings?.shortcuts?.["ambient-chat"]?.disabled ??
-                settings?.quickChat?.enabled ??
-                false;
-            const quickChatShortcut =
-                settings?.shortcuts?.["ambient-chat"]?.combo ??
-                settings?.quickChat?.shortcut ??
-                "Alt+Space";
-
             const defaultSettings: Settings = {
                 defaultEditor: "default",
                 sansFont: "Geist",
@@ -81,17 +64,7 @@ export class SettingsManager {
                 synthesis: {
                     modelConfigId: DEFAULT_SYNTHESIS_MODEL_CONFIG_ID,
                 },
-                // If we're accessing shortcut settings for the first time and
-                // they are not yet set, we will initialize them with the
-                // defaults but ensure we preserve quick chat from the previous
-                // settings object.
-                shortcuts: {
-                    ...createDefaultShortcutsConfig(),
-                    "ambient-chat": {
-                        combo: quickChatShortcut,
-                        disabled: !quickChatEnabled,
-                    },
-                },
+                shortcuts: createDefaultShortcutsConfig(),
             };
 
             // If no settings exist yet, save the defaults

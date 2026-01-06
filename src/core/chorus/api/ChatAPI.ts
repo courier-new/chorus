@@ -204,7 +204,7 @@ export function useCreateNewChat() {
             }
             return result[0].id;
         },
-        onSuccess: async (chatId: string) => {
+        onSuccess: async () => {
             await queryClient.invalidateQueries(chatQueries.list());
         },
     });

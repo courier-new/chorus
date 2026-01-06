@@ -127,7 +127,6 @@ export function ChatInput({
     const attachmentsQuery = DraftAPI.useDraftAttachments(chatId);
     const convertDraftAttachmentsToMessageAttachments =
         MessageAPI.useConvertDraftAttachmentsToMessageAttachments();
-    const removeAttachment = DraftAPI.useDeleteAttachmentFromDraft({ chatId });
     const deleteDraftAttachment = DraftAPI.useDeleteDraftAttachment();
     const fileDrop = useFileDrop({
         association: { type: "draft", chatId },
@@ -228,7 +227,7 @@ export function ChatInput({
                     loadingAttachments.map((attachment) =>
                         deleteDraftAttachment.mutateAsync({
                             attachmentId: attachment.id,
-                            association: { type: "draft", chatId },
+                            chatId,
                         }),
                     ),
                 );
@@ -637,7 +636,7 @@ export function ChatInput({
                 attachments={attachmentsQuery.data ?? []}
                 onFileDrop={fileDrop.mutate}
                 onRemove={(attachmentId) =>
-                    removeAttachment.mutate({ attachmentId })
+                    deleteDraftAttachment.mutate({ attachmentId, chatId })
                 }
             />
             {/* Input form */}
@@ -825,7 +824,7 @@ export function ChatInput({
                 attachments={attachmentsQuery.data ?? []}
                 onFileDrop={fileDrop.mutate}
                 onRemove={(attachmentId) =>
-                    removeAttachment.mutate({ attachmentId })
+                    deleteDraftAttachment.mutate({ attachmentId, chatId })
                 }
             />
             <AutoExpandingTextarea

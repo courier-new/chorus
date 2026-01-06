@@ -129,7 +129,7 @@ import * as ModelsAPI from "@core/chorus/api/ModelsAPI";
 import * as ModelGroupsAPI from "@core/chorus/api/ModelGroupsAPI";
 import * as AttachmentsAPI from "@core/chorus/api/AttachmentsAPI";
 import * as DraftAPI from "@core/chorus/api/DraftAPI";
-import SimpleCopyButton from "./unused/CopyButton";
+import SimpleCopyButton from "./CopyButton";
 import { MessageCostDisplay } from "./MessageCostDisplay";
 import * as AppMetadataAPI from "@core/chorus/api/AppMetadataAPI";
 import {

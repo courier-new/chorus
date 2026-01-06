@@ -406,18 +406,6 @@ export async function saveModelAndDefaultConfig(
 }
 
 /**
- * Downloads models from external sources to refresh the database.
- */
-export async function DEPRECATED_USE_HOOK_INSTEAD_downloadModels(
-    db: Database,
-): Promise<number> {
-    await downloadOpenRouterModels(db);
-    await downloadOllamaModels(db);
-    await downloadLMStudioModels(db);
-    return 0;
-}
-
-/**
  * Downloads models from OpenRouter to refresh the database.
  */
 export async function downloadOpenRouterModels(db: Database): Promise<number> {

@@ -252,46 +252,6 @@ export async function fetchModelConfigsCompare(): Promise<
     }));
 }
 
-// TODO: This is unused and can be removed, row can be dropped
-/** @deprecated */
-export async function fetchModelConfigChat() {
-    const modelConfigChat = (
-        await db.select<ModelConfigDBRow[]>(
-            `WITH selected_config AS (
-  SELECT
-    value AS model_config_id
-  FROM
-    app_metadata
-  WHERE
-    key = 'selected_model_config_chat'
-)
-
-SELECT
-  mc.id,
-  mc.display_name,
-  mc.author,
-  mc.model_id,
-  mc.system_prompt,
-  m.is_enabled,
-  m.is_internal,
-  m.supported_attachment_types,
-  mc.is_default,
-  m.is_deprecated,
-  mc.budget_tokens,
-  mc.reasoning_effort,
-  m.prompt_price_per_token,
-  m.completion_price_per_token
-FROM
-  selected_config sc
-JOIN
-  model_configs mc ON mc.id = sc.model_config_id
-JOIN
-  models m ON mc.model_id = m.id;`,
-        )
-    ).map(readModelConfig);
-    return modelConfigChat;
-}
-
 export async function fetchModelConfigQuickChat() {
     const modelConfigs = await db
         .select<ModelConfigDBRow[]>(
@@ -356,11 +316,6 @@ export function useModelConfigs() {
     return useQuery(modelConfigQueries.listConfigs());
 }
 
-export function useModelConfigsPromise() {
-    const queryClient = useQueryClient();
-    return queryClient.ensureQueryData(modelConfigQueries.listConfigs());
-}
-
 export function useModels() {
     return useQuery(modelQueries.list());
 }
@@ -371,18 +326,6 @@ export function useModels() {
  */
 export function useSelectedModelConfigsCompare() {
     return useQuery(modelConfigQueries.compare());
-}
-
-/**
- * Returns any selected model config instances for the given model config ID.
- * @param modelConfigId - The ID of the model config to get the instances for.
- */
-export function useSelectedModelConfigInstances(modelConfigId: string) {
-    const { data: selectedModelConfigsCompare = [] } =
-        useSelectedModelConfigsCompare();
-    return selectedModelConfigsCompare.filter(
-        (config) => config.id === modelConfigId,
-    );
 }
 
 export function useSelectedModelConfigQuickChat() {
