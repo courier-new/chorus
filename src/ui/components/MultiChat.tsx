@@ -1364,13 +1364,6 @@ export function ToolsMessageView({
         });
     }, [setMessageCollapsed, message.id, message.chatId]);
 
-    // // Set stream start time when streaming begins
-    // useEffect(() => {
-    //     if (message.state === "streaming" && !streamStartTime) {
-    //         setStreamStartTime(new Date());
-    //     }
-    // }, [message.state, streamStartTime]);
-
     // this should only happen in some intermediate state
     if (!message) {
         return null;
