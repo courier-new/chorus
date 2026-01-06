@@ -1,7 +1,8 @@
 import { SplitIcon } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useShortcutDisplay } from "@core/utilities/ShortcutsAPI";
 import { comboToDisplayString } from "@core/utilities/Shortcuts";
+import { AnimatePresence, motion } from "framer-motion";
 
 const useEmptyStateShortcuts = () => {
     const newProjectDisplay = useShortcutDisplay("new-project", true);
@@ -75,18 +76,36 @@ const useEmptyStateTips = () => {
 
 export function EmptyState() {
     const tips = useEmptyStateTips();
-
-    const randomTipIndex = useMemo(
-        () => Math.floor(Math.random() * tips.length),
-        [tips.length],
+    const [randomTipIndex, setRandomTipIndex] = useState(
+        Math.floor(Math.random() * tips.length),
     );
+
+    // Change the tip every 15 seconds
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setRandomTipIndex(Math.floor(Math.random() * tips.length));
+        }, 15000);
+        return () => clearInterval(timer);
+    }, [tips.length]);
+
     const randomTip = tips[randomTipIndex];
 
     return (
         <div className="absolute bottom-0 left-0 right-0 pb-8 flex justify-center">
             <div className="space-y-4 max-w-3xl">
                 <div className="text-helper space-y-2 font-[350] text-sm">
-                    <p className="flex items-center">Tip: {randomTip}</p>
+                    <AnimatePresence mode="wait">
+                        <motion.p
+                            key={randomTipIndex}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.3, ease: "easeInOut" }}
+                            className="flex items-center"
+                        >
+                            Tip: {randomTip}
+                        </motion.p>
+                    </AnimatePresence>
                 </div>
             </div>
         </div>
