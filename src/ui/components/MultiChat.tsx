@@ -1148,13 +1148,6 @@ function ToolsAIMessageViewInner({
                     )}
                 </>
             )}
-            {/* // {streamStartTime && !isQuickChatWindow && (
-                                //     <Metrics
-                                //         text={message.text}
-                                //         startTime={streamStartTime}
-                                //         isStreaming={message.state === "streaming"}
-                                //     />
-                                // )} */}
             <MessageCostDisplay
                 costUsd={message.costUsd}
                 promptTokens={message.promptTokens}
@@ -1166,13 +1159,7 @@ function ToolsAIMessageViewInner({
     );
 }
 
-export function ToolsReplyCountView({
-    replyChatId,
-    onReplyClick,
-}: {
-    replyChatId: string;
-    onReplyClick: () => void;
-}) {
+function ReplyCount({ replyChatId }: { replyChatId: string }) {
     const chatQuery = ChatAPI.useChat(replyChatId);
     // TODO: we _could_ make this more efficient by just fetching the count - but we do re-use this exact query when rendering replies
     // and query this conservatively (only if replyChatId is not null)
@@ -1186,22 +1173,38 @@ export function ToolsReplyCountView({
         ).length;
     }, [messageSetsQuery.data, chatQuery.data]);
 
-    if (replyCount === 0) {
-        return null;
-    }
+    return replyCount > 0
+        ? `${replyCount} ${replyCount === 1 ? "reply" : "replies"}`
+        : "Reply";
+}
 
+export function ToolsReplyCountButton({
+    replyChatId,
+    onReplyClick,
+    isSelected,
+}: {
+    replyChatId?: string;
+    onReplyClick: () => void;
+    isSelected: boolean;
+}) {
     return (
-        <div
-            className="mt-1.5 mx-2 text-sm flex justify-start hover:cursor-pointer hover:bg-muted rounded py-1.5 px-1 group/reply-count"
+        <button
+            className="text-muted-foreground hover:text-foreground transition-color flex items-center gap-2 px-2 py-1"
+            style={
+                isSelected
+                    ? {
+                          background:
+                              "linear-gradient(to bottom, transparent 50%, hsl(var(--background)) 50%)",
+                      }
+                    : {
+                          background: "hsl(var(--background))",
+                      }
+            }
             onClick={onReplyClick}
         >
-            <div className="flex items-center gap-2">
-                <ReplyIcon className="size-4 text-muted-foreground" />
-                <span>
-                    {replyCount} {replyCount === 1 ? "reply" : "replies"}
-                </span>
-            </div>
-        </div>
+            <ReplyIcon strokeWidth={1.5} className="w-3.5 h-3.5" />
+            {replyChatId ? <ReplyCount replyChatId={replyChatId} /> : "Reply"}
+        </button>
     );
 }
 
@@ -1758,42 +1761,18 @@ export function ToolsMessageView({
                             showCost={showCost}
                         />
 
-                        {/* Reply button at bottom overlapping border (only show if there are no replies and not synthesis) */}
+                        {/* Reply button at bottom overlapping border (not shown for synthesis or in quick chat) */}
                         {!isQuickChatWindow && !isReply && !isSynthesis && (
-                            <div className="absolute bottom-0 left-3 transform translate-y-1/2 z-10 opacity-full">
-                                <button
-                                    className="text-muted-foreground hover:text-foreground transition-color flex items-center gap-2 px-2 py-1 opacity-0 group-hover/message-set-view:opacity-100 focus-within:opacity-100"
-                                    style={
-                                        message.selected
-                                            ? {
-                                                  background:
-                                                      "linear-gradient(to bottom, transparent 50%, hsl(var(--background)) 50%)",
-                                              }
-                                            : {
-                                                  background:
-                                                      "hsl(var(--background))",
-                                              }
-                                    }
-                                    onClick={onReplyClick}
-                                >
-                                    <ReplyIcon
-                                        strokeWidth={1.5}
-                                        className="w-3.5 h-3.5"
-                                    />
-                                    Reply
-                                </button>
+                            <div className="absolute bottom-0 left-3 transform translate-y-1/2 z-10 opacity-full opacity-0 group-hover/message-set-view:opacity-100 focus-within:opacity-100">
+                                <ToolsReplyCountButton
+                                    replyChatId={message.replyChatId}
+                                    onReplyClick={onReplyClick}
+                                    isSelected={message.selected}
+                                />
                             </div>
                         )}
                     </div>
                 </div>
-
-                {/* Reply count display - outside the message box */}
-                {!isReply && message.replyChatId && (
-                    <ToolsReplyCountView
-                        replyChatId={message.replyChatId}
-                        onReplyClick={onReplyClick}
-                    />
-                )}
             </div>
         </div>
     );
