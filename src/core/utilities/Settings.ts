@@ -116,15 +116,4 @@ export class SettingsManager {
             console.error("Failed to save settings:", error);
         }
     }
-
-    public async getChorusToken(): Promise<string | null> {
-        try {
-            const store = await getStore("auth.dat");
-            const token = await store.get("api_token");
-            return (token as string) || null;
-        } catch (error) {
-            console.error("Failed to get Chorus token:", error);
-            return null;
-        }
-    }
 }
