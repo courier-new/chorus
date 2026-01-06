@@ -80,13 +80,15 @@ export function EmptyState() {
         Math.floor(Math.random() * tips.length),
     );
 
-    // Change the tip every 15 seconds
-    useEffect(() => {
-        const timer = setInterval(() => {
-            setRandomTipIndex(Math.floor(Math.random() * tips.length));
-        }, 15000);
-        return () => clearInterval(timer);
-    }, [tips.length]);
+    useEffect(
+        function shuffleTip() {
+            const timer = setInterval(() => {
+                setRandomTipIndex(Math.floor(Math.random() * tips.length));
+            }, 15000);
+            return () => clearInterval(timer);
+        },
+        [tips.length],
+    );
 
     const randomTip = tips[randomTipIndex];
 
