@@ -18,7 +18,6 @@ import {
 import { Separator } from "../ui/separator";
 import {
     Loader2,
-    ChevronDown,
     ExternalLink,
     Pencil,
     Trash2,
@@ -53,17 +52,12 @@ import {
 } from "@ui/components/ui/tabs";
 import { useSearchParams } from "react-router-dom";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import ApiKeysForm from "./ApiKeysForm";
+import { ApiKeysTabContent } from "./ApiKeysTabContent";
 import Database from "@tauri-apps/plugin-sql";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { useDatabase } from "@ui/hooks/useDatabase";
-import {
-    Collapsible,
-    CollapsibleContent,
-    CollapsibleTrigger,
-} from "@ui/components/ui/collapsible";
 import { InfoCircledIcon } from "@radix-ui/react-icons";
 import { AccessibilitySettings } from "./AccessibilityCheck";
 import { UNIVERSAL_SYSTEM_PROMPT_DEFAULT } from "@core/chorus/prompts/prompts";
@@ -1713,50 +1707,14 @@ export default function Settings({ tab = "general" }: SettingsProps) {
                     {activeTab === "synthesis" && <SynthesisSettings />}
 
                     {activeTab === "api-keys" && (
-                        <div className="space-y-6">
-                            <div>
-                                <h2 className="text-2xl font-semibold mb-2">
-                                    API Keys
-                                </h2>
-                                <p className="text-sm text-muted-foreground">
-                                    Enter your API keys for the providers you
-                                    want to use. Models for each provider will
-                                    become available once you add a valid key.
-                                </p>
-                            </div>
-                            <div className="space-y-4">
-                                <ApiKeysForm
-                                    apiKeys={apiKeys}
-                                    onApiKeyChange={(provider, value) =>
-                                        void handleApiKeyChange(provider, value)
-                                    }
-                                />
-                                <Separator className="my-4" />
-                                <Collapsible className="space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <CollapsibleTrigger className="flex items-center w-full gap-2 hover:opacity-80">
-                                            <label className="font-semibold">
-                                                LM Studio Settings
-                                            </label>
-                                            <ChevronDown className="h-4 w-4" />
-                                        </CollapsibleTrigger>
-                                    </div>
-                                    <CollapsibleContent className="space-y-2">
-                                        <p className="">
-                                            The base URL for your LM Studio
-                                            server.
-                                        </p>
-                                        <Input
-                                            value={lmStudioBaseUrl}
-                                            onChange={(e) =>
-                                                void onLmStudioBaseUrlChange(e)
-                                            }
-                                            placeholder="http://localhost:1234/v1"
-                                        />
-                                    </CollapsibleContent>
-                                </Collapsible>
-                            </div>
-                        </div>
+                        <ApiKeysTabContent
+                            apiKeys={apiKeys}
+                            onApiKeyChange={handleApiKeyChange}
+                            lmStudioBaseUrl={lmStudioBaseUrl}
+                            onLmStudioBaseUrlChange={(e) =>
+                                void onLmStudioBaseUrlChange(e)
+                            }
+                        />
                     )}
 
                     {activeTab === "quick-chat" && (

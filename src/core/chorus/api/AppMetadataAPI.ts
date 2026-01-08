@@ -359,3 +359,116 @@ export function useSetZoomLevel() {
         },
     });
 }
+
+/**
+ * Parse provider visibility from app_metadata. Returns default visibility (all
+ * enabled) if not found or parse fails.
+ */
+function parseProviderVisibility(
+    appMetadata: Record<string, string> | undefined,
+): Record<string, boolean> {
+    const defaultVisibility = {
+        anthropic: true,
+        openai: true,
+        google: true,
+        grok: true,
+        perplexity: true,
+        openrouter: true,
+        local: true, // covers both ollama and lmstudio
+    };
+
+    if (!appMetadata?.provider_visibility) {
+        return defaultVisibility;
+    }
+
+    try {
+        const parsed = JSON.parse(appMetadata.provider_visibility) as unknown;
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            return {
+                ...defaultVisibility,
+                ...(parsed as Record<string, boolean>),
+            };
+        }
+        return defaultVisibility;
+    } catch {
+        return defaultVisibility;
+    }
+}
+
+/**
+ * Get visibility state for all providers
+ * Returns Record<string, boolean> with all provider keys
+ */
+export function useProviderVisibility() {
+    const { data: appMetadata } = useAppMetadata();
+    return parseProviderVisibility(appMetadata);
+}
+
+/**
+ * Update visibility for a single provider
+ * Uses optimistic updates for instant UI feedback
+ */
+export function useSetProviderVisibility() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationKey: ["setProviderVisibility"] as const,
+
+        onMutate: async ({
+            provider,
+            visible,
+        }: {
+            provider: string;
+            visible: boolean;
+        }) => {
+            await queryClient.cancelQueries({
+                queryKey: appMetadataKeys.appMetadata(),
+            });
+
+            queryClient.setQueryData<Record<string, string>>(
+                appMetadataKeys.appMetadata(),
+                (old) => {
+                    if (!old) return old;
+
+                    const currentVisibility = parseProviderVisibility(old);
+                    const updatedVisibility = {
+                        ...currentVisibility,
+                        [provider]: visible,
+                    };
+
+                    return {
+                        ...old,
+                        provider_visibility: JSON.stringify(updatedVisibility),
+                    };
+                },
+            );
+        },
+
+        mutationFn: async ({
+            provider,
+            visible,
+        }: {
+            provider: string;
+            visible: boolean;
+        }) => {
+            const currentMetadata = await fetchAppMetadata();
+            const currentVisibility = parseProviderVisibility(currentMetadata);
+
+            const updatedVisibility = {
+                ...currentVisibility,
+                [provider]: visible,
+            };
+
+            await db.execute(
+                "INSERT OR REPLACE INTO app_metadata (key, value) VALUES (?, ?)",
+                ["provider_visibility", JSON.stringify(updatedVisibility)],
+            );
+        },
+
+        onSettled: () => {
+            void queryClient.invalidateQueries({
+                queryKey: appMetadataKeys.appMetadata(),
+            });
+        },
+    });
+}
