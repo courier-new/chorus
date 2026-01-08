@@ -139,6 +139,7 @@ export function ManageModelsBox({
     // Get all section visibility state
     const sectionsVisibility = AppMetadataAPI.useSectionsVisibility();
     const setSectionVisibility = AppMetadataAPI.useSetSectionVisibility();
+    const providerVisibility = AppMetadataAPI.useProviderVisibility();
 
     // Helper function to toggle a section
     const toggleSection = useCallback(
@@ -199,7 +200,13 @@ export function ManageModelsBox({
         navigate("/new-prompt");
     }, [navigate]);
 
-    // Compute filtered model sections based on search
+    // Helper to check if a provider is visible
+    const isProviderVisible = useCallback(
+        (provider: string) => providerVisibility[provider] !== false,
+        [providerVisibility],
+    );
+
+    // Compute filtered model sections based on search and provider visibility
     const modelSections = useMemo(() => {
         const searchTerms = searchQuery
             .toLowerCase()
@@ -215,14 +222,20 @@ export function ManageModelsBox({
             (m) => m.author === "user",
         );
 
-        const localModels = systemModels.filter((m) => {
-            const provider = getProviderName(m.modelId);
-            return provider === "ollama" || provider === "lmstudio";
-        });
+        // Filter local models (ollama and lmstudio)
+        const localModels = isProviderVisible("local")
+            ? systemModels.filter((m) => {
+                  const provider = getProviderName(m.modelId);
+                  return provider === "ollama" || provider === "lmstudio";
+              })
+            : [];
 
-        const openrouterModels = systemModels.filter(
-            (m) => getProviderName(m.modelId) === "openrouter",
-        );
+        // Filter openrouter models
+        const openrouterModels = isProviderVisible("openrouter")
+            ? systemModels.filter(
+                  (m) => getProviderName(m.modelId) === "openrouter",
+              )
+            : [];
 
         // Direct provider models grouped by provider
         const directProviders = [
@@ -232,16 +245,17 @@ export function ManageModelsBox({
             "perplexity",
             "grok",
         ] as const;
-
         const directByProvider = Object.fromEntries(
             directProviders.map((provider) => [
                 provider,
-                filterBySearch(
-                    systemModels.filter(
-                        (m) => getProviderName(m.modelId) === provider,
-                    ),
-                    searchTerms,
-                ),
+                isProviderVisible(provider)
+                    ? filterBySearch(
+                          systemModels.filter(
+                              (m) => getProviderName(m.modelId) === provider,
+                          ),
+                          searchTerms,
+                      )
+                    : [],
             ]),
         ) as Record<(typeof directProviders)[number], ModelConfig[]>;
 
@@ -255,7 +269,7 @@ export function ManageModelsBox({
             openrouter,
             directByProvider,
         };
-    }, [modelConfigs, searchQuery]);
+    }, [modelConfigs, searchQuery, isProviderVisible]);
 
     // Check if there are ANY matching models across all sections (for CommandEmpty)
     const hasAnyMatches = useMemo(() => {

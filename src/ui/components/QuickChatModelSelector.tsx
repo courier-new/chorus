@@ -33,6 +33,7 @@ export function QuickChatModelSelector({
 }: ModelSelectorProps) {
     const [isOpen, setIsOpen] = useState(false);
     const { data: apiKeys } = AppMetadataAPI.useApiKeys();
+    const providerVisibility = AppMetadataAPI.useProviderVisibility();
 
     const onChangeOpen = useCallback(
         (newOpen: boolean) => {
@@ -75,17 +76,32 @@ export function QuickChatModelSelector({
         [apiKeys],
     );
 
+    // Check if a provider is visible
+    const isProviderVisible = useCallback(
+        (provider: string) => {
+            const visibilityKey =
+                provider === "ollama" || provider === "lmstudio"
+                    ? "local"
+                    : provider;
+            return providerVisibility[visibilityKey] !== false;
+        },
+        [providerVisibility],
+    );
+
     const quickChatSelectableModelConfigs = useMemo(
         () =>
-            modelConfigsQuery?.data?.filter(
-                (config) =>
+            modelConfigsQuery?.data?.filter((config) => {
+                const provider = getProviderName(config.modelId);
+                return (
                     config.isEnabled &&
                     !config.id.includes("chorus") &&
                     !config.displayName.includes("Deprecated") &&
                     ALLOWED_MODEL_IDS_FOR_QUICK_CHAT.includes(config.id) &&
-                    isModelAllowed(config),
-            ) ?? [],
-        [modelConfigsQuery, isModelAllowed],
+                    isProviderVisible(provider) &&
+                    isModelAllowed(config)
+                );
+            }) ?? [],
+        [modelConfigsQuery, isModelAllowed, isProviderVisible],
     );
 
     const handleModelSelect = useCallback(
