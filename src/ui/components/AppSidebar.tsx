@@ -57,8 +57,6 @@ import * as ChatAPI from "@core/chorus/api/ChatAPI";
 import * as ProjectAPI from "@core/chorus/api/ProjectAPI";
 import { formatCost } from "@core/chorus/api/CostAPI";
 import RetroSpinner from "./ui/retro-spinner";
-import FeedbackButton from "./FeedbackButton";
-import { SpeakerLoudIcon } from "@radix-ui/react-icons";
 import { emit } from "@tauri-apps/api/event";
 import { projectDisplayName } from "@ui/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -710,62 +708,54 @@ function QuickChats({ chats }: { chats: Chat[] }) {
             <SidebarMenu>
                 <Collapsible className="group/collapsible data-[state=open]/collapsible:border-t pt-2 mb-1 flex items-stretch w-full">
                     <SidebarMenuItem className="w-full">
-                        <div className="h-6 w-full flex justify-between">
-                            <span className="h-full group-data-[state=open]/collapsible:hidden px-3 flex items-center gap-2">
-                                <FeedbackButton className="h-full text-sm flex items-center text-muted-foreground rounded-full px-2 py-1 border border-sidebar-border hover:text-sidebar-accent-foreground">
-                                    Feedback
-                                    <SpeakerLoudIcon className="inline-block ml-2 h-3 w-3" />
-                                </FeedbackButton>
-                            </span>
-                            <div className="flex items-center gap-2">
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <CollapsibleTrigger asChild>
-                                            <button className="h-full text-muted-foreground/75 hover:text-foreground p-2 rounded-full flex items-center gap-2 group-data-[state=open]/collapsible:w-full">
-                                                <ArchiveIcon
-                                                    className="w-4 h-4 group-data-[state=open]/collapsible:hidden block"
-                                                    strokeWidth={1.5}
-                                                />
-                                                <ChevronDownIcon
-                                                    className="w-4 h-4 group-data-[state=open]/collapsible:block hidden"
-                                                    strokeWidth={1.5}
-                                                />
-
-                                                <span className="text-sm hidden group-data-[state=open]/collapsible:block">
-                                                    Ambient Chats
-                                                </span>
-                                            </button>
-                                        </CollapsibleTrigger>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="bottom">
-                                        Ambient Chats
-                                    </TooltipContent>
-                                </Tooltip>
-
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <button
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                void emit("open_settings", {
-                                                    tab: "general",
-                                                });
-                                            }}
-                                            className="h-full text-muted-foreground/75 hover:text-foreground p-2 rounded-full flex items-center gap-2 group-data-[state=open]/collapsible:hidden"
-                                        >
-                                            <Settings
-                                                className="h-4 w-4"
+                        <div className="h-6 w-full flex justify-end items-center gap-2">
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <CollapsibleTrigger asChild>
+                                        <button className="h-full text-muted-foreground/75 hover:text-foreground p-2 rounded-full flex items-center gap-2 group-data-[state=open]/collapsible:w-full">
+                                            <ArchiveIcon
+                                                className="w-4 h-4 group-data-[state=open]/collapsible:hidden block"
                                                 strokeWidth={1.5}
                                             />
+                                            <ChevronDownIcon
+                                                className="w-4 h-4 group-data-[state=open]/collapsible:block hidden"
+                                                strokeWidth={1.5}
+                                            />
+
+                                            <span className="text-sm hidden group-data-[state=open]/collapsible:block">
+                                                Ambient Chats
+                                            </span>
                                         </button>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="bottom">
-                                        Settings
-                                        {settingsShortcut &&
-                                            ` (${settingsShortcut})`}
-                                    </TooltipContent>
-                                </Tooltip>
-                            </div>
+                                    </CollapsibleTrigger>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom">
+                                    Ambient Chats
+                                </TooltipContent>
+                            </Tooltip>
+
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <button
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            void emit("open_settings", {
+                                                tab: "general",
+                                            });
+                                        }}
+                                        className="h-full text-muted-foreground/75 hover:text-foreground p-2 rounded-full flex items-center gap-2 group-data-[state=open]/collapsible:hidden"
+                                    >
+                                        <Settings
+                                            className="h-4 w-4"
+                                            strokeWidth={1.5}
+                                        />
+                                    </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom">
+                                    Settings
+                                    {settingsShortcut &&
+                                        ` (${settingsShortcut})`}
+                                </TooltipContent>
+                            </Tooltip>
                         </div>
 
                         <CollapsibleContent className="max-h-[400px] overflow-y-auto no-scrollbar">

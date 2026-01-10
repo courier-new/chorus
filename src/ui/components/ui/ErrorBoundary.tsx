@@ -1,6 +1,5 @@
 import { Component, ErrorInfo, ReactNode } from "react";
 import { Button } from "./button";
-import FeedbackButton from "../FeedbackButton";
 
 interface Props {
     children: ReactNode;
@@ -54,9 +53,6 @@ class ErrorBoundary extends Component<Props, State> {
                             </p>
                         )}
                         <div className="flex items-center justify-center gap-6">
-                            <FeedbackButton className="hover:bg-gray-100 p-2 rounded-md">
-                                Send us a bug report
-                            </FeedbackButton>
                             <Button onClick={this.handleReload}>
                                 Go to Home Screen
                             </Button>
