@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
     Select,
     SelectContent,
@@ -1346,11 +1346,31 @@ export default function Settings({ tab = "general" }: SettingsProps) {
     };
 
     const [activeTab, setActiveTab] = useState<SettingsTabId>(defaultTab);
+    const contentRef = useRef<HTMLDivElement>(null);
+
+    const navigateToTab = useCallback(
+        (tab: SettingsTabId, scrollToId?: string) => {
+            setActiveTab(tab);
+            requestAnimationFrame(() => {
+                if (scrollToId) {
+                    document
+                        .getElementById(scrollToId)
+                        ?.scrollIntoView({
+                            behavior: "instant",
+                            block: "start",
+                        });
+                } else if (contentRef.current) {
+                    contentRef.current.scrollTop = 0;
+                }
+            });
+        },
+        [],
+    );
 
     // Update activeTab when tab prop changes
     useEffect(() => {
-        setActiveTab(defaultTab);
-    }, [defaultTab]);
+        navigateToTab(defaultTab);
+    }, [defaultTab, navigateToTab]);
 
     const content = (
         <div className="flex flex-col h-full">
@@ -1375,7 +1395,7 @@ export default function Settings({ tab = "general" }: SettingsProps) {
                                                 "https://docs.chorus.sh",
                                             );
                                         } else {
-                                            setActiveTab(id as SettingsTabId);
+                                            navigateToTab(id as SettingsTabId);
                                         }
                                     }}
                                     className={cn(
@@ -1401,7 +1421,7 @@ export default function Settings({ tab = "general" }: SettingsProps) {
                 </div>
 
                 {/* Content Area */}
-                <div className="flex-1 overflow-y-auto p-6">
+                <div ref={contentRef} className="flex-1 overflow-y-auto p-6">
                     {activeTab === "general" && (
                         <div className="space-y-6">
                             <div>
@@ -1419,7 +1439,9 @@ export default function Settings({ tab = "general" }: SettingsProps) {
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        onClick={() => setActiveTab("api-keys")}
+                                        onClick={() =>
+                                            navigateToTab("api-keys")
+                                        }
                                     >
                                         Configure API Keys
                                     </Button>
