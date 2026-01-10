@@ -1040,6 +1040,7 @@ function ToolsTab() {
         </div>
     );
 }
+import { SettingsTabHeader } from "./SettingsTabHeader";
 
 export const SETTINGS_DIALOG_ID = "settings";
 
@@ -1271,15 +1272,10 @@ export default function Settings({ tab = "general" }: SettingsProps) {
 
                     {activeTab === "import" && (
                         <div className="space-y-6">
-                            <div>
-                                <h2 className="text-2xl font-semibold mb-2">
-                                    Import Chat History
-                                </h2>
-                                <p className="text-muted-foreground text-sm">
-                                    Import your conversation history from other
-                                    AI chat platforms.
-                                </p>
-                            </div>
+                            <SettingsTabHeader
+                                title="Import Chat History"
+                                description="Import your conversation history from other AI chat platforms."
+                            />
                             <div className="space-y-4">
                                 <div className="flex gap-2">
                                     <Button
@@ -1311,16 +1307,10 @@ export default function Settings({ tab = "general" }: SettingsProps) {
 
                     {activeTab === "system-prompt" && (
                         <div className="space-y-6">
-                            <div>
-                                <h2 className="text-2xl font-semibold mb-2">
-                                    System Prompt
-                                </h2>
-                                <p className="text-muted-foreground text-sm">
-                                    All AIs will see this prompt. Use it to
-                                    control their tone, role, or conversation
-                                    style.
-                                </p>
-                            </div>
+                            <SettingsTabHeader
+                                title="System Prompt"
+                                description="All AIs will see this prompt. Use it to control their tone, role, or conversation style."
+                            />
                             <div className="space-y-4">
                                 <Textarea
                                     value={universalSystemPrompt || ""}

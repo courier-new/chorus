@@ -30,6 +30,7 @@ import * as ProjectAPI from "@core/chorus/api/ProjectAPI";
 import { useQuery } from "@tanstack/react-query";
 import { RadioGroup, RadioGroupItem } from "@ui/components/ui/radio-group";
 import type { SettingsTabId } from "./Settings";
+import { SettingsTabHeader } from "./SettingsTabHeader";
 
 const FONT_OPTIONS = [
     "Geist",
@@ -250,13 +251,10 @@ export function GeneralSettings({ navigateToTab }: GeneralSettingsProps) {
 
     return (
         <div className="space-y-6">
-            <div>
-                <h2 className="text-2xl font-semibold mb-2">General</h2>
-                <p className="text-sm text-muted-foreground">
-                    Chorus requires you to bring your own API keys to use AI
-                    models. Add your keys in the API Keys tab.
-                </p>
-            </div>
+            <SettingsTabHeader
+                title="General"
+                description="Chorus requires you to bring your own API keys to use AI models. Add your keys in the API Keys tab."
+            />
             <div className="flex gap-2">
                 <Button
                     variant="outline"
