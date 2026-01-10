@@ -53,7 +53,6 @@ export type SettingsTabId =
     | "synthesis"
     | "api-keys"
     | "keyboard-shortcuts"
-    | "base-url"
     | "tools"
     | "docs";
 
@@ -69,7 +68,6 @@ const TABS: Record<SettingsTabId, TabConfig> = {
     "system-prompt": { label: "System Prompt", icon: FileText },
     synthesis: { label: "Synthesis", icon: MergeIcon },
     "keyboard-shortcuts": { label: "Keyboard Shortcuts", icon: Keyboard },
-    "base-url": { label: "Base URL", icon: Globe },
     tools: { label: "Tools", icon: PlugIcon },
     docs: { label: "Documentation", icon: BookOpen },
 } as const;
@@ -86,10 +84,6 @@ export default function Settings({ tab = "general" }: SettingsProps) {
         "http://localhost:1234/v1",
     );
     const queryClient = useQueryClient();
-
-    // Use React Query hooks for custom base URL
-    const customBaseUrl = AppMetadataAPI.useCustomBaseUrl() || "";
-    const setCustomBaseUrlMutation = AppMetadataAPI.useSetCustomBaseUrl();
 
     // Universal system prompt autosync
     const { draft: universalSystemPrompt, setDraft: setUniversalSystemPrompt } =
@@ -160,11 +154,6 @@ export default function Settings({ tab = "general" }: SettingsProps) {
             ...currentSettings,
             lmStudioBaseUrl: newUrl,
         });
-    };
-
-    const onCustomBaseUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const newUrl = e.target.value;
-        void setCustomBaseUrlMutation.mutate(newUrl);
     };
 
     const handleImportHistory = (platform: "openai" | "anthropic") => {
@@ -362,109 +351,6 @@ export default function Settings({ tab = "general" }: SettingsProps) {
                         <KeyboardShortcutsSettings />
                     )}
 
-                    {activeTab === "connections" && (
-                        <div className="space-y-6">
-                            <ToolsTab />
-                        </div>
-                    )}
-
-                    {activeTab === "permissions" && <PermissionsTab />}
-
-                    {activeTab === "base-url" && (
-                        <div className="space-y-6">
-                            <div>
-                                <h2 className="text-2xl font-semibold mb-2">
-                                    Base URL Configuration
-                                </h2>
-                                <p className="text-muted-foreground text-sm">
-                                    Configure a custom base URL for all model
-                                    requests. This allows you to route requests
-                                    through your own proxy or server.
-                                </p>
-                            </div>
-                            <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <label
-                                        htmlFor="custom-base-url"
-                                        className="font-semibold"
-                                    >
-                                        Custom Base URL
-                                    </label>
-                                    <Input
-                                        id="custom-base-url"
-                                        value={customBaseUrl}
-                                        onChange={(e) =>
-                                            void onCustomBaseUrlChange(e)
-                                        }
-                                        placeholder="https://your-proxy.com"
-                                        className="font-mono"
-                                    />
-                                    <p className="text-xs text-muted-foreground">
-                                        Leave empty to use the default Chorus
-                                        proxy. When set, all model requests will
-                                        be sent directly to this URL without any
-                                        path modifications.
-                                    </p>
-                                </div>
-
-                                {customBaseUrl && (
-                                    <div className="border rounded-md p-4 bg-muted/50">
-                                        <h4 className="font-semibold text-sm mb-2">
-                                            Configuration Details
-                                        </h4>
-                                        <div className="space-y-2 text-sm">
-                                            <p>
-                                                When using a custom base URL,
-                                                requests will be sent directly
-                                                to your proxy without any path
-                                                prefixes.
-                                            </p>
-                                            <p className="text-muted-foreground">
-                                                Your proxy should:
-                                            </p>
-                                            <ul className="list-disc list-inside space-y-1 text-muted-foreground ml-2">
-                                                <li>
-                                                    Handle routing to the
-                                                    appropriate model providers
-                                                </li>
-                                                <li>
-                                                    Manage authentication with
-                                                    each provider
-                                                </li>
-                                                <li>
-                                                    Forward request/response
-                                                    data appropriately
-                                                </li>
-                                            </ul>
-                                            <p className="text-xs mt-2 text-muted-foreground">
-                                                The proxy will receive the raw
-                                                OpenAI-compatible API requests
-                                                for all providers.
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className="flex justify-end gap-2 pt-2">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => {
-                                            void setCustomBaseUrlMutation.mutate(
-                                                "",
-                                            );
-                                            toast.success(
-                                                "Custom base URL cleared",
-                                            );
-                                        }}
-                                        disabled={!customBaseUrl}
-                                    >
-                                        Clear
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
                     {activeTab === "tools" && <ToolSettings />}
                 </div>
             </div>
