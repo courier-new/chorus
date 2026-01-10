@@ -21,6 +21,16 @@ export async function fetchAppMetadata(): Promise<Record<string, string>> {
     );
 }
 
+/** Fetches the ID of the last selected project from app metadata. */
+export async function fetchLastSelectedProjectId(): Promise<
+    string | undefined
+> {
+    const result = await db.select<{ value: string }[]>(
+        "SELECT value FROM app_metadata WHERE key = 'last_selected_project_id'",
+    );
+    return result[0]?.value;
+}
+
 export function useAppMetadata() {
     return useQuery({
         queryKey: appMetadataKeys.appMetadata(),

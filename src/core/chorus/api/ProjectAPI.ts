@@ -124,6 +124,21 @@ export async function fetchProject(projectId: string) {
     return readProject(rows[0]);
 }
 
+/**
+ * Checks if a project still exists in the database.
+ *
+ * @param projectId - The ID of the project to check.
+ * @returns True if the project exists, false otherwise.
+ */
+export async function projectExists(projectId: string): Promise<boolean> {
+    if (projectId === "default" || projectId === "quick-chat") return true;
+    const rows = await db.select<{ id: string }[]>(
+        "SELECT id FROM projects WHERE id = ?",
+        [projectId],
+    );
+    return rows.length > 0;
+}
+
 export const projectContextQueries = {
     text: (projectId: string) => ({
         queryKey: [
