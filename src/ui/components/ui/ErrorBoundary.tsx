@@ -49,7 +49,7 @@ class ErrorBoundary extends Component<Props, State> {
                         Uh-oh, something went wrong! :(
                     </h2>
                     {this.state.error && (
-                        <p className="text-muted-foreground">
+                        <p className="bg-muted p-4 rounded-lg font-mono text-muted-foreground w-2/3 max-w-[700px] min-w-full md:min-w-[400px]">
                             Error: {this.state.error.message}
                         </p>
                     )}
