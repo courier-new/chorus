@@ -91,44 +91,44 @@ export const PermissionsTab: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div className="space-y-4">
-                <div className="space-y-2">
-                    <h2 className="text-2xl font-semibold">Tool Permissions</h2>
-                    <p className="text-muted-foreground">
-                        Manage how AI models can use tools. Permissions are
-                        checked before each tool execution.
-                    </p>
-                </div>
-
-                <Card className="border-dashed">
-                    <CardContent className="flex items-center justify-between p-4">
-                        <div className="flex items-center gap-3">
-                            <DoorOpenIcon className="w-5 h-5 text-special-foreground" />
-                            <div>
-                                <Label
-                                    htmlFor="yolo-mode"
-                                    className={cn(
-                                        "text-base font-semibold cursor-pointer",
-                                        yoloMode && "shimmer",
-                                    )}
-                                >
-                                    YOLO Mode
-                                </Label>
-                                <p className="text-sm text-muted-foreground">
-                                    Automatically accept all tool requests
-                                </p>
-                            </div>
-                        </div>
-                        <Switch
-                            id="yolo-mode"
-                            checked={yoloMode ?? false}
-                            onCheckedChange={(checked) =>
-                                setYoloMode.mutate(checked)
-                            }
-                        />
-                    </CardContent>
-                </Card>
+            <div>
+                <h2 className="text-2xl font-semibold mb-2">
+                    Tool Permissions
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                    Manage how AI models can use tools. Permissions are checked
+                    before each tool execution.
+                </p>
             </div>
+
+            <Card className="border-dashed">
+                <CardContent className="flex items-center justify-between p-4">
+                    <div className="flex items-center gap-3">
+                        <DoorOpenIcon className="w-5 h-5 text-special-foreground" />
+                        <div>
+                            <Label
+                                htmlFor="yolo-mode"
+                                className={cn(
+                                    "text-base font-semibold cursor-pointer",
+                                    yoloMode && "shimmer",
+                                )}
+                            >
+                                YOLO Mode
+                            </Label>
+                            <p className="text-sm text-muted-foreground">
+                                Automatically accept all tool requests
+                            </p>
+                        </div>
+                    </div>
+                    <Switch
+                        id="yolo-mode"
+                        checked={yoloMode ?? false}
+                        onCheckedChange={(checked) =>
+                            setYoloMode.mutate(checked)
+                        }
+                    />
+                </CardContent>
+            </Card>
 
             {yoloMode && Object.keys(groupedPermissions).length > 0 && (
                 <div className="mt-4 p-4 bg-muted rounded-lg flex items-center gap-2">
