@@ -1,13 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@ui/components/ui/select";
 import { SettingsManager } from "@core/utilities/Settings";
-import { useTheme } from "@ui/hooks/useTheme";
 import {
     Dialog,
     DialogContent,
@@ -15,7 +7,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@ui/components/ui/dialog";
-import { Separator } from "../ui/separator";
 import {
     Loader2,
     ExternalLink,
@@ -24,9 +15,7 @@ import {
     Plus,
     ExternalLinkIcon,
     LinkIcon,
-    Fullscreen,
     ShieldCheckIcon,
-    RotateCcw,
     MergeIcon,
 } from "lucide-react";
 import {
@@ -41,9 +30,7 @@ import {
     Keyboard,
 } from "lucide-react";
 import { toast } from "sonner";
-import { config } from "@core/config";
 import { Button } from "../ui/button";
-import { Switch } from "@ui/components/ui/switch";
 import {
     Tabs,
     TabsContent,
@@ -53,13 +40,10 @@ import {
 import { useSearchParams } from "react-router-dom";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ApiKeysTabContent } from "./ApiKeysTabContent";
-import Database from "@tauri-apps/plugin-sql";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
-import { relaunch } from "@tauri-apps/plugin-process";
 import { useDatabase } from "@ui/hooks/useDatabase";
 import { InfoCircledIcon } from "@radix-ui/react-icons";
-import { AccessibilitySettings } from "./AccessibilityCheck";
 import { UNIVERSAL_SYSTEM_PROMPT_DEFAULT } from "@core/chorus/prompts/prompts";
 import { CustomToolsetConfig, getEnvFromJSON } from "@core/chorus/Toolsets";
 import * as ToolsetsAPI from "@core/chorus/api/ToolsetsAPI";
@@ -73,8 +57,6 @@ import { SiStripe } from "react-icons/si";
 import { SiElevenlabs } from "react-icons/si";
 import { ToolsetsManager } from "@core/chorus/ToolsetsManager";
 import { getToolsetIcon } from "@core/chorus/Toolsets";
-import ShortcutRecorder from "./ShortcutRecorder";
-import FeedbackButton from "../FeedbackButton";
 import { SiOpenai } from "react-icons/si";
 import ImportChatDialog from "./ImportChatDialog";
 import { dialogActions } from "@core/infra/DialogStore";
@@ -82,16 +64,8 @@ import * as AppMetadataAPI from "@core/chorus/api/AppMetadataAPI";
 import { PermissionsTab } from "./PermissionsTab";
 import { SynthesisSettings } from "./SynthesisSettings";
 import { cn } from "@ui/lib/utils";
-import {
-    comboToDisplayString,
-    validateShortcut,
-} from "@core/utilities/Shortcuts";
 import { KeyboardShortcutsSettings } from "./KeyboardShortcutsSettings";
-import {
-    useResetShortcut,
-    useUpdateShortcut,
-    useShortcutConfig,
-} from "@core/utilities/ShortcutsAPI";
+import { GeneralSettings } from "./GeneralSettings";
 
 type ToolsetFormProps = {
     toolset: CustomToolsetConfig;
@@ -1073,32 +1047,12 @@ interface SettingsProps {
     tab?: SettingsTabId;
 }
 
-const FONT_OPTIONS = {
-    sans: [
-        { label: "Geist", value: "Geist" },
-        { label: "Inter", value: "Inter" },
-        { label: "Fira Code", value: "Fira Code" },
-        { label: "Monaspace Neon", value: "Monaspace Neon" },
-        { label: "Monaspace Xenon", value: "Monaspace Xenon" },
-    ],
-    mono: [
-        { label: "System Mono", value: "system" },
-        { label: "JetBrains Mono", value: "JetBrains Mono" },
-        { label: "Fira Code", value: "Fira Code" },
-        { label: "Monaspace Argon", value: "Monaspace Argon" },
-        { label: "Monaspace Krypton", value: "Monaspace Krypton" },
-        { label: "Monaspace Radon", value: "Monaspace Radon" },
-        { label: "Monaspace Neon", value: "Monaspace Neon" },
-    ],
-} as const;
-
 export type SettingsTabId =
     | "general"
     | "import"
     | "system-prompt"
     | "synthesis"
     | "api-keys"
-    | "quick-chat"
     | "keyboard-shortcuts"
     | "connections"
     | "permissions"
@@ -1116,7 +1070,6 @@ const TABS: Record<SettingsTabId, TabConfig> = {
     "system-prompt": { label: "System Prompt", icon: FileText },
     synthesis: { label: "Synthesis", icon: MergeIcon },
     "api-keys": { label: "API Keys", icon: Key },
-    "quick-chat": { label: "Ambient Chat", icon: Fullscreen },
     "keyboard-shortcuts": { label: "Keyboard Shortcuts", icon: Keyboard },
     connections: { label: "Connections", icon: PlugIcon },
     permissions: { label: "Tool Permissions", icon: ShieldCheckIcon },
@@ -1126,23 +1079,12 @@ const TABS: Record<SettingsTabId, TabConfig> = {
 
 export default function Settings({ tab = "general" }: SettingsProps) {
     const settingsManager = SettingsManager.getInstance();
-    const { mode, setMode, setSansFont, setMonoFont, sansFont } = useTheme();
     const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
-    const [autoConvertLongText, setAutoConvertLongText] = useState(true);
-    const [autoScrapeUrls, setAutoScrapeUrls] = useState(true);
-    const [cautiousEnter, setCautiousEnter] = useState(false);
-    const [showCost, setShowCost] = useState(false);
     const { db } = useDatabase();
     const [searchParams] = useSearchParams();
     const defaultTab =
         tab || (searchParams.get("tab") as SettingsTabId) || "general";
 
-    const { combo: quickChatShortcut, disabled: quickChatDisabled } =
-        useShortcutConfig("ambient-chat");
-    // Artificial value to force a reset of the quick chat shortcut recorder by
-    // its parent component (this one)
-    const [quickChatShortcutForceReset, setQuickChatShortcutForceReset] =
-        useState(0);
     const [lmStudioBaseUrl, setLmStudioBaseUrl] = useState(
         "http://localhost:1234/v1",
     );
@@ -1151,9 +1093,6 @@ export default function Settings({ tab = "general" }: SettingsProps) {
     // Use React Query hooks for custom base URL
     const customBaseUrl = AppMetadataAPI.useCustomBaseUrl() || "";
     const setCustomBaseUrlMutation = AppMetadataAPI.useSetCustomBaseUrl();
-
-    const { mutate: updateShortcut } = useUpdateShortcut();
-    const { mutate: resetShortcut } = useResetShortcut();
 
     // Universal system prompt autosync
     const { draft: universalSystemPrompt, setDraft: setUniversalSystemPrompt } =
@@ -1186,21 +1125,6 @@ export default function Settings({ tab = "general" }: SettingsProps) {
             },
         });
 
-    const getCurrentThemeValue = () => {
-        return `default-${mode}`;
-    };
-
-    const handleThemeChange = (value: string) => {
-        const [_, mode] = value.split("-");
-        setMode(mode as "light" | "dark" | "system");
-    };
-
-    const handleSansFontChange = async (value: string) => {
-        setSansFont(value);
-        const currentSettings = await settingsManager.get();
-        void settingsManager.set({ ...currentSettings, sansFont: value });
-    };
-
     const handleApiKeyChange = async (provider: string, value: string) => {
         const currentSettings = await settingsManager.get();
         const newApiKeys = {
@@ -1220,92 +1144,14 @@ export default function Settings({ tab = "general" }: SettingsProps) {
     useEffect(() => {
         const loadSettings = async () => {
             const settings = await settingsManager.get();
-            setSansFont(settings.sansFont ?? "Geist");
-            setMonoFont(settings.monoFont ?? "Fira Code");
             setApiKeys(settings.apiKeys ?? {});
-            setAutoConvertLongText(settings.autoConvertLongText ?? true);
-            setAutoScrapeUrls(settings.autoScrapeUrls ?? true);
-            setCautiousEnter(settings.cautiousEnter ?? false);
-            setShowCost(settings.showCost ?? false);
             setLmStudioBaseUrl(
                 settings.lmStudioBaseUrl ?? "http://localhost:1234/v1",
             );
         };
 
         void loadSettings();
-    }, [db, setMonoFont, setSansFont, settingsManager]);
-
-    const handleQuickChatShortcutChange = useCallback(
-        (value: string) => {
-            updateShortcut({
-                shortcutId: "ambient-chat",
-                config: { combo: value, disabled: false },
-            });
-        },
-        [updateShortcut],
-    );
-
-    const handleQuickChatEnabledChange = useCallback(
-        (enabled: boolean) => {
-            updateShortcut({
-                shortcutId: "ambient-chat",
-                config: { combo: quickChatShortcut, disabled: !enabled },
-            });
-        },
-        [quickChatShortcut, updateShortcut],
-    );
-
-    const handleAutoConvertLongTextChange = async (enabled: boolean) => {
-        setAutoConvertLongText(enabled);
-        const currentSettings = await settingsManager.get();
-        void settingsManager.set({
-            ...currentSettings,
-            autoConvertLongText: enabled,
-        });
-    };
-
-    const handleAutoScrapeUrlsChange = async (enabled: boolean) => {
-        setAutoScrapeUrls(enabled);
-        const currentSettings = await settingsManager.get();
-        void settingsManager.set({
-            ...currentSettings,
-            autoScrapeUrls: enabled,
-        });
-    };
-
-    const handleCautiousEnterChange = async (enabled: boolean) => {
-        setCautiousEnter(enabled);
-        const currentSettings = await settingsManager.get();
-        void settingsManager.set({
-            ...currentSettings,
-            cautiousEnter: enabled,
-        });
-
-        // Update the app_metadata table directly
-        await db.execute(
-            `INSERT OR REPLACE INTO app_metadata (key, value) VALUES ('cautious_enter', ?)`,
-            [enabled ? "true" : "false"],
-        );
-
-        // Invalidate app metadata query to update all components using it
-        await queryClient.invalidateQueries({
-            queryKey: ["appMetadata"],
-        });
-    };
-
-    const handleShowCostChange = async (enabled: boolean) => {
-        setShowCost(enabled);
-        const currentSettings = await settingsManager.get();
-        void settingsManager.set({
-            ...currentSettings,
-            showCost: enabled,
-        });
-    };
-
-    const onDefaultQcShortcutClick = useCallback(() => {
-        resetShortcut("ambient-chat");
-        setQuickChatShortcutForceReset((prev) => prev + 1);
-    }, [resetShortcut]);
+    }, [db, settingsManager]);
 
     const onLmStudioBaseUrlChange = async (
         e: React.ChangeEvent<HTMLInputElement>,
@@ -1322,23 +1168,6 @@ export default function Settings({ tab = "general" }: SettingsProps) {
     const onCustomBaseUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newUrl = e.target.value;
         void setCustomBaseUrlMutation.mutate(newUrl);
-    };
-
-    const showOnboarding = async () => {
-        const db = await Database.load(config.dbUrl);
-        await db.execute(
-            "UPDATE app_metadata SET value = 'false' WHERE key = 'has_dismissed_onboarding'; UPDATE app_metadata SET value = '0' WHERE key = 'onboarding_step';",
-        );
-
-        // Invalidate the app metadata queries to trigger instant update
-        await queryClient.invalidateQueries({ queryKey: ["appMetadata"] });
-        await queryClient.invalidateQueries({
-            queryKey: ["hasDismissedOnboarding"],
-        });
-
-        toast("Onboarding Reset", {
-            description: "Onboarding will appear now.",
-        });
     };
 
     const handleImportHistory = (platform: "openai" | "anthropic") => {
@@ -1432,217 +1261,7 @@ export default function Settings({ tab = "general" }: SettingsProps) {
                 {/* Content Area */}
                 <div ref={contentRef} className="flex-1 overflow-y-auto p-6">
                     {activeTab === "general" && (
-                        <div className="space-y-6">
-                            <div>
-                                <h2 className="text-2xl font-semibold mb-2">
-                                    General
-                                </h2>
-                            </div>
-                            <div className="space-y-4">
-                                <p className="text-sm text-muted-foreground">
-                                    Chorus requires you to bring your own API
-                                    keys to use AI models. Add your keys in the
-                                    API Keys tab.
-                                </p>
-                                <div className="flex gap-2">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() =>
-                                            navigateToTab("api-keys")
-                                        }
-                                    >
-                                        Configure API Keys
-                                    </Button>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => void showOnboarding()}
-                                    >
-                                        <BookOpen className="h-4 w-4 mr-2" />
-                                        Restart Onboarding
-                                    </Button>
-                                </div>
-                                <p className="text-sm text-muted-foreground flex items-center flex-wrap gap-1">
-                                    Send us
-                                    <FeedbackButton className="underline hover:no-underline">
-                                        feedback
-                                    </FeedbackButton>
-                                    anytime, or
-                                    <button
-                                        className="underline hover:no-underline"
-                                        onClick={() => {
-                                            void openUrl(
-                                                "https://cal.com/choltz/jam",
-                                            );
-                                        }}
-                                    >
-                                        book a call
-                                    </button>
-                                    with the founders.
-                                </p>
-                            </div>
-
-                            <Separator className="my-4" />
-
-                            <div className="space-y-4">
-                                <div>
-                                    <label
-                                        htmlFor="theme-selector"
-                                        className="block  font-semibold mb-2"
-                                    >
-                                        Theme
-                                    </label>
-                                    <Select
-                                        onValueChange={(value) =>
-                                            void handleThemeChange(value)
-                                        }
-                                        value={getCurrentThemeValue()}
-                                    >
-                                        <SelectTrigger
-                                            id="theme-selector"
-                                            className="w-full"
-                                        >
-                                            <SelectValue placeholder="Select theme" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="default-system">
-                                                System
-                                            </SelectItem>
-                                            <Separator />
-                                            <SelectItem value="default-light">
-                                                Light
-                                            </SelectItem>
-                                            <SelectItem value="default-dark">
-                                                Dark
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div>
-                                    <label
-                                        htmlFor="sans-font"
-                                        className="block font-semibold mb-2"
-                                    >
-                                        Sans Font
-                                    </label>
-                                    <Select
-                                        onValueChange={(value) =>
-                                            void handleSansFontChange(value)
-                                        }
-                                        value={sansFont}
-                                    >
-                                        <SelectTrigger
-                                            id="sans-font"
-                                            className="w-full"
-                                        >
-                                            <SelectValue placeholder="Select sans font" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {FONT_OPTIONS.sans.map((font) => (
-                                                <SelectItem
-                                                    key={font.value}
-                                                    value={font.value}
-                                                >
-                                                    <span
-                                                        className={`font-${font.value
-                                                            .toLowerCase()
-                                                            .replace(
-                                                                /\s+/g,
-                                                                "-",
-                                                            )}`}
-                                                    >
-                                                        {font.label}
-                                                    </span>
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div className="flex items-center justify-between pt-6">
-                                    <div className="space-y-0.5">
-                                        <div className="font-semibold ">
-                                            Auto-convert long text
-                                        </div>
-                                        <div className=" ">
-                                            Automatically convert pasted text
-                                            longer than 5000 characters to a
-                                            file attachment
-                                        </div>
-                                    </div>
-                                    <Switch
-                                        checked={autoConvertLongText}
-                                        onCheckedChange={(enabled) =>
-                                            void handleAutoConvertLongTextChange(
-                                                enabled,
-                                            )
-                                        }
-                                    />
-                                </div>
-
-                                <div className="flex items-center justify-between">
-                                    <div className="space-y-0.5">
-                                        <div className="font-semibold ">
-                                            Auto-scrape URLs
-                                        </div>
-                                        <div className=" ">
-                                            Automatically scrape and attach
-                                            content from URLs in your messages
-                                        </div>
-                                    </div>
-                                    <Switch
-                                        checked={autoScrapeUrls}
-                                        onCheckedChange={(enabled) =>
-                                            void handleAutoScrapeUrlsChange(
-                                                enabled,
-                                            )
-                                        }
-                                    />
-                                </div>
-
-                                <div className="flex items-center justify-between pt-2">
-                                    <div className="space-y-0.5">
-                                        <div className="font-semibold ">
-                                            Cautious Enter key
-                                        </div>
-                                        <div className=" ">
-                                            Use Cmd+Enter to send messages
-                                            instead of Enter
-                                        </div>
-                                    </div>
-                                    <Switch
-                                        checked={cautiousEnter}
-                                        onCheckedChange={(enabled) =>
-                                            void handleCautiousEnterChange(
-                                                enabled,
-                                            )
-                                        }
-                                    />
-                                </div>
-
-                                <div className="flex items-center justify-between pt-2">
-                                    <div className="space-y-0.5">
-                                        <div className="font-semibold ">
-                                            Show message cost
-                                        </div>
-                                        <div className=" ">
-                                            Display cost estimates alongside
-                                            messages and in the sidebar
-                                        </div>
-                                    </div>
-                                    <Switch
-                                        checked={showCost}
-                                        onCheckedChange={(enabled) =>
-                                            void handleShowCostChange(enabled)
-                                        }
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="flex justify-end mt-4 mb-2"></div>
-                        </div>
+                        <GeneralSettings navigateToTab={navigateToTab} />
                     )}
 
                     {activeTab === "import" && (
@@ -1746,113 +1365,6 @@ export default function Settings({ tab = "general" }: SettingsProps) {
                                 void onLmStudioBaseUrlChange(e)
                             }
                         />
-                    )}
-
-                    {activeTab === "quick-chat" && (
-                        <div className="space-y-6">
-                            <div>
-                                <h2 className="text-2xl font-semibold mb-2">
-                                    Ambient Chat
-                                </h2>
-                            </div>
-                            <div className="space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <div className="space-y-0.5">
-                                        <label className="font-semibold">
-                                            Ambient Chat
-                                        </label>
-                                        <p className="text-sm text-muted-foreground">
-                                            Start an ambient chat with{" "}
-                                            <span className="font-mono">
-                                                {comboToDisplayString(
-                                                    quickChatShortcut,
-                                                    true,
-                                                )}
-                                            </span>
-                                        </p>
-                                    </div>
-                                    <Switch
-                                        checked={!quickChatDisabled}
-                                        onCheckedChange={
-                                            handleQuickChatEnabledChange
-                                        }
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <div className="space-y-0.5">
-                                        <label className="font-semibold">
-                                            Keyboard Shortcut
-                                        </label>
-                                        <p className="text-sm text-muted-foreground">
-                                            Enter the shortcut you want to use
-                                            to start an ambient chat. Requires a
-                                            restart to take effect.
-                                        </p>
-                                    </div>
-
-                                    <div className="flex items-start justify-between gap-2">
-                                        <ShortcutRecorder
-                                            className="w-full flex-1"
-                                            disabled={quickChatDisabled}
-                                            value={quickChatShortcut}
-                                            onChange={
-                                                handleQuickChatShortcutChange
-                                            }
-                                            onValidate={validateShortcut}
-                                            forceReset={
-                                                quickChatShortcutForceReset
-                                            }
-                                        />
-                                        <Button
-                                            className="gap-1"
-                                            disabled={quickChatDisabled}
-                                            variant="secondary"
-                                            size="xs"
-                                            onClick={onDefaultQcShortcutClick}
-                                            title="Reset to default"
-                                        >
-                                            <RotateCcw /> Reset
-                                        </Button>
-
-                                        <Button
-                                            variant="default"
-                                            disabled={quickChatDisabled}
-                                            size="xs"
-                                            onClick={() => {
-                                                const validation =
-                                                    validateShortcut(
-                                                        quickChatShortcut.split(
-                                                            "+",
-                                                        ),
-                                                    );
-                                                if (!validation.valid) {
-                                                    toast.error(
-                                                        "Invalid shortcut",
-                                                        {
-                                                            description:
-                                                                validation.error,
-                                                        },
-                                                    );
-                                                    return;
-                                                }
-                                                void relaunch().catch(
-                                                    console.error,
-                                                );
-                                            }}
-                                        >
-                                            Save and restart
-                                        </Button>
-                                    </div>
-                                </div>
-
-                                <Separator />
-
-                                <div className="space-y-4">
-                                    <AccessibilitySettings />
-                                </div>
-                            </div>
-                        </div>
                     )}
 
                     {activeTab === "keyboard-shortcuts" && (
