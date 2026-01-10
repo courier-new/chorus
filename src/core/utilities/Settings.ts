@@ -30,6 +30,10 @@ export interface Settings {
     lmStudioBaseUrl?: string;
     cautiousEnter?: boolean;
     shortcuts: ShortcutsSettings;
+    globalNewChat?: {
+        projectBehavior: "none" | "last-selected" | "specific";
+        specificProjectId?: string;
+    };
 }
 
 export class SettingsManager {

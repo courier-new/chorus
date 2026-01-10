@@ -38,6 +38,7 @@ export type ShortcutId =
     | "tools-box"
     // Quick chat (ambient chat)
     | "ambient-chat"
+    | "global-new-chat"
     | "open-in-main"
     | "toggle-vision";
 
@@ -265,6 +266,15 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
         description: "Starts an ambient chat.",
         scope: "quick-chat",
         defaultCombo: "Alt+Space",
+        requiresRestart: true,
+        visible: true,
+    },
+    "global-new-chat": {
+        id: "global-new-chat",
+        label: "Global New Chat",
+        description: "Opens the main window and creates a new chat.",
+        scope: "quick-chat",
+        defaultCombo: "Alt+Meta+Space",
         requiresRestart: true,
         visible: true,
     },
