@@ -483,6 +483,25 @@ export function useSetProviderVisibility() {
     });
 }
 
+/** Sets the last selected project ID in app metadata. */
+export function useSetLastSelectedProject() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey: ["setLastSelectedProject"] as const,
+        mutationFn: async (projectId: string) => {
+            await db.execute(
+                "INSERT OR REPLACE INTO app_metadata (key, value) VALUES (?, ?)",
+                ["last_selected_project_id", projectId],
+            );
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({
+                queryKey: appMetadataKeys.appMetadata(),
+            });
+        },
+    });
+}
+
 /** Clears the last selected project ID in app metadata. */
 export function useClearLastSelectedProject() {
     const queryClient = useQueryClient();
