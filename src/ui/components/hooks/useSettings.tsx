@@ -124,3 +124,25 @@ export function useSetSynthesisPrompt() {
         },
     });
 }
+
+/**
+ * Hook to set the global new chat config
+ */
+export function useSetGlobalNewChatConfig() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey: ["setGlobalNewChatConfig"] as const,
+        mutationFn: async (config: Settings["globalNewChat"]) => {
+            const currentSettings = await settingsManager.get();
+            await settingsManager.set({
+                ...currentSettings,
+                globalNewChat: config,
+            });
+        },
+        onSuccess: () => {
+            void queryClient.invalidateQueries({
+                queryKey: settingsQueryKeys.all,
+            });
+        },
+    });
+}
