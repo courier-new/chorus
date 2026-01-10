@@ -484,7 +484,7 @@ export function GeneralSettings({ navigateToTab }: GeneralSettingsProps) {
                                 </label>
                                 <p className="text-muted-foreground text-sm">
                                     Choose which project new chats are created
-                                    in when using the Global New Chat shortcut.
+                                    in when using the Global New Chat shortcut
                                 </p>
                             </div>
 
