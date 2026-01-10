@@ -482,3 +482,21 @@ export function useSetProviderVisibility() {
         },
     });
 }
+
+/** Clears the last selected project ID in app metadata. */
+export function useClearLastSelectedProject() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey: ["clearLastSelectedProject"] as const,
+        mutationFn: async () => {
+            await db.execute(
+                "DELETE FROM app_metadata WHERE key = 'last_selected_project_id'",
+            );
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({
+                queryKey: appMetadataKeys.appMetadata(),
+            });
+        },
+    });
+}

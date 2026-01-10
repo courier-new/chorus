@@ -2214,6 +2214,18 @@ export default function MultiChat() {
     const regenerateProjectContextSummaries =
         ProjectAPI.useRegenerateProjectContextSummaries();
 
+    const { mutate: clearLastSelectedProject } =
+        AppMetadataAPI.useClearLastSelectedProject();
+
+    useEffect(
+        function clearLastSelectedProjectOnDefaultProject() {
+            if (chatQuery.data?.projectId === "default") {
+                clearLastSelectedProject();
+            }
+        },
+        [chatQuery.data?.projectId, clearLastSelectedProject],
+    );
+
     // UI stuff
 
     const inputRef = useRef<HTMLTextAreaElement>(null);
