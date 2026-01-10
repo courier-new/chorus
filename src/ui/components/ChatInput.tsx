@@ -645,6 +645,7 @@ export function ChatInput({
                 className="flex flex-col w-full mx-auto relative"
             >
                 <AutoExpandingTextarea
+                    id="chat-input"
                     ref={inputRef}
                     value={draft}
                     onChange={(e) => {

@@ -503,7 +503,7 @@ function AppContent() {
         return () => clearInterval(updatesTimeout);
     }, [checkForUpdates]);
 
-    const { mutate: getOrCreateNewChat } = ChatAPI.useGetOrCreateNewChat();
+    const { mutateAsync: getOrCreateNewChat } = ChatAPI.useGetOrCreateNewChat();
     const { mutate: getOrCreateNewQuickChat } =
         ChatAPI.useGetOrCreateNewQuickChat();
     const { mutate: createProject } = ProjectAPI.useCreateProject();
@@ -530,9 +530,12 @@ function AppContent() {
                     getOrCreateNewQuickChat();
                 } else {
                     // Create a new chat in the appropriate context
-                    getOrCreateNewChat({
+                    await getOrCreateNewChat({
                         projectId: currentProjectId ?? "default",
                     });
+                    // Try to focus the new chat input
+                    const chatInput = document.getElementById("chat-input");
+                    chatInput?.focus();
                 }
             })();
         });
@@ -665,7 +668,10 @@ function AppContent() {
                     dialogActions.closeDialog();
                 }
 
-                getOrCreateNewChat({ projectId });
+                await getOrCreateNewChat({ projectId });
+                // Try to focus the new chat input
+                const chatInput = document.getElementById("chat-input");
+                chatInput?.focus();
             })();
         });
 
