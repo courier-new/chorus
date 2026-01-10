@@ -1182,11 +1182,16 @@ export default function Settings({ tab = "general" }: SettingsProps) {
             setActiveTab(tab);
             requestAnimationFrame(() => {
                 if (scrollToId) {
+                    const container = contentRef.current;
                     const element = document.getElementById(scrollToId);
-                    if (element) {
-                        element.scrollIntoView({
+                    if (container && element) {
+                        const containerHeight = container.clientHeight;
+                        const elementTop = element.offsetTop;
+                        container.scrollTo({
+                            // Buffer the scroll position so that the highlighed
+                            // element is closer to the center of the screen
+                            top: elementTop - containerHeight / 3,
                             behavior: "instant",
-                            block: "start",
                         });
                         // Highlight the element's location briefly
                         element.classList.add("settings-flash");
