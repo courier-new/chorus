@@ -12,6 +12,10 @@ import _ from "lodash";
 import { useNavigate } from "react-router-dom";
 import { db } from "../DB";
 import { Attachment, AttachmentDBRow, readAttachment } from "./AttachmentsAPI";
+import {
+    useSettings,
+    useSetGlobalNewChatConfig,
+} from "@ui/components/hooks/useSettings";
 
 export const projectKeys = {
     all: () => ["project"] as const,
@@ -122,6 +126,21 @@ export async function fetchProject(projectId: string) {
         throw new Error(`Project not found: ${projectId}`);
     }
     return readProject(rows[0]);
+}
+
+/**
+ * Checks if a project still exists in the database.
+ *
+ * @param projectId - The ID of the project to check.
+ * @returns True if the project exists, false otherwise.
+ */
+export async function projectExists(projectId: string): Promise<boolean> {
+    if (projectId === "default" || projectId === "quick-chat") return true;
+    const rows = await db.select<{ id: string }[]>(
+        "SELECT id FROM projects WHERE id = ?",
+        [projectId],
+    );
+    return rows.length > 0;
 }
 
 export const projectContextQueries = {
@@ -585,11 +604,21 @@ export function useRenameProject() {
 
 export function useDeleteProject() {
     const queryClient = useQueryClient();
+    const { mutate: setGlobalNewChatConfig } = useSetGlobalNewChatConfig();
+    const { data: settings } = useSettings();
     return useMutation({
         mutationKey: ["deleteProject"] as const,
         mutationFn: async ({ projectId }: { projectId: string }) => {
             // Note: Delete trigger will cascade to delete chats
             await db.execute("DELETE FROM projects WHERE id = $1", [projectId]);
+
+            // Clean up global new chat settings if this was the specific project
+            if (settings?.globalNewChat?.specificProjectId === projectId) {
+                setGlobalNewChatConfig({
+                    projectBehavior: "none",
+                    specificProjectId: undefined,
+                });
+            }
         },
         onSuccess: async () => {
             await queryClient.invalidateQueries(projectQueries.list());

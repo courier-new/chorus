@@ -69,7 +69,7 @@ fn parse_shortcut(shortcut_str: &str) -> Option<Shortcut> {
             "alt" => modifiers |= Modifiers::ALT,
             "ctrl" | "control" => modifiers |= Modifiers::CONTROL,
             "shift" => modifiers |= Modifiers::SHIFT,
-            "super" | "cmd" | "command" => modifiers |= Modifiers::SUPER,
+            "super" | "cmd" | "command" | "meta" => modifiers |= Modifiers::SUPER,
             _ => {
                 println!("Unknown modifier: {}", modifier);
                 return None;
@@ -391,7 +391,7 @@ pub fn run() {
         use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut};
 
         // Read the ambient-chat shortcut from the settings store.
-        let quick_chat_shortcut = store
+        let quick_chat_shortcut_str = store
             .as_ref()
             .and_then(|store| store.get("settings"))
             .and_then(|settings| {
@@ -404,38 +404,101 @@ pub fn run() {
             })
             .unwrap_or("Alt+Space".to_string());
 
-        let shortcut = parse_shortcut(&quick_chat_shortcut)
+        let quick_chat_shortcut = parse_shortcut(&quick_chat_shortcut_str)
             .unwrap_or(Shortcut::new(Some(Modifiers::ALT), Code::Space));
 
-        // Register the quickChat shortcut.
+        // Read the global-new-chat shortcut from the settings store.
+        let global_new_chat_shortcut_str = store
+            .as_ref()
+            .and_then(|store| store.get("settings"))
+            .and_then(|settings| {
+                settings
+                    .as_object()
+                    .and_then(|s| s.get("shortcuts"))
+                    .and_then(|shortcuts| shortcuts.get("global-new-chat"))
+                    .and_then(|config| config.get("combo"))
+                    .and_then(|c| c.as_str().map(String::from))
+            })
+            .unwrap_or("Alt+Meta+Space".to_string());
+
+        let global_new_chat_shortcut = parse_shortcut(&global_new_chat_shortcut_str)
+            .unwrap_or(Shortcut::new(
+                Some(Modifiers::ALT | Modifiers::META),
+                Code::Space,
+            ));
+
+        // Store shortcut IDs for comparison in handler
+        let quick_chat_id = quick_chat_shortcut.id();
+        let global_new_chat_id = global_new_chat_shortcut.id();
+
+        // Build the list of shortcuts to register, avoiding duplicates
+        let shortcuts_to_register: Vec<Shortcut> =
+            if quick_chat_shortcut_str == global_new_chat_shortcut_str {
+                // If both shortcuts are the same, only register one (prefer global-new-chat)
+                println!(
+                    "Warning: ambient-chat and global-new-chat have the same shortcut ({}), only registering global-new-chat",
+                    global_new_chat_shortcut_str
+                );
+                vec![global_new_chat_shortcut]
+            } else {
+                vec![quick_chat_shortcut, global_new_chat_shortcut]
+            };
+
+        // Register global shortcuts.
         app.handle().plugin(
             tauri_plugin_global_shortcut::Builder::new()
-                .with_shortcuts([shortcut])
-                .expect("Failed to register shortcut")
-                .with_handler(move |app, shortcut, event| {
-                    if event.state == ShortcutState::Pressed && event.id == shortcut.id() {
-                        let panel = app.get_webview_panel(SPOTLIGHT_LABEL).unwrap();
+                .with_shortcuts(shortcuts_to_register)
+                .expect("Failed to register shortcuts")
+                .with_handler(move |app, _shortcut, event| {
+                    if event.state == ShortcutState::Pressed {
                         let store = app.store("settings");
-                        // Check if the ambient-chat shortcut is disabled
-                        let quick_chat_disabled = store
-                            .ok()
-                            .and_then(|store| store.get("settings"))
-                            .and_then(|settings| {
-                                settings
-                                    .as_object()
-                                    .and_then(|s| s.get("shortcuts"))
-                                    .and_then(|shortcuts| shortcuts.get("ambient-chat"))
-                                    .and_then(|config| config.get("disabled"))
-                                    .and_then(|d| d.as_bool())
-                            })
-                            .unwrap_or(false); // Default to enabled (not disabled)
-                        if !quick_chat_disabled {
-                            if panel.is_visible() {
-                                panel.order_out(None);
-                            } else {
-                                let handle = app.app_handle();
-                                handle.emit("show_quick_chat", ()).unwrap();
-                                panel.show();
+
+                        if event.id == quick_chat_id {
+                            // Handle ambient-chat shortcut
+                            let panel = app.get_webview_panel(SPOTLIGHT_LABEL).unwrap();
+                            let quick_chat_disabled = store
+                                .ok()
+                                .and_then(|store| store.get("settings"))
+                                .and_then(|settings| {
+                                    settings
+                                        .as_object()
+                                        .and_then(|s| s.get("shortcuts"))
+                                        .and_then(|shortcuts| shortcuts.get("ambient-chat"))
+                                        .and_then(|config| config.get("disabled"))
+                                        .and_then(|d| d.as_bool())
+                                })
+                                .unwrap_or(false);
+                            if !quick_chat_disabled {
+                                if panel.is_visible() {
+                                    panel.order_out(None);
+                                } else {
+                                    let handle = app.app_handle();
+                                    handle.emit("show_quick_chat", ()).unwrap();
+                                    panel.show();
+                                }
+                            }
+                        } else if event.id == global_new_chat_id {
+                            // Handle global-new-chat shortcut
+                            let global_new_chat_disabled = store
+                                .ok()
+                                .and_then(|store| store.get("settings"))
+                                .and_then(|settings| {
+                                    settings
+                                        .as_object()
+                                        .and_then(|s| s.get("shortcuts"))
+                                        .and_then(|shortcuts| shortcuts.get("global-new-chat"))
+                                        .and_then(|config| config.get("disabled"))
+                                        .and_then(|d| d.as_bool())
+                                })
+                                .unwrap_or(false);
+                            if !global_new_chat_disabled {
+                                // Show and focus the main window
+                                if let Some(main_window) = app.get_webview_window("main") {
+                                    let _ = main_window.show();
+                                    let _ = main_window.set_focus();
+                                }
+                                // Emit event to frontend to create new chat
+                                app.emit("global_new_chat", ()).unwrap();
                             }
                         }
                     }

@@ -76,6 +76,7 @@ import * as AppMetadataAPI from "@core/chorus/api/AppMetadataAPI";
 import * as ToolsetsAPI from "@core/chorus/api/ToolsetsAPI";
 import * as ChatAPI from "@core/chorus/api/ChatAPI";
 import * as ProjectAPI from "@core/chorus/api/ProjectAPI";
+import { SettingsManager } from "@core/utilities/Settings";
 
 const mutationCache = new MutationCache({
     onError: (error, variables, context) => {
@@ -502,7 +503,7 @@ function AppContent() {
         return () => clearInterval(updatesTimeout);
     }, [checkForUpdates]);
 
-    const { mutate: getOrCreateNewChat } = ChatAPI.useGetOrCreateNewChat();
+    const { mutateAsync: getOrCreateNewChat } = ChatAPI.useGetOrCreateNewChat();
     const { mutate: getOrCreateNewQuickChat } =
         ChatAPI.useGetOrCreateNewQuickChat();
     const { mutate: createProject } = ProjectAPI.useCreateProject();
@@ -529,9 +530,12 @@ function AppContent() {
                     getOrCreateNewQuickChat();
                 } else {
                     // Create a new chat in the appropriate context
-                    getOrCreateNewChat({
+                    await getOrCreateNewChat({
                         projectId: currentProjectId ?? "default",
                     });
+                    // Try to focus the new chat input
+                    const chatInput = document.getElementById("chat-input");
+                    chatInput?.focus();
                 }
             })();
         });
@@ -629,12 +633,55 @@ function AppContent() {
             })();
         });
 
+        // Listen for global new chat event (from global shortcut)
+        const unlistenGlobalNewChat = listen("global_new_chat", () => {
+            void (async () => {
+                // Skip if this is the quick chat window
+                if (isQuickChatWindow) return;
+
+                // Get settings to determine where to create the new chat
+                let projectId: string | undefined;
+                const settingsManager = SettingsManager.getInstance();
+                const settings = await settingsManager.get();
+                const { projectBehavior, specificProjectId } =
+                    settings.globalNewChat ?? {};
+                if (projectBehavior === "last-selected") {
+                    projectId =
+                        await AppMetadataAPI.fetchLastSelectedProjectId();
+                } else if (
+                    projectBehavior === "specific" &&
+                    specificProjectId
+                ) {
+                    projectId = specificProjectId;
+                }
+
+                if (
+                    !projectId ||
+                    // Verify the project still exists
+                    !(await ProjectAPI.projectExists(projectId))
+                ) {
+                    projectId = "default";
+                }
+
+                // Close any dialogs that may be open
+                if (isDialogOpen) {
+                    dialogActions.closeDialog();
+                }
+
+                await getOrCreateNewChat({ projectId });
+                // Try to focus the new chat input
+                const chatInput = document.getElementById("chat-input");
+                chatInput?.focus();
+            })();
+        });
+
         return () => {
             void unlistenNewChat.then((fn) => fn());
             void unlistenNewProject.then((fn) => fn());
             void unlistenSettings.then((fn) => fn());
             void unlistenChangelog.then((fn) => fn());
             void unlistenAbout.then((fn) => fn());
+            void unlistenGlobalNewChat.then((fn) => fn());
         };
     }, [
         createProject,

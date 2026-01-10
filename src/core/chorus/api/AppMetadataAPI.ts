@@ -21,6 +21,16 @@ export async function fetchAppMetadata(): Promise<Record<string, string>> {
     );
 }
 
+/** Fetches the ID of the last selected project from app metadata. */
+export async function fetchLastSelectedProjectId(): Promise<
+    string | undefined
+> {
+    const result = await db.select<{ value: string }[]>(
+        "SELECT value FROM app_metadata WHERE key = 'last_selected_project_id'",
+    );
+    return result[0]?.value;
+}
+
 export function useAppMetadata() {
     return useQuery({
         queryKey: appMetadataKeys.appMetadata(),
@@ -467,6 +477,43 @@ export function useSetProviderVisibility() {
 
         onSettled: () => {
             void queryClient.invalidateQueries({
+                queryKey: appMetadataKeys.appMetadata(),
+            });
+        },
+    });
+}
+
+/** Sets the last selected project ID in app metadata. */
+export function useSetLastSelectedProject() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey: ["setLastSelectedProject"] as const,
+        mutationFn: async (projectId: string) => {
+            await db.execute(
+                "INSERT OR REPLACE INTO app_metadata (key, value) VALUES (?, ?)",
+                ["last_selected_project_id", projectId],
+            );
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({
+                queryKey: appMetadataKeys.appMetadata(),
+            });
+        },
+    });
+}
+
+/** Clears the last selected project ID in app metadata. */
+export function useClearLastSelectedProject() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey: ["clearLastSelectedProject"] as const,
+        mutationFn: async () => {
+            await db.execute(
+                "DELETE FROM app_metadata WHERE key = 'last_selected_project_id'",
+            );
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({
                 queryKey: appMetadataKeys.appMetadata(),
             });
         },

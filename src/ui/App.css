@@ -382,6 +382,24 @@ body {
     animation: accentPulse 2s ease-in-out infinite;
 }
 
+/* Flash animation for scroll-to-element highlighting */
+@keyframes settingsFlash {
+    0% {
+        background-color: transparent;
+    }
+    30%,
+    70% {
+        background-color: hsl(30 47% 63% / 0.25); /* accent-500 */
+    }
+    100% {
+        background-color: transparent;
+    }
+}
+
+.settings-flash {
+    animation: settingsFlash 900ms ease-out;
+}
+
 /*
 
 Atom One Light by Daniel Gamage

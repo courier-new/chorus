@@ -97,7 +97,10 @@ function ShortcutRow({
     }, [onResetProp, shortcutId]);
 
     return (
-        <div className="grid grid-cols-[1fr_auto] gap-4 py-3">
+        <div
+            className="grid grid-cols-[1fr_auto] gap-4 py-3 -ml-1 px-1"
+            id={shortcutId}
+        >
             <div className="min-w-0">
                 <div className="flex items-center gap-2">
                     <span className="font-medium text-base">{label}</span>

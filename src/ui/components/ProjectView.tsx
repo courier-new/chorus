@@ -50,6 +50,7 @@ import { Link } from "react-router-dom";
 import { SidebarTrigger } from "./ui/sidebar";
 import * as ProjectAPI from "@core/chorus/api/ProjectAPI";
 import * as ChatAPI from "@core/chorus/api/ChatAPI";
+import * as AppMetadataAPI from "@core/chorus/api/AppMetadataAPI";
 import { useShortcutDisplay } from "@core/utilities/ShortcutsAPI";
 
 const deleteProjectDialogId = (projectId: string) =>
@@ -88,6 +89,22 @@ export default function ProjectView() {
             .filter((chat) => !chat.isNewChat) ?? [];
 
     const { open } = useSidebar();
+
+    const { mutate: setLastSelectedProject } =
+        AppMetadataAPI.useSetLastSelectedProject();
+
+    useEffect(
+        function setLastSelectedProjectOnProjectView() {
+            if (
+                projectId &&
+                projectId !== "default" &&
+                projectId !== "quick-chat"
+            ) {
+                setLastSelectedProject(projectId);
+            }
+        },
+        [projectId, setLastSelectedProject],
+    );
 
     // File attachment hook
     const fileSelect = useFileSelect({
