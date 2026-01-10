@@ -14,6 +14,7 @@ import { BookOpen, KeyIcon } from "lucide-react";
 import { toast } from "sonner";
 import { config } from "@core/config";
 import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 import { Switch } from "@ui/components/ui/switch";
 import Database from "@tauri-apps/plugin-sql";
 import { useDatabase } from "@ui/hooks/useDatabase";
@@ -27,9 +28,11 @@ import {
 } from "@core/utilities/ShortcutsAPI";
 import { useSettings, useSetGlobalNewChatConfig } from "../hooks/useSettings";
 import * as ProjectAPI from "@core/chorus/api/ProjectAPI";
+import * as AppMetadataAPI from "@core/chorus/api/AppMetadataAPI";
 import { useQuery } from "@tanstack/react-query";
 import { RadioGroup, RadioGroupItem } from "@ui/components/ui/radio-group";
 import type { SettingsTabId } from "./Settings";
+import { SettingsTabHeader } from "./SettingsTabHeader";
 
 const FONT_OPTIONS = [
     "Geist",
@@ -64,6 +67,10 @@ export function GeneralSettings({ navigateToTab }: GeneralSettingsProps) {
         useShortcutConfig("ambient-chat");
     const { combo: globalNewChatShortcut, disabled: globalNewChatDisabled } =
         useShortcutConfig("global-new-chat");
+
+    // Custom base URL for routing requests through a proxy
+    const customBaseUrl = AppMetadataAPI.useCustomBaseUrl() || "";
+    const { mutate: setCustomBaseUrl } = AppMetadataAPI.useSetCustomBaseUrl();
 
     const { data: settings } = useSettings();
     const globalNewChatConfig = settings?.globalNewChat;
@@ -248,15 +255,25 @@ export function GeneralSettings({ navigateToTab }: GeneralSettingsProps) {
         [navigateToTab],
     );
 
+    const onCustomBaseUrlChange = useCallback(
+        (e: React.ChangeEvent<HTMLInputElement>) => {
+            const newUrl = e.target.value;
+            void setCustomBaseUrl(newUrl);
+        },
+        [setCustomBaseUrl],
+    );
+
+    const handleClearCustomBaseUrl = useCallback(() => {
+        void setCustomBaseUrl("");
+        toast.success("Custom base URL cleared");
+    }, [setCustomBaseUrl]);
+
     return (
         <div className="space-y-6">
-            <div>
-                <h2 className="text-2xl font-semibold mb-2">General</h2>
-                <p className="text-sm text-muted-foreground">
-                    Chorus requires you to bring your own API keys to use AI
-                    models. Add your keys in the API Keys tab.
-                </p>
-            </div>
+            <SettingsTabHeader
+                title="General"
+                description="Chorus requires you to bring your own API keys to use AI models. Add your keys in the API Keys tab."
+            />
             <div className="flex gap-2">
                 <Button
                     variant="outline"
@@ -467,7 +484,7 @@ export function GeneralSettings({ navigateToTab }: GeneralSettingsProps) {
                                 </label>
                                 <p className="text-muted-foreground text-sm">
                                     Choose which project new chats are created
-                                    in when using the Global New Chat shortcut.
+                                    in when using the Global New Chat shortcut
                                 </p>
                             </div>
 
@@ -599,6 +616,84 @@ export function GeneralSettings({ navigateToTab }: GeneralSettingsProps) {
                         />
                     </CollapsibleContent>
                 </Collapsible>
+            </div>
+
+            <Separator className="my-4" />
+
+            {/* Custom Base URL Settings */}
+            <div className="space-y-4">
+                <div>
+                    <label className="font-semibold">
+                        Base URL Configuration
+                    </label>
+                    <p className="text-sm text-muted-foreground">
+                        Configure a custom base URL for all model requests. This
+                        allows you to route requests through your own proxy or
+                        server.
+                    </p>
+                </div>
+                <div className="space-y-2">
+                    <label htmlFor="custom-base-url" className="font-semibold">
+                        Custom Base URL
+                    </label>
+                    <Input
+                        id="custom-base-url"
+                        value={customBaseUrl}
+                        onChange={onCustomBaseUrlChange}
+                        placeholder="https://your-proxy.com"
+                        className="font-mono"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                        Leave empty to use the default Chorus proxy. When set,
+                        all model requests will be sent directly to this URL
+                        without any path modifications.
+                    </p>
+                </div>
+
+                {customBaseUrl && (
+                    <div className="border rounded-md p-4 bg-muted/50">
+                        <h4 className="font-semibold text-sm mb-2">
+                            Configuration Details
+                        </h4>
+                        <div className="space-y-2 text-sm">
+                            <p>
+                                When using a custom base URL, requests will be
+                                sent directly to your proxy without any path
+                                prefixes.
+                            </p>
+                            <p className="text-muted-foreground">
+                                Your proxy should:
+                            </p>
+                            <ul className="list-disc list-inside space-y-1 text-muted-foreground ml-2">
+                                <li>
+                                    Handle routing to the appropriate model
+                                    providers
+                                </li>
+                                <li>
+                                    Manage authentication with each provider
+                                </li>
+                                <li>
+                                    Forward request/response data appropriately
+                                </li>
+                            </ul>
+                            <p className="text-xs mt-2 text-muted-foreground">
+                                The proxy will receive the raw OpenAI-compatible
+                                API requests for all providers.
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                <div className="flex justify-end gap-2 pt-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleClearCustomBaseUrl}
+                        disabled={!customBaseUrl}
+                    >
+                        Clear
+                    </Button>
+                </div>
             </div>
 
             <div className="flex justify-end mt-4 mb-2"></div>

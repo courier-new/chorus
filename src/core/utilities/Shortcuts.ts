@@ -85,7 +85,8 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     "global-new-chat": {
         id: "global-new-chat",
         label: "Global New Chat",
-        description: "Opens the main window and creates a new chat.",
+        description:
+            "Opens the main window and creates a new chat in the configured project context",
         scope: "navigation",
         defaultCombo: "Alt+Meta+Space",
         requiresRestart: true,
@@ -113,7 +114,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
         id: "command-menu",
         label: "Command Menu",
         description:
-            "Opens the command menu for searching chats, messages, and actions.",
+            "Opens the command menu for searching chats, messages, and actions",
         scope: "navigation",
         defaultCombo: "Meta+K",
         requiresRestart: false,
@@ -122,7 +123,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     "navigate-back": {
         id: "navigate-back",
         label: "Navigate Back",
-        description: "Navigates to the previous page in history.",
+        description: "Navigates to the previous page in history",
         scope: "navigation",
         defaultCombo: "Meta+[",
         requiresRestart: false,
@@ -131,7 +132,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     "navigate-forward": {
         id: "navigate-forward",
         label: "Navigate Forward",
-        description: "Navigates to the next page in history.",
+        description: "Navigates to the next page in history",
         scope: "navigation",
         defaultCombo: "Meta+]",
         requiresRestart: false,
@@ -140,7 +141,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     prompts: {
         id: "prompts",
         label: "Prompts",
-        description: "Opens the custom prompts management page.",
+        description: "Opens the custom prompts management page",
         scope: "navigation",
         defaultCombo: "Meta+P",
         requiresRestart: false,
@@ -149,7 +150,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     "toggle-sidebar": {
         id: "toggle-sidebar",
         label: "Toggle Sidebar",
-        description: "Shows or hides the sidebar.",
+        description: "Shows or hides the sidebar",
         scope: "navigation",
         defaultCombo: "Meta+B",
         requiresRestart: false,
@@ -160,7 +161,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     "zoom-in": {
         id: "zoom-in",
         label: "Zoom In",
-        description: "Increases the UI zoom level by 10%.",
+        description: "Increases the UI zoom level by 10%",
         scope: "zoom",
         defaultCombo: "Meta+=",
         requiresRestart: false,
@@ -169,7 +170,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     "zoom-out": {
         id: "zoom-out",
         label: "Zoom Out",
-        description: "Decreases the UI zoom level by 10%.",
+        description: "Decreases the UI zoom level by 10%",
         scope: "zoom",
         defaultCombo: "Meta+-",
         requiresRestart: false,
@@ -178,7 +179,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     "zoom-reset": {
         id: "zoom-reset",
         label: "Reset Zoom",
-        description: "Resets the UI zoom level to 100%.",
+        description: "Resets the UI zoom level to 100%",
         scope: "zoom",
         defaultCombo: "Meta+0",
         requiresRestart: false,
@@ -189,7 +190,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     "model-picker": {
         id: "model-picker",
         label: "Model Picker",
-        description: "Opens the model picker to select AI models.",
+        description: "Opens the model picker to select AI models",
         scope: "chat",
         defaultCombo: "Meta+J",
         requiresRestart: false,
@@ -198,7 +199,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     "clear-models": {
         id: "clear-models",
         label: "Clear Models",
-        description: "Clears all models currently selected.",
+        description: "Clears all models currently selected",
         scope: "chat",
         defaultCombo: "Meta+Shift+Backspace",
         requiresRestart: false,
@@ -207,7 +208,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     "focus-input": {
         id: "focus-input",
         label: "Focus Input",
-        description: "Focuses the chat input field.",
+        description: "Focuses the chat input field",
         scope: "chat",
         defaultCombo: "Meta+L",
         requiresRestart: false,
@@ -216,7 +217,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     synthesize: {
         id: "synthesize",
         label: "Synthesize",
-        description: "Generates a synthesis from model responses.",
+        description: "Generates a synthesis from model responses",
         scope: "chat",
         defaultCombo: "Meta+S",
         requiresRestart: false,
@@ -225,7 +226,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     "share-chat": {
         id: "share-chat",
         label: "Share Chat",
-        description: "Creates a shareable web link for the current chat.",
+        description: "Creates a shareable web link for the current chat",
         scope: "chat",
         defaultCombo: "Meta+Shift+S",
         requiresRestart: false,
@@ -234,7 +235,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     "find-in-page": {
         id: "find-in-page",
         label: "Find in Page",
-        description: "Opens the find-in-page search bar.",
+        description: "Opens the find-in-page search bar",
         scope: "chat",
         defaultCombo: "Meta+F",
         requiresRestart: false,
@@ -243,7 +244,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     "find-next": {
         id: "find-next",
         label: "Find Next",
-        description: "Jumps to the next search result.",
+        description: "Jumps to the next search result",
         scope: "chat",
         defaultCombo: "Meta+G",
         requiresRestart: false,
@@ -252,7 +253,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     "find-previous": {
         id: "find-previous",
         label: "Find Previous",
-        description: "Jumps to the previous search result.",
+        description: "Jumps to the previous search result",
         scope: "chat",
         defaultCombo: "Meta+Shift+G",
         requiresRestart: false,
@@ -261,7 +262,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     "tools-box": {
         id: "tools-box",
         label: "Tools",
-        description: "Opens the tools and connections management dialog.",
+        description: "Opens the tools and connections management dialog",
         scope: "chat",
         defaultCombo: "Meta+T",
         requiresRestart: false,
@@ -272,7 +273,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     "ambient-chat": {
         id: "ambient-chat",
         label: "Ambient Chat",
-        description: "Starts an ambient chat.",
+        description: "Starts an ambient chat",
         scope: "quick-chat",
         defaultCombo: "Alt+Space",
         requiresRestart: true,
@@ -281,7 +282,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     "open-in-main": {
         id: "open-in-main",
         label: "Open in Main Window",
-        description: "Opens the current quick chat in the main window.",
+        description: "Opens the current quick chat in the main window",
         scope: "quick-chat",
         defaultCombo: "Meta+O",
         requiresRestart: false,
@@ -290,7 +291,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     "toggle-vision": {
         id: "toggle-vision",
         label: "Toggle Vision",
-        description: "Toggles vision mode to let the AI see your screen.",
+        description: "Toggles vision mode to let the AI see your screen",
         scope: "quick-chat",
         defaultCombo: "Meta+I",
         requiresRestart: false,

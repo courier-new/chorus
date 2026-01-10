@@ -34,6 +34,7 @@ import {
 import ShortcutRecorder from "./ShortcutRecorder";
 import { RotateCcw } from "lucide-react";
 import { DEFAULT_SYNTHESIS_MODEL_CONFIG_ID } from "@core/utilities/Settings";
+import { SettingsTabHeader } from "./SettingsTabHeader";
 
 export function SynthesisSettings() {
     // Synthesis settings hooks
@@ -144,13 +145,10 @@ export function SynthesisSettings() {
 
     return (
         <div className="space-y-6">
-            <div>
-                <h2 className="text-2xl font-semibold mb-2">Synthesis</h2>
-                <p className="text-sm text-muted-foreground">
-                    Configure settings for synthesizing responses from multiple
-                    models.
-                </p>
-            </div>
+            <SettingsTabHeader
+                title="Synthesis"
+                description="Configure settings for synthesizing responses from multiple models."
+            />
 
             <div className="space-y-4">
                 <div className="flex items-center justify-between">

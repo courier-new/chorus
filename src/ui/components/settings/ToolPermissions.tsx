@@ -19,7 +19,7 @@ import { ToolPermissionType } from "@core/chorus/Toolsets";
 import { cn } from "@ui/lib/utils";
 import { QuestionMarkCircledIcon } from "@radix-ui/react-icons";
 
-export const PermissionsTab: React.FC = () => {
+export const ToolPermissions: React.FC = () => {
     const { data: permissions, isLoading } =
         ToolPermissionsAPI.useAllToolPermissions();
     const deletePermission = ToolPermissionsAPI.useDeleteToolPermission();
@@ -90,17 +90,8 @@ export const PermissionsTab: React.FC = () => {
     }
 
     return (
-        <div className="space-y-6">
-            <div>
-                <h2 className="text-2xl font-semibold mb-2">
-                    Tool Permissions
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                    Manage how AI models can use tools. Permissions are checked
-                    before each tool execution.
-                </p>
-            </div>
-
+        <div className="space-y-4">
+            <h3 className="text-lg font-semibold mb-2">Tool permissions</h3>
             <Card className="border-dashed">
                 <CardContent className="flex items-center justify-between p-4">
                     <div className="flex items-center gap-3">

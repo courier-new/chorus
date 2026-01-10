@@ -29,6 +29,7 @@ import {
     useShortcutConfig,
 } from "@core/utilities/ShortcutsAPI";
 import { cn } from "@ui/lib/utils";
+import { SettingsTabHeader } from "./SettingsTabHeader";
 
 const SCOPE_ORDER: { scope: ShortcutScope; label: string }[] = [
     { scope: "navigation", label: "Navigation" },
@@ -327,14 +328,10 @@ export function KeyboardShortcutsSettings() {
 
     return (
         <div className="space-y-6">
-            <div>
-                <h2 className="text-2xl font-semibold mb-2">
-                    Keyboard Shortcuts
-                </h2>
-                <p className="text-muted-foreground text-sm">
-                    Enable, disable, and customize keyboard shortcuts.
-                </p>
-            </div>
+            <SettingsTabHeader
+                title="Keyboard Shortcuts"
+                description="Enable, disable, and customize keyboard shortcuts."
+            />
 
             <div className="flex justify-end gap-2">
                 <Button
