@@ -254,9 +254,7 @@ function ToolsBox() {
         }
     }, [toolsBoxIsOpen]);
 
-    useConfigurableShortcut("tools-box", toggleToolsBox, {
-        enableOnDialogIds: [TOOLS_BOX_DIALOG_ID],
-    });
+    useConfigurableShortcut("tools-box", toggleToolsBox);
 
     const enabledToolsets =
         toolsets.data?.filter(
