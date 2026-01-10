@@ -1,6 +1,6 @@
 import { Component, ErrorInfo, ReactNode } from "react";
 import { Button } from "./button";
-import { ConstructionIcon, ArrowRightIcon } from "lucide-react";
+import { AlertCircleIcon, ArrowRightIcon } from "lucide-react";
 
 interface Props {
     children: ReactNode;
@@ -44,7 +44,7 @@ class ErrorBoundary extends Component<Props, State> {
         if (this.state.hasError) {
             return (
                 <div className="flex flex-col items-center justify-center h-screen p-4 gap-4 bg-background">
-                    <ConstructionIcon className="w-12 h-12 text-foreground-accent" />
+                    <AlertCircleIcon className="w-12 h-12 text-foreground-accent" />
                     <h2 className="text-2xl font-extralight text-foreground">
                         Uh-oh, something went wrong! :(
                     </h2>
