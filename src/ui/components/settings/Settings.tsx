@@ -1353,12 +1353,21 @@ export default function Settings({ tab = "general" }: SettingsProps) {
             setActiveTab(tab);
             requestAnimationFrame(() => {
                 if (scrollToId) {
-                    document
-                        .getElementById(scrollToId)
-                        ?.scrollIntoView({
+                    const element = document.getElementById(scrollToId);
+                    if (element) {
+                        element.scrollIntoView({
                             behavior: "instant",
                             block: "start",
                         });
+                        // Highlight the element's location briefly
+                        element.classList.add("settings-flash");
+                        // Clean up after animation completes
+                        element.addEventListener(
+                            "animationend",
+                            () => element.classList.remove("settings-flash"),
+                            { once: true },
+                        );
+                    }
                 } else if (contentRef.current) {
                     contentRef.current.scrollTop = 0;
                 }
