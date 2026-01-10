@@ -39,8 +39,8 @@ import {
 } from "@ui/components/ui/tabs";
 import { useSearchParams } from "react-router-dom";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ApiKeysTabContent } from "./ApiKeysTabContent";
 import { Input } from "../ui/input";
+import { ApiKeysSettings } from "./ApiKeysSettings";
 import { Textarea } from "../ui/textarea";
 import { useDatabase } from "@ui/hooks/useDatabase";
 import { InfoCircledIcon } from "@radix-ui/react-icons";
@@ -1352,7 +1352,7 @@ export default function Settings({ tab = "general" }: SettingsProps) {
                     {activeTab === "synthesis" && <SynthesisSettings />}
 
                     {activeTab === "api-keys" && (
-                        <ApiKeysTabContent
+                        <ApiKeysSettings
                             apiKeys={apiKeys}
                             onApiKeyChange={handleApiKeyChange}
                             lmStudioBaseUrl={lmStudioBaseUrl}
