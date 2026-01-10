@@ -39,6 +39,17 @@ const FONT_OPTIONS = [
     "Monaspace Xenon",
 ] as const;
 
+function ChangeShortcutButton({ onClick }: { onClick: () => void }) {
+    return (
+        <button
+            className="text-muted-foreground underline hover:no-underline"
+            onClick={onClick}
+        >
+            Change shortcut
+        </button>
+    );
+}
+
 interface GeneralSettingsProps {
     navigateToTab: (tab: SettingsTabId, scrollToId?: string) => void;
 }
@@ -51,14 +62,35 @@ export function GeneralSettings({ navigateToTab }: GeneralSettingsProps) {
 
     const { combo: quickChatShortcut, disabled: quickChatDisabled } =
         useShortcutConfig("ambient-chat");
+    const { combo: globalNewChatShortcut, disabled: globalNewChatDisabled } =
+        useShortcutConfig("global-new-chat");
 
     const { data: settings } = useSettings();
+    const globalNewChatConfig = settings?.globalNewChat;
     const showCost = settings?.showCost ?? false;
     const autoConvertLongText = settings?.autoConvertLongText ?? true;
     const autoScrapeUrls = settings?.autoScrapeUrls ?? true;
     const cautiousEnter = settings?.cautiousEnter ?? false;
 
+    const setGlobalNewChatConfig = useSetGlobalNewChatConfig();
+    const { data: projects = [] } = useQuery(ProjectAPI.projectQueries.list());
+
+    // Filter to only real user projects (exclude default and quick-chat) and sort alphabetically
+    const userProjects = useMemo(() => {
+        return (
+            projects
+                ?.filter((p) => p.id !== "default" && p.id !== "quick-chat")
+                .sort((a, b) =>
+                    (a.name || "Untitled").localeCompare(b.name || "Untitled"),
+                ) ?? []
+        );
+    }, [projects]);
+    const hasProjects = userProjects.length > 0;
+
     const { mutate: updateShortcut } = useUpdateShortcut();
+
+    // Track when user clicks "specific" but hasn't selected a project yet
+    const [pendingSpecific, setPendingSpecific] = useState(false);
 
     useEffect(() => {
         const loadSettings = async () => {
@@ -152,6 +184,43 @@ export function GeneralSettings({ navigateToTab }: GeneralSettingsProps) {
         [settingsManager],
     );
 
+    const handleGlobalNewChatEnabledChange = useCallback(
+        (enabled: boolean) => {
+            updateShortcut({
+                shortcutId: "global-new-chat",
+                config: { combo: globalNewChatShortcut, disabled: !enabled },
+            });
+        },
+        [globalNewChatShortcut, updateShortcut],
+    );
+
+    const handleProjectBehaviorChange = useCallback(
+        (behavior: "none" | "last-selected" | "specific") => {
+            if (behavior === "specific") {
+                // Don't persist yet - wait for project selection
+                setPendingSpecific(true);
+            } else {
+                setPendingSpecific(false);
+                setGlobalNewChatConfig.mutate({
+                    projectBehavior: behavior,
+                    specificProjectId: undefined,
+                });
+            }
+        },
+        [setGlobalNewChatConfig],
+    );
+
+    const handleSpecificProjectChange = useCallback(
+        (projectId: string) => {
+            setPendingSpecific(false);
+            setGlobalNewChatConfig.mutate({
+                projectBehavior: "specific",
+                specificProjectId: projectId,
+            });
+        },
+        [setGlobalNewChatConfig],
+    );
+
     const showOnboarding = useCallback(async () => {
         const database = await Database.load(config.dbUrl);
         await database.execute(
@@ -171,6 +240,11 @@ export function GeneralSettings({ navigateToTab }: GeneralSettingsProps) {
 
     const handleChangeAmbientChatShortcut = useCallback(
         () => navigateToTab("keyboard-shortcuts", "ambient-chat"),
+        [navigateToTab],
+    );
+
+    const handleChangeGlobalNewChatShortcut = useCallback(
+        () => navigateToTab("keyboard-shortcuts", "global-new-chat"),
         [navigateToTab],
     );
 
@@ -363,6 +437,169 @@ export function GeneralSettings({ navigateToTab }: GeneralSettingsProps) {
 
             <Separator className="my-4" />
 
+            {/* Global New Chat Settings */}
+            <div className="space-y-4 w-full">
+                <div className="flex items-center justify-between w-full">
+                    <div className="space-y-0.5">
+                        <label className="font-semibold">Global New Chat</label>
+                        <p className="text-sm text-muted-foreground">
+                            Open and create a new chat with{" "}
+                            <span className="font-mono">
+                                {comboToDisplayString(
+                                    globalNewChatShortcut,
+                                    true,
+                                )}
+                            </span>
+                        </p>
+                    </div>
+                    <Switch
+                        checked={!globalNewChatDisabled}
+                        onCheckedChange={handleGlobalNewChatEnabledChange}
+                    />
+                </div>
+
+                <Collapsible open={!globalNewChatDisabled}>
+                    <CollapsibleContent className="space-y-4 pl-4">
+                        <div className="space-y-4">
+                            <div>
+                                <label className="font-semibold">
+                                    Default project
+                                </label>
+                                <p className="text-muted-foreground text-sm">
+                                    Choose which project new chats are created
+                                    in when using the Global New Chat shortcut.
+                                </p>
+                            </div>
+
+                            <RadioGroup
+                                value={
+                                    pendingSpecific
+                                        ? "specific"
+                                        : (globalNewChatConfig?.projectBehavior ??
+                                          "none")
+                                }
+                                onValueChange={(value: string) =>
+                                    handleProjectBehaviorChange(
+                                        value as
+                                            | "none"
+                                            | "last-selected"
+                                            | "specific",
+                                    )
+                                }
+                                className="space-y-3"
+                            >
+                                <label className="flex items-start gap-3 cursor-pointer">
+                                    <RadioGroupItem
+                                        value="none"
+                                        className="mt-1"
+                                    />
+                                    <div>
+                                        <span className="font-medium">
+                                            Default project
+                                        </span>
+                                        <p className="text-sm text-muted-foreground">
+                                            Create chats without a project
+                                        </p>
+                                    </div>
+                                </label>
+
+                                <label
+                                    className={cn(
+                                        "flex items-start gap-3",
+                                        hasProjects
+                                            ? "cursor-pointer"
+                                            : "cursor-not-allowed opacity-50",
+                                    )}
+                                >
+                                    <RadioGroupItem
+                                        value="last-selected"
+                                        disabled={!hasProjects}
+                                        className="mt-1"
+                                    />
+                                    <div>
+                                        <span className="font-medium">
+                                            Last viewed project
+                                        </span>
+                                        <p className="text-sm text-muted-foreground">
+                                            Create chats in the most recently
+                                            viewed project
+                                            {!hasProjects && (
+                                                <span className="italic">
+                                                    {" "}
+                                                    (Create a project first)
+                                                </span>
+                                            )}
+                                        </p>
+                                    </div>
+                                </label>
+
+                                <label
+                                    className={cn(
+                                        "flex items-start gap-3",
+                                        hasProjects
+                                            ? "cursor-pointer"
+                                            : "cursor-not-allowed opacity-50",
+                                    )}
+                                >
+                                    <RadioGroupItem
+                                        value="specific"
+                                        disabled={!hasProjects}
+                                        className="mt-1"
+                                    />
+                                    <div>
+                                        <span className="font-medium">
+                                            Specific project
+                                        </span>
+                                        <p className="text-sm text-muted-foreground">
+                                            Always create chats in a chosen
+                                            project
+                                            {!hasProjects && (
+                                                <span className="italic">
+                                                    {" "}
+                                                    (Create a project first)
+                                                </span>
+                                            )}
+                                        </p>
+                                    </div>
+                                </label>
+                            </RadioGroup>
+
+                            {(pendingSpecific ||
+                                globalNewChatConfig?.projectBehavior ===
+                                    "specific") &&
+                                hasProjects && (
+                                    <Select
+                                        value={
+                                            globalNewChatConfig?.specificProjectId ??
+                                            ""
+                                        }
+                                        onValueChange={
+                                            handleSpecificProjectChange
+                                        }
+                                    >
+                                        <SelectTrigger className="ml-7 w-64">
+                                            <SelectValue placeholder="Select a project..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {userProjects.map((project) => (
+                                                <SelectItem
+                                                    key={project.id}
+                                                    value={project.id}
+                                                >
+                                                    {project.name || "Untitled"}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                        </div>
+
+                        <ChangeShortcutButton
+                            onClick={handleChangeGlobalNewChatShortcut}
+                        />
+                    </CollapsibleContent>
+                </Collapsible>
+            </div>
 
             <div className="flex justify-end mt-4 mb-2"></div>
         </div>
