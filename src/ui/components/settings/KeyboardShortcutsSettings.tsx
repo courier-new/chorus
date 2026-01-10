@@ -7,7 +7,7 @@ import {
     CollapsibleContent,
     CollapsibleTrigger,
 } from "../ui/collapsible";
-import { ChevronDown, RotateCcw } from "lucide-react";
+import { ChevronDown, Keyboard, RotateCcw } from "lucide-react";
 import ShortcutRecorder from "./ShortcutRecorder";
 import { relaunch } from "@tauri-apps/plugin-process";
 import {
@@ -329,6 +329,7 @@ export function KeyboardShortcutsSettings() {
     return (
         <div className="space-y-6">
             <SettingsTabHeader
+                icon={Keyboard}
                 title="Keyboard Shortcuts"
                 description="Enable, disable, and customize keyboard shortcuts."
             />

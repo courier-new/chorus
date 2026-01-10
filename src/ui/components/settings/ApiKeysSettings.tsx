@@ -2,6 +2,7 @@ import * as AppMetadataAPI from "@core/chorus/api/AppMetadataAPI";
 import ApiKeysForm from "./ApiKeysForm";
 import { useCallback } from "react";
 import { SettingsTabHeader } from "./SettingsTabHeader";
+import { Key } from "lucide-react";
 
 interface ApiKeysTabContentProps {
     apiKeys: Record<string, string>;
@@ -30,6 +31,7 @@ export function ApiKeysSettings({
     return (
         <div className="space-y-6">
             <SettingsTabHeader
+                icon={Key}
                 title="API Keys"
                 description="Enter your API keys for the providers you want to use. Models for each provider will become available once you add a valid key. Toggle off providers to hide them from the model selector."
             />

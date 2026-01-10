@@ -6,6 +6,7 @@ import {
     Plus,
     ExternalLinkIcon,
     LinkIcon,
+    PlugIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "../ui/button";
@@ -737,6 +738,7 @@ export function ToolSettings() {
     return (
         <div className="space-y-6">
             <SettingsTabHeader
+                icon={PlugIcon}
                 title="Tools"
                 description="Manage your MCP connections and how they are used."
             />

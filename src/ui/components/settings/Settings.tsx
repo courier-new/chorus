@@ -260,6 +260,7 @@ export default function Settings({ tab = "general" }: SettingsProps) {
                     {activeTab === "import" && (
                         <div className="space-y-6">
                             <SettingsTabHeader
+                                icon={Import}
                                 title="Import Chat History"
                                 description="Import your conversation history from other AI chat platforms."
                             />
@@ -295,6 +296,7 @@ export default function Settings({ tab = "general" }: SettingsProps) {
                     {activeTab === "system-prompt" && (
                         <div className="space-y-6">
                             <SettingsTabHeader
+                                icon={FileText}
                                 title="System Prompt"
                                 description="All AIs will see this prompt. Use it to control their tone, role, or conversation style."
                             />

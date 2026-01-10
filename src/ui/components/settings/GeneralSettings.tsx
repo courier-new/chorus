@@ -10,7 +10,7 @@ import { Collapsible, CollapsibleContent } from "@ui/components/ui/collapsible";
 import { SettingsManager } from "@core/utilities/Settings";
 import { useTheme } from "@ui/hooks/useTheme";
 import { Separator } from "../ui/separator";
-import { BookOpen, KeyIcon } from "lucide-react";
+import { BookOpen, KeyIcon, User2 } from "lucide-react";
 import { toast } from "sonner";
 import { config } from "@core/config";
 import { Button } from "../ui/button";
@@ -271,6 +271,7 @@ export function GeneralSettings({ navigateToTab }: GeneralSettingsProps) {
     return (
         <div className="space-y-6">
             <SettingsTabHeader
+                icon={User2}
                 title="General"
                 description="Chorus requires you to bring your own API keys to use AI models. Add your keys in the API Keys tab."
             />

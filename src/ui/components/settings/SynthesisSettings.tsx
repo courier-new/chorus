@@ -32,7 +32,7 @@ import {
     useUpdateShortcut,
 } from "@core/utilities/ShortcutsAPI";
 import ShortcutRecorder from "./ShortcutRecorder";
-import { RotateCcw } from "lucide-react";
+import { MergeIcon, RotateCcw } from "lucide-react";
 import { DEFAULT_SYNTHESIS_MODEL_CONFIG_ID } from "@core/utilities/Settings";
 import { SettingsTabHeader } from "./SettingsTabHeader";
 
@@ -146,6 +146,7 @@ export function SynthesisSettings() {
     return (
         <div className="space-y-6">
             <SettingsTabHeader
+                icon={MergeIcon}
                 title="Synthesis"
                 description="Configure settings for synthesizing responses from multiple models."
             />
