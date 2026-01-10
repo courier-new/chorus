@@ -1188,7 +1188,7 @@ export default function Settings({ tab = "general" }: SettingsProps) {
                         const containerHeight = container.clientHeight;
                         const elementTop = element.offsetTop;
                         container.scrollTo({
-                            // Buffer the scroll position so that the highlighed
+                            // Buffer the scroll position so that the highlighted
                             // element is closer to the center of the screen
                             top: elementTop - containerHeight / 3,
                             behavior: "instant",
