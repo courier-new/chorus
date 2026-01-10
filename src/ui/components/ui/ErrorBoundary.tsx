@@ -1,5 +1,6 @@
 import { Component, ErrorInfo, ReactNode } from "react";
 import { Button } from "./button";
+import { ConstructionIcon, ArrowRightIcon } from "lucide-react";
 
 interface Props {
     children: ReactNode;
@@ -42,22 +43,23 @@ class ErrorBoundary extends Component<Props, State> {
     public render() {
         if (this.state.hasError) {
             return (
-                <div className="flex flex-col items-center justify-center h-screen p-4">
-                    <div className="text-center max-w-md">
-                        <h2 className="text-2xl font-bold mb-4">
-                            Uh-oh! Something went wrong.
-                        </h2>
-                        {this.state.error && (
-                            <p className="mb-6 text-muted-foreground">
-                                Error: {this.state.error.message}
-                            </p>
-                        )}
-                        <div className="flex items-center justify-center gap-6">
-                            <Button onClick={this.handleReload}>
-                                Go to Home Screen
-                            </Button>
-                        </div>
-                    </div>
+                <div className="flex flex-col items-center justify-center h-screen p-4 gap-4 bg-background">
+                    <ConstructionIcon className="w-12 h-12 text-foreground-accent" />
+                    <h2 className="text-2xl font-extralight text-foreground">
+                        Uh-oh, something went wrong! :(
+                    </h2>
+                    {this.state.error && (
+                        <p className="text-muted-foreground">
+                            Error: {this.state.error.message}
+                        </p>
+                    )}
+                    <Button
+                        className="mt-4 flex items-center group/reload-button"
+                        onClick={this.handleReload}
+                    >
+                        Go to Home Screen
+                        <ArrowRightIcon className="!size-4 group-hover/reload-button:translate-x-1 transition-transform duration-200" />
+                    </Button>
                 </div>
             );
         }
