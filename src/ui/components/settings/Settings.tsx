@@ -236,7 +236,9 @@ export default function Settings({ tab = "general" }: SettingsProps) {
                                             : "text-muted-foreground",
                                     )}
                                 >
-                                    <Icon className="w-4 h-4 shrink-0" />
+                                    <span className="w-5 shrink-0 flex items-center justify-center">
+                                        <Icon className="size-4" />
+                                    </span>
                                     <span className="flex items-center gap-2">
                                         {label}
                                         {id === "docs" && (
