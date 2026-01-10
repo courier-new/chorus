@@ -448,6 +448,9 @@ export function detectConflicts(
     return Object.entries(allShortcuts)
         .filter(([id, config]) => {
             if (id === shortcutId) return false;
+            // Some shortcuts in user settings may no longer be supported and
+            // can be ignored
+            if (!DEFAULT_SHORTCUTS[id as ShortcutId]) return false;
             if (
                 !config ||
                 config.disabled ||
