@@ -8,6 +8,12 @@ import {
     useSetSynthesisModelConfigId,
     useSynthesisPrompt,
     useSetSynthesisPrompt,
+    useAutoSynthesize,
+    useSetAutoSynthesize,
+    useAutoCollapse,
+    useSetAutoCollapse,
+    useAllowShortcutRegenerate,
+    useSetAllowShortcutRegenerate,
 } from "@ui/components/hooks/useSettings";
 import { useReactQueryAutoSync } from "use-react-query-auto-sync";
 import { ProviderLogo } from "../ui/provider-logo";
@@ -35,6 +41,7 @@ import ShortcutRecorder from "./ShortcutRecorder";
 import { MergeIcon, RotateCcw } from "lucide-react";
 import { DEFAULT_SYNTHESIS_MODEL_CONFIG_ID } from "@core/utilities/Settings";
 import { SettingsTabHeader } from "./SettingsTabHeader";
+import { cn } from "@ui/lib/utils";
 
 export function SynthesisSettings() {
     // Synthesis settings hooks
@@ -47,6 +54,15 @@ export function SynthesisSettings() {
         useShortcutConfig("synthesize");
     const { mutate: updateShortcut } = useUpdateShortcut();
     const { mutate: resetShortcut } = useResetShortcut();
+
+    // Auto-synthesis settings
+    const autoSynthesize = useAutoSynthesize();
+    const { mutateAsync: setAutoSynthesize } = useSetAutoSynthesize();
+    const autoCollapse = useAutoCollapse();
+    const { mutateAsync: setAutoCollapse } = useSetAutoCollapse();
+    const allowShortcutRegenerate = useAllowShortcutRegenerate();
+    const { mutateAsync: setAllowShortcutRegenerate } =
+        useSetAllowShortcutRegenerate();
 
     // Synthesis prompt autosync
     const { draft: synthesisPromptDraft, setDraft: setSynthesisPromptDraft } =
@@ -152,52 +168,137 @@ export function SynthesisSettings() {
             />
 
             <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                        <label className="font-semibold">Synthesis</label>
-                        <p className="text-sm text-muted-foreground">
-                            Synthesize a response with{" "}
-                            <span className="font-mono">
-                                {comboToDisplayString(shortcut, true)}
-                            </span>
-                        </p>
+                {/* Auto-Synthesize and Auto-Collapse toggles */}
+                <div>
+                    <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                            <label className="font-semibold">
+                                Auto-synthesize
+                            </label>
+                            <p className="text-sm text-muted-foreground">
+                                Automatically synthesize responses when all
+                                models finish
+                            </p>
+                        </div>
+                        <Switch
+                            checked={autoSynthesize}
+                            onCheckedChange={(enabled) =>
+                                void setAutoSynthesize(enabled)
+                            }
+                        />
                     </div>
-                    <Switch
-                        checked={!shortcutDisabled}
-                        onCheckedChange={handleShortcutEnabledChange}
-                    />
+
+                    {/* Only visible when Auto-Synthesize is enabled */}
+                    <div
+                        className={cn(
+                            "grid transition-[grid-template-rows] duration-200 ease-out",
+                            autoSynthesize
+                                ? "grid-rows-[1fr]"
+                                : "grid-rows-[0fr]",
+                        )}
+                    >
+                        <div className="min-h-0 overflow-hidden">
+                            <div className="flex items-center justify-between pt-4">
+                                <div className="space-y-0.5">
+                                    <label className="font-semibold">
+                                        Auto-collapse responses
+                                    </label>
+                                    <p className="text-sm text-muted-foreground">
+                                        Individual model responses start
+                                        collapsed by default
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={autoCollapse}
+                                    onCheckedChange={(enabled) =>
+                                        void setAutoCollapse(enabled)
+                                    }
+                                />
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <div className="space-y-2">
-                    <div className="space-y-0.5">
-                        <label className="font-semibold">
-                            Keyboard Shortcut
-                        </label>
-                        <p className="text-sm text-muted-foreground">
-                            Enter the shortcut you want to use to synthesize a
-                            response
-                        </p>
+                {/* Shortcut trigger, recorder, and Allow Shortcut Regenerate toggles */}
+                <div>
+                    <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                            <label className="font-semibold">
+                                Shortcut trigger
+                            </label>
+                            <p className="text-sm text-muted-foreground">
+                                Synthesize a response with{" "}
+                                <span className="font-mono">
+                                    {comboToDisplayString(shortcut, true)}
+                                </span>
+                            </p>
+                        </div>
+                        <Switch
+                            checked={!shortcutDisabled}
+                            onCheckedChange={handleShortcutEnabledChange}
+                        />
                     </div>
 
-                    <div className="flex items-start justify-between gap-2">
-                        <ShortcutRecorder
-                            disabled={shortcutDisabled}
-                            className="w-full flex-1"
-                            value={shortcut}
-                            onChange={handleShortcutChange}
-                            onValidate={validateShortcut}
-                            forceReset={shortcutForceReset}
-                        />
-                        <Button
-                            className="gap-1"
-                            disabled={shortcutDisabled}
-                            variant="secondary"
-                            size="xs"
-                            onClick={onResetShortcutClick}
-                            title="Reset to default"
-                        >
-                            <RotateCcw /> Reset
-                        </Button>
+                    {/* Only visible when shortcut is enabled */}
+                    <div
+                        className={cn(
+                            "grid transition-[grid-template-rows] duration-200 ease-out",
+                            !shortcutDisabled
+                                ? "grid-rows-[1fr]"
+                                : "grid-rows-[0fr]",
+                        )}
+                    >
+                        <div className="min-h-0 overflow-hidden">
+                            <div className="space-y-4 pt-4">
+                                <div className="space-y-2">
+                                    <p className="text-sm text-muted-foreground">
+                                        Enter the shortcut you want to use to
+                                        synthesize a response
+                                    </p>
+                                    <div className="flex items-start justify-between gap-2">
+                                        <ShortcutRecorder
+                                            disabled={shortcutDisabled}
+                                            className="w-full flex-1"
+                                            value={shortcut}
+                                            onChange={handleShortcutChange}
+                                            onValidate={validateShortcut}
+                                            forceReset={shortcutForceReset}
+                                        />
+                                        <Button
+                                            className="gap-1"
+                                            disabled={shortcutDisabled}
+                                            variant="secondary"
+                                            size="xs"
+                                            onClick={onResetShortcutClick}
+                                            title="Reset to default"
+                                        >
+                                            <RotateCcw /> Reset
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                {/* Allow Shortcut Regenerate toggle */}
+                                <div className="flex items-center justify-between">
+                                    <div className="space-y-0.5">
+                                        <label className="font-semibold">
+                                            Allow shortcut to regenerate
+                                        </label>
+                                        <p className="text-sm text-muted-foreground">
+                                            Activate the shortcut trigger to
+                                            regenerate existing synthesis
+                                        </p>
+                                    </div>
+                                    <Switch
+                                        checked={allowShortcutRegenerate}
+                                        onCheckedChange={(enabled) =>
+                                            void setAllowShortcutRegenerate(
+                                                enabled,
+                                            )
+                                        }
+                                    />
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

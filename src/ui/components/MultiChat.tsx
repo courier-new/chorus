@@ -135,7 +135,13 @@ import {
     requestPermission,
 } from "@tauri-apps/plugin-notification";
 import { useShortcutDisplay } from "@core/utilities/ShortcutsAPI";
-import { useSettings } from "./hooks/useSettings";
+import {
+    useSettings,
+    useAutoSynthesize as useAutoSynthesizeSettings,
+    useAutoCollapse,
+    useAllowShortcutRegenerate,
+} from "./hooks/useSettings";
+import { useAutoSynthesize } from "./hooks/synthesis/useAutoSynthesize";
 
 // ----------------------------------
 // Sub-components
@@ -518,12 +524,14 @@ export function UserMessageView({
     const { chatId } = useParams();
     const [isEditing, setIsEditing] = useState(false);
     const editMessage = MessageAPI.useEditMessage(chatId!, isQuickChatWindow);
+    const autoCollapse = useAutoCollapse();
 
     const saveEdit = (newText: string) => {
         editMessage.mutate({
             messageId: message.id,
             messageSetId: message.messageSetId,
             newText,
+            autoCollapse,
         });
         setIsEditing(false);
     };
@@ -1027,7 +1035,7 @@ function ToolsAIMessageViewInnerCollapsed({
     fullText,
     expandMessage,
 }: {
-    fullText: string;
+    fullText: React.ReactNode;
     expandMessage: () => void;
 }) {
     const handleExpand = useCallback(
@@ -1043,7 +1051,7 @@ function ToolsAIMessageViewInnerCollapsed({
             {/* Message preview one line */}
             <p className="text-base text-ellipsis line-clamp-1">{fullText}</p>
             <button
-                className="text-sm opacity-70 text-muted-foreground flex-shrink-0 flex items-center gap-1 group/expand-button hover:opacity-100 pl-1"
+                className="text-base opacity-70 text-muted-foreground flex-shrink-0 flex items-center gap-1 group/expand-button hover:opacity-100 pl-1"
                 onClick={handleExpand}
             >
                 Expand{" "}
@@ -1071,6 +1079,7 @@ function ToolsAIMessageViewInner({
     isQuickChatWindow: boolean;
     showCost: boolean;
 }) {
+    const isIdle = message.state === "idle";
     // combine tool calls with tool results
     const messagePartsSandwiched: MessagePartWithResults[] = message.parts
         .map((part, index) => {
@@ -1108,20 +1117,22 @@ function ToolsAIMessageViewInner({
         .filter((p) => p !== undefined);
     return (
         <div
-            className={`relative overflow-y-auto select-text ${
-                isQuickChatWindow
-                    ? "py-2.5 border !border-special max-w-full inline-block break-words px-3.5 rounded-xl"
-                    : `p-4 ${showCost ? "pb-7" : ""}`
-            }`}
+            className={cn("relative overflow-y-auto select-text", {
+                "py-2.5 border !border-special max-w-full inline-block break-words px-3.5 rounded-xl":
+                    isQuickChatWindow,
+                "p-4": !isQuickChatWindow,
+                "pt-5": !isIdle,
+                "pb-7": !isQuickChatWindow && showCost,
+            })}
         >
             {isCollapsed ? (
                 <ToolsAIMessageViewInnerCollapsed
-                    fullText={fullText}
+                    fullText={isIdle ? fullText : <RetroSpinner />}
                     expandMessage={expandMessage}
                 />
             ) : (message.parts.length === 0 ||
                   _.every(message.parts.map((p) => !p.content))) &&
-              message.state === "idle" ? (
+              isIdle ? (
                 <div className="text-sm text-muted-foreground/50 uppercase font-[350] font-geist-mono tracking-wider">
                     <ErrorView message={message} />
                 </div>
@@ -1134,9 +1145,7 @@ function ToolsAIMessageViewInner({
                             messageState={message.state}
                         />
                     ))}
-                    {message.state === "streaming" && (
-                        <RetroSpinner className="mt-2" />
-                    )}
+                    {!isIdle && <RetroSpinner />}
                     <DeepResearchNotificationHandler message={message} />
                     <DeepResearchNotificationButton message={message} />
                     {message.errorMessage && (
@@ -1803,12 +1812,17 @@ function ToolsBlockView({
         MessageAPI.useAddMessageToToolsBlock(chatId!);
     const { mutate: selectSynthesis, isPending: isSelectingSynthesis } =
         MessageAPI.useSelectSynthesis();
+    const { mutate: restartSynthesis } = MessageAPI.useRestartSynthesis();
 
     const synthesisShortcutDisplay = useShortcutDisplay("synthesize");
+    const autoSynthesize = useAutoSynthesizeSettings();
+    const autoCollapse = useAutoCollapse();
+    const allowShortcutRegenerate = useAllowShortcutRegenerate();
 
     const synthesisMessage = toolsBlock.synthesis;
-    const canSynthesize =
-        toolsBlock.chatMessages.length >= 2 && !synthesisMessage;
+    const canSynthesize = toolsBlock.chatMessages.length >= 2;
+    const canRegenerateSynthesis =
+        canSynthesize && !!synthesisMessage && allowShortcutRegenerate;
 
     // Track synthesis animation state
     const prevSynthesisIdRef = useRef<string | undefined>(undefined);
@@ -1881,6 +1895,7 @@ function ToolsBlockView({
                 messageSetId,
                 modelId: modelConfigId,
                 instanceId,
+                autoCollapse,
             });
 
             dialogActions.closeDialog();
@@ -1890,6 +1905,7 @@ function ToolsBlockView({
             addMessageToToolsBlock,
             messageSetId,
             clearActiveGroup,
+            autoCollapse,
         ],
     );
 
@@ -1915,96 +1931,141 @@ function ToolsBlockView({
 
     const handleSynthesize = useCallback(() => {
         if (!canSynthesize) return;
-        selectSynthesis({ chatId: chatId!, messageSetId });
-    }, [canSynthesize, chatId, messageSetId, selectSynthesis]);
 
-    // The keyboard shortcut targets the last row only.
+        // If no synthesis exists, generate a new one
+        if (!synthesisMessage) {
+            selectSynthesis({ chatId: chatId!, messageSetId });
+            return;
+        }
+
+        // If synthesis exists and regeneration is allowed, regenerate
+        if (allowShortcutRegenerate) {
+            restartSynthesis({
+                chatId: chatId!,
+                messageSetId,
+                messageId: synthesisMessage.id,
+            });
+        }
+    }, [
+        canSynthesize,
+        chatId,
+        messageSetId,
+        selectSynthesis,
+        synthesisMessage,
+        allowShortcutRegenerate,
+        restartSynthesis,
+    ]);
+
+    // The synthesis shortcut only targets the last row and is enabled when we
+    // can generated or regenerate synthesis.
     useConfigurableShortcut("synthesize", handleSynthesize, {
-        isEnabled: canSynthesize && isLastRow,
+        isEnabled: (canSynthesize || canRegenerateSynthesis) && isLastRow,
+    });
+
+    useAutoSynthesize({
+        isEnabled: !isQuickChatWindow,
+        messageSetId,
+        toolsBlock,
     });
 
     return (
         <div
             ref={elementRef}
-            className={`group/tools-row flex w-full h-fit pb-2 pr-5 gap-2 ${
+            className={`group/tools-row flex w-full h-fit pb-5 pt-2 pr-5 gap-2 ${
                 // get horizontal scroll bars, plus hackily disable y scrolling
                 // because we're seeing scroll bars when we shouldn't
                 "overflow-x-auto scrollbar-on-scroll overflow-y-hidden"
             }
             ${shouldShowScrollbar ? "is-scrolling" : ""}
-            ${!isQuickChatWindow ? "px-10" : ""}`}
+            ${!isQuickChatWindow ? "px-6" : ""}`}
         >
             {/* Synthesis area - contains both Merge button and synthesis message in animated wrapper */}
-            {!isQuickChatWindow && (canSynthesize || synthesisToShow) && (
-                <div
-                    className={`overflow-hidden flex-shrink-0 ${
-                        synthesisToShow
-                            ? animationDirection === "out"
-                                ? "synthesis-wrapper-collapse"
-                                : animationDirection === "in"
-                                  ? "synthesis-wrapper-expand"
-                                  : ""
-                            : "synthesis-wrapper-collapsed"
-                    }`}
-                    onAnimationEnd={
-                        synthesisToShow ? handleAnimationEnd : undefined
-                    }
-                >
-                    <div className="flex gap-2">
-                        {/* Merge button - only rendered when no synthesis */}
-                        {!synthesisToShow && (
-                            <div
-                                className={`flex items-start pt-2 flex-shrink-0 transition-opacity ${
-                                    isLastRow
-                                        ? "opacity-100"
-                                        : "opacity-0 group-hover/tools-row:opacity-100 pointer-events-none group-hover/tools-row:pointer-events-auto"
-                                }`}
-                            >
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <button
-                                            className="w-14 text-sm text-muted-foreground hover:text-foreground rounded-md border-[0.090rem] py-[0.6rem] px-2 h-fit synthesis-border"
-                                            onClick={handleSynthesize}
-                                            disabled={isSelectingSynthesis}
-                                        >
-                                            <div className="flex flex-col items-center gap-1 py-1">
-                                                <MergeIcon className="font-medium w-3 h-3" />
-                                                Merge
-                                            </div>
-                                        </button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        {`Synthesize all replies into one${synthesisShortcutDisplay && isLastRow ? ` (${synthesisShortcutDisplay})` : ""}`}
-                                    </TooltipContent>
-                                </Tooltip>
-                            </div>
-                        )}
+            {/* Only render when: showing synthesis message, OR can synthesize AND auto-synthesize is disabled */}
+            {!isQuickChatWindow &&
+                (synthesisToShow || (canSynthesize && !autoSynthesize)) && (
+                    <div
+                        className={cn("overflow-hidden flex-shrink-0", {
+                            "synthesis-wrapper": !autoSynthesize,
+                            "synthesis-wrapper-auto":
+                                autoSynthesize && !autoCollapse,
+                            "synthesis-wrapper-auto-full":
+                                autoSynthesize && autoCollapse,
+                            "synthesis-wrapper-collapse":
+                                synthesisToShow && animationDirection === "out",
+                            "synthesis-wrapper-expand":
+                                synthesisToShow && animationDirection === "in",
+                            "synthesis-wrapper-collapsed":
+                                !synthesisToShow && !animationDirection,
+                            "synthesis-wrapper-expanded":
+                                synthesisToShow && !animationDirection,
+                        })}
+                        onAnimationEnd={
+                            synthesisToShow ? handleAnimationEnd : undefined
+                        }
+                    >
+                        <div className="flex gap-2">
+                            {/* Merge button - only rendered when no synthesis and auto-synthesize is disabled */}
+                            {!synthesisToShow && !autoSynthesize && (
+                                <div
+                                    className={`flex items-start pt-2 flex-shrink-0 transition-opacity ${
+                                        isLastRow
+                                            ? "opacity-100"
+                                            : "opacity-0 group-hover/tools-row:opacity-100 pointer-events-none group-hover/tools-row:pointer-events-auto"
+                                    }`}
+                                >
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <button
+                                                className="w-14 text-sm text-muted-foreground hover:text-foreground rounded-md border-[0.090rem] py-[0.6rem] px-2 h-fit synthesis-border"
+                                                onClick={handleSynthesize}
+                                                disabled={isSelectingSynthesis}
+                                            >
+                                                <div className="flex flex-col items-center gap-1 py-1.5">
+                                                    <MergeIcon className="font-medium w-3 h-3" />
+                                                    Merge
+                                                </div>
+                                            </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            {`Synthesize all replies into one${synthesisShortcutDisplay && isLastRow ? ` (${synthesisShortcutDisplay})` : ""}`}
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </div>
+                            )}
 
-                        {/* Synthesis message - fixed width */}
-                        {synthesisToShow && (
-                            <div className="w-[450px] min-w-[450px] flex-shrink-0">
-                                <ToolsMessageView
-                                    message={synthesisToShow}
-                                    isLastRow={isLastRow}
-                                    isQuickChatWindow={isQuickChatWindow}
-                                    isOnlyMessage={false}
-                                    isSynthesis={true}
-                                    toolsBlock={toolsBlock}
-                                />
-                            </div>
-                        )}
+                            {/* Synthesis message - fixed width */}
+                            {synthesisToShow && (
+                                <div
+                                    className={cn(
+                                        "w-[450px] min-w-[450px] flex-shrink-0",
+                                        {
+                                            "w-[600px] min-w-[600px]":
+                                                autoCollapse,
+                                        },
+                                    )}
+                                >
+                                    <ToolsMessageView
+                                        message={synthesisToShow}
+                                        isLastRow={isLastRow}
+                                        isQuickChatWindow={isQuickChatWindow}
+                                        isOnlyMessage={false}
+                                        isSynthesis={true}
+                                        toolsBlock={toolsBlock}
+                                    />
+                                </div>
+                            )}
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
             {/* Non-synthesis messages */}
             {toolsBlock.chatMessages.map((message) => (
                 <div
                     key={message.id}
-                    className={
-                        isQuickChatWindow
-                            ? "w-full max-w-prose"
-                            : "w-full flex-1 min-w-[450px] max-w-[550px]"
-                    }
+                    className={cn("w-full", {
+                        "max-w-prose": isQuickChatWindow,
+                        "flex-1 min-w-[450px] max-w-[550px]":
+                            !isQuickChatWindow,
+                    })}
                 >
                     <ToolsMessageView
                         message={message}
@@ -2027,7 +2088,7 @@ function ToolsBlockView({
                             );
                         }}
                     >
-                        <div className="flex flex-col items-center gap-1 py-1">
+                        <div className="flex flex-col items-center gap-1 py-1.5">
                             <PlusIcon className="font-medium w-3 h-3" />
                             Add
                         </div>
@@ -2059,7 +2120,7 @@ function UserBlockView({
 }) {
     return (
         <div
-            className={`ml-10 max-w-prose ${isQuickChatWindow ? "ml-auto" : ""}`}
+            className={`ml-6 max-w-prose ${isQuickChatWindow ? "ml-auto" : ""}`}
             ref={userMessageRef}
         >
             {userBlock.message && (
@@ -2104,19 +2165,12 @@ const MessageSetView = memo(
         return (
             <div
                 ref={messageSetRef}
-                className={`relative text-sm flex flex-col w-full ${
-                    messageSet.type === "ai" ? "mb-10" : ""
-                }`}
+                className="relative text-sm flex flex-col w-full"
             >
                 <div
                     className={`
                         ${
-                            // pre-allocate space to avoid too much scroll anchor jank
-                            !isQuickChatWindow &&
-                            messageSet.type === "ai" &&
-                            isLastRow
-                                ? "min-h-[200px]"
-                                : ""
+                            !isQuickChatWindow && messageSet.type === "ai"
                         } ${isQuickChatWindow ? "flex w-full" : ""}`}
                     data-tauri-drag-region={
                         isQuickChatWindow ? "true" : undefined
@@ -3073,16 +3127,21 @@ function MainScrollableContentView({
     const updateSpacerHeight = useCallback(() => {
         requestAnimationFrame(() => {
             if (isQuickChatWindow) {
+                const inputHeight = inputRef.current?.clientHeight ?? 0;
                 // set margin bottom on chat container, which acts as the qc spacer
                 if (chatContainerRef.current) {
                     chatContainerRef.current.style.marginBottom =
-                        (inputRef.current?.clientHeight ?? 0) + 10 + "px";
+                        inputHeight + 10 + "px";
                 }
             } else {
+                // Get two parents up the DOM tree to get the full chat input component height
+                const inputHeight =
+                    inputRef.current?.parentElement?.parentElement
+                        ?.clientHeight ?? 0;
                 // non-qc spacer
                 if (nonQcSpacerRef.current) {
                     nonQcSpacerRef.current.style.height =
-                        (inputRef.current?.clientHeight ?? 0) + 50 + "px";
+                        inputHeight - 19 + "px";
                 }
             }
         });
@@ -3170,14 +3229,15 @@ function MainScrollableContentView({
         <div
             ref={chatContainerRef}
             className={`absolute inset-0 overflow-y-scroll overflow-x-hidden ${showScrollbar ? "" : "invisible-scrollbar"} ${
-                isQuickChatWindow ? "pl-4 pt-4 mb-16" : "top-10 pt-10"
+                // content is offset by the header bar height
+                isQuickChatWindow ? "pl-4 pt-4 mb-16" : "top-[52px] pt-6"
             }`}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
             data-tauri-drag-region={isQuickChatWindow ? "true" : undefined}
         >
             <div
-                className="space-y-5 max-w-10xl mx-auto select-text"
+                className="space-y-2 max-w-10xl mx-auto select-text"
                 data-tauri-drag-region={isQuickChatWindow ? "true" : undefined}
             >
                 {appMetadata["has_dismissed_onboarding"] === "false" &&
@@ -3198,14 +3258,7 @@ function MainScrollableContentView({
                             <div key={ms.id}>{renderMessageSet(ms)}</div>
                         ))}
                         <div
-                            // we should subtract enough space that there's no scroll bar on first message
-                            // on either qc or normal chat, but not so much that on subsequent messages
-                            // you can see old messages peaking in at the top.
-                            className={`space-y-5 ${
-                                isQuickChatWindow
-                                    ? "h-[calc(100vh-120px)]"
-                                    : "h-[calc(100vh-80px)]"
-                            }`}
+                            className="space-y-5"
                             data-tauri-drag-region={
                                 isQuickChatWindow ? "true" : undefined
                             }

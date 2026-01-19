@@ -66,6 +66,7 @@ export function createAIMessage({
     selected = false,
     level,
     instanceId,
+    isCollapsed = false,
 }: {
     chatId: string;
     messageSetId: string;
@@ -74,6 +75,7 @@ export function createAIMessage({
     selected?: boolean;
     level?: number;
     instanceId?: string;
+    isCollapsed?: boolean;
 }): Omit<Message, "id" | "streamingToken" | "parts"> {
     return {
         chatId,
@@ -89,6 +91,7 @@ export function createAIMessage({
         replyChatId: undefined,
         branchedFromId: undefined,
         instanceId,
+        isCollapsed,
     };
 }
 

@@ -1349,7 +1349,8 @@ export function useCreateMessage() {
                     streaming_token,
                     block_type,
                     level,
-                    instance_id
+                    instance_id,
+                    is_collapsed
                 ) SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, ${
                     message.level !== undefined
                         ? `$10` // use provided level
@@ -1359,7 +1360,7 @@ export function useCreateMessage() {
                             FROM messages
                             WHERE message_set_id = $3 AND block_type = $9
                           )`
-                }, $11
+                }, $11, $12
                 ${
                     options.mode === "first"
                         ? `WHERE NOT EXISTS (
@@ -1385,6 +1386,7 @@ export function useCreateMessage() {
                     message.blockType,
                     message.level,
                     message.instanceId ?? null,
+                    message.isCollapsed ? 1 : 0,
                 ],
             );
 
@@ -1437,7 +1439,7 @@ function useStopMessageStreaming() {
         },
         onSuccess: async (_data, variables, _context) => {
             await queryClient.invalidateQueries({
-                queryKey: messageKeys.messageSets(variables.messageId),
+                queryKey: messageKeys.messageSets(variables.chatId),
             });
             // invalidate to stop showing loading state
             await queryClient.invalidateQueries(
@@ -1619,7 +1621,7 @@ export function useStreamSynthesis() {
                     "Skipping synthesis because it already exists",
                     messageSetId,
                 );
-                return;
+                return { messageId: messageSet?.toolsBlock?.synthesis?.id };
             }
 
             // Get the base model config
@@ -1672,6 +1674,8 @@ export function useStreamSynthesis() {
                 synthesisModelConfigId,
                 synthesisPrompt,
             });
+
+            return { messageId };
         },
         onSuccess: async (_data, variables, _context) => {
             await queryClient.invalidateQueries({
@@ -1694,22 +1698,20 @@ export function useSelectSynthesis() {
 
     return useMutation({
         mutationKey: ["selectSynthesis"] as const,
-        mutationFn: async (_variables: {
+        mutationFn: async ({
+            chatId,
+            messageSetId,
+        }: {
             chatId: string;
             messageSetId: string;
         }) => {
-            // This is a no-op but triggers the onSuccess which will invoke synthesis
+            // invoke synthesis
+            return await streamSynthesis.mutateAsync({ chatId, messageSetId });
         },
         onSuccess: async (_data, variables, _context) => {
             // invalidate to trigger re-fetch
             await queryClient.invalidateQueries({
                 queryKey: messageKeys.messageSets(variables.chatId),
-            });
-
-            // invoke synthesis
-            await streamSynthesis.mutateAsync({
-                chatId: variables.chatId,
-                messageSetId: variables.messageSetId,
             });
         },
     });
@@ -1727,10 +1729,12 @@ export function useEditMessage(chatId: string, isQuickChatWindow: boolean) {
             messageId,
             messageSetId,
             newText,
+            autoCollapse = false,
         }: {
             messageId: string;
             messageSetId: string;
             newText: string;
+            autoCollapse?: boolean;
         }) => {
             // 1. Update the user message text
             await db.execute("UPDATE messages SET text = ? WHERE id = ?", [
@@ -1783,6 +1787,7 @@ export function useEditMessage(chatId: string, isQuickChatWindow: boolean) {
             await populateBlock.mutateAsync({
                 messageSetId: nextMessageSet.id,
                 blockType: nextMessageSet.selectedBlockType,
+                autoCollapse,
             });
         },
         onSuccess: async () => {
@@ -2150,11 +2155,13 @@ function usePopulateToolsBlock(chatId: string) {
             messageSetId,
             isQuickChatWindow,
             replyToModelId,
+            autoCollapse = false,
         }: {
             messageSetId: string;
             previousMessageSets: MessageSetDetail[];
             isQuickChatWindow: boolean;
             replyToModelId?: string;
+            autoCollapse?: boolean;
         }) => {
             // BTBL: do we need to protect against double-population here by ensuring
             // it's empty before we populate?
@@ -2186,6 +2193,9 @@ function usePopulateToolsBlock(chatId: string) {
                 return { skipped: true };
             }
 
+            // Only collapse messages when there are multiple models
+            const shouldCollapse = autoCollapse && modelConfigs.length > 1;
+
             // we do this in two phases so that we can ensure that if the tools block
             // contains any message, it always contains a selected message
 
@@ -2203,6 +2213,7 @@ function usePopulateToolsBlock(chatId: string) {
                         "instanceId" in firstModelConfig
                             ? firstModelConfig.instanceId
                             : undefined,
+                    isCollapsed: shouldCollapse,
                 }),
                 options: {
                     mode: "always", // Allow multiple instances of same model
@@ -2227,6 +2238,7 @@ function usePopulateToolsBlock(chatId: string) {
                                           "instanceId" in modelConfig
                                               ? modelConfig.instanceId
                                               : undefined,
+                                      isCollapsed: shouldCollapse,
                                   }),
                                   options: {
                                       mode: "always", // Allow multiple instances of same model
@@ -2279,10 +2291,12 @@ export function usePopulateBlock(chatId: string, isQuickChatWindow: boolean) {
             messageSetId,
             blockType,
             replyToModelId,
+            autoCollapse = false,
         }: {
             messageSetId: string;
             blockType: BlockType;
             replyToModelId?: string;
+            autoCollapse?: boolean;
         }) => {
             const messageSets = await getMessageSets(chatId);
             const messageSet = messageSets.find((m) => m.id === messageSetId);
@@ -2308,6 +2322,7 @@ export function usePopulateBlock(chatId: string, isQuickChatWindow: boolean) {
                         previousMessageSets,
                         isQuickChatWindow,
                         replyToModelId,
+                        autoCollapse,
                     });
                 }
                 default: {
@@ -2350,10 +2365,12 @@ export function useAddMessageToToolsBlock(chatId: string) {
             messageSetId,
             modelId,
             instanceId,
+            autoCollapse = false,
         }: {
             messageSetId: string;
             modelId: string;
             instanceId?: string;
+            autoCollapse?: boolean;
         }) => {
             const modelConfig = modelConfigsQuery.data?.find(
                 (m: Models.ModelConfig) => m.id === modelId,
@@ -2370,6 +2387,7 @@ export function useAddMessageToToolsBlock(chatId: string) {
                     model: modelConfig.id,
                     selected: false,
                     instanceId,
+                    isCollapsed: autoCollapse,
                 }),
                 options: {
                     mode: "always",
