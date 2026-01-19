@@ -26,6 +26,9 @@ export interface Settings {
     synthesis: {
         modelConfigId: string;
         prompt?: string;
+        autoSynthesize?: boolean;
+        autoCollapse?: boolean;
+        allowShortcutRegenerate?: boolean;
     };
     lmStudioBaseUrl?: string;
     cautiousEnter?: boolean;
