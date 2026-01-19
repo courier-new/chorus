@@ -58,6 +58,28 @@ export const settingsQueryKeys = {
 };
 
 /**
+ * Generic hook to create a mutation for updating settings.
+ */
+function useSettingsMutation<T>(
+    mutationKey: readonly string[],
+    updater: (currentSettings: Settings, value: T) => Settings,
+) {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey,
+        mutationFn: async (value: T) => {
+            const currentSettings = await settingsManager.get();
+            await settingsManager.set(updater(currentSettings, value));
+        },
+        onSuccess: () => {
+            void queryClient.invalidateQueries({
+                queryKey: settingsQueryKeys.all,
+            });
+        },
+    });
+}
+
+/**
  * Hook to get the synthesis model config ID
  */
 export function useSynthesisModelConfigId() {
@@ -71,25 +93,13 @@ export function useSynthesisModelConfigId() {
  * Hook to set the synthesis model config ID
  */
 export function useSetSynthesisModelConfigId() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationKey: ["setSynthesisModelConfigId"] as const,
-        mutationFn: async (modelConfigId: string) => {
-            const currentSettings = await settingsManager.get();
-            await settingsManager.set({
-                ...currentSettings,
-                synthesis: {
-                    ...currentSettings.synthesis,
-                    modelConfigId,
-                },
-            });
-        },
-        onSuccess: () => {
-            void queryClient.invalidateQueries({
-                queryKey: settingsQueryKeys.all,
-            });
-        },
-    });
+    return useSettingsMutation(
+        ["setSynthesisModelConfigId"],
+        (settings, modelConfigId: string) => ({
+            ...settings,
+            synthesis: { ...settings.synthesis, modelConfigId },
+        }),
+    );
 }
 
 /**
@@ -104,45 +114,93 @@ export function useSynthesisPrompt() {
  * Hook to set the synthesis prompt
  */
 export function useSetSynthesisPrompt() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationKey: ["setSynthesisPrompt"] as const,
-        mutationFn: async (prompt: string | undefined) => {
-            const currentSettings = await settingsManager.get();
-            await settingsManager.set({
-                ...currentSettings,
-                synthesis: {
-                    ...currentSettings.synthesis,
-                    prompt,
-                },
-            });
-        },
-        onSuccess: () => {
-            void queryClient.invalidateQueries({
-                queryKey: settingsQueryKeys.all,
-            });
-        },
-    });
+    return useSettingsMutation(
+        ["setSynthesisPrompt"],
+        (settings, prompt: string | undefined) => ({
+            ...settings,
+            synthesis: { ...settings.synthesis, prompt },
+        }),
+    );
 }
 
 /**
  * Hook to set the global new chat config
  */
 export function useSetGlobalNewChatConfig() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationKey: ["setGlobalNewChatConfig"] as const,
-        mutationFn: async (config: Settings["globalNewChat"]) => {
-            const currentSettings = await settingsManager.get();
-            await settingsManager.set({
-                ...currentSettings,
-                globalNewChat: config,
-            });
-        },
-        onSuccess: () => {
-            void queryClient.invalidateQueries({
-                queryKey: settingsQueryKeys.all,
-            });
-        },
-    });
+    return useSettingsMutation(
+        ["setGlobalNewChatConfig"],
+        (settings, config: Settings["globalNewChat"]) => ({
+            ...settings,
+            globalNewChat: config,
+        }),
+    );
+}
+
+/**
+ * Hook to get the auto-synthesize setting
+ */
+export function useAutoSynthesize(): boolean {
+    const { data: settings } = useSettings();
+    return settings?.synthesis.autoSynthesize ?? false;
+}
+
+/**
+ * Hook to set the auto-synthesize setting
+ * When disabling auto-synthesize, also disables auto-collapse
+ */
+export function useSetAutoSynthesize() {
+    return useSettingsMutation(
+        ["setAutoSynthesize"],
+        (settings, autoSynthesize: boolean) => ({
+            ...settings,
+            synthesis: {
+                ...settings.synthesis,
+                autoSynthesize,
+                // When disabling auto-synthesize, also disable auto-collapse
+                ...(autoSynthesize ? {} : { autoCollapse: false }),
+            },
+        }),
+    );
+}
+
+/**
+ * Hook to get the auto-collapse setting
+ */
+export function useAutoCollapse(): boolean {
+    const { data: settings } = useSettings();
+    return settings?.synthesis.autoCollapse ?? false;
+}
+
+/**
+ * Hook to set the auto-collapse setting
+ */
+export function useSetAutoCollapse() {
+    return useSettingsMutation(
+        ["setAutoCollapse"],
+        (settings, autoCollapse: boolean) => ({
+            ...settings,
+            synthesis: { ...settings.synthesis, autoCollapse },
+        }),
+    );
+}
+
+/**
+ * Hook to get the allow-shortcut-regenerate setting
+ */
+export function useAllowShortcutRegenerate(): boolean {
+    const { data: settings } = useSettings();
+    return settings?.synthesis.allowShortcutRegenerate ?? false;
+}
+
+/**
+ * Hook to set the allow-shortcut-regenerate setting
+ */
+export function useSetAllowShortcutRegenerate() {
+    return useSettingsMutation(
+        ["setAllowShortcutRegenerate"],
+        (settings, allowShortcutRegenerate: boolean) => ({
+            ...settings,
+            synthesis: { ...settings.synthesis, allowShortcutRegenerate },
+        }),
+    );
 }
