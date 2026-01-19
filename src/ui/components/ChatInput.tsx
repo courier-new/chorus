@@ -10,7 +10,7 @@ import {
 } from "./manage-models/ManageModelsBox";
 import { MessageSetDetail } from "@core/chorus/ChatState";
 import * as MessageAPI from "@core/chorus/api/MessageAPI";
-import { useSettings } from "./hooks/useSettings";
+import { useSettings, useAutoCollapse } from "./hooks/useSettings";
 import { toast } from "sonner";
 import { createUserMessage } from "@core/chorus/ChatState";
 import { MouseTrackingEyeRef } from "./MouseTrackingEye";
@@ -186,6 +186,7 @@ export function ChatInput({
     const placeholderText = isReply ? "Reply..." : "Ask me anything...";
 
     const { data: settings } = useSettings();
+    const autoCollapse = useAutoCollapse();
 
     const createMessageSetPair = MessageAPI.useCreateMessageSetPair();
     const createMessage = MessageAPI.useCreateMessage();
@@ -348,6 +349,7 @@ export function ChatInput({
                 messageSetId: aiMessageSetId,
                 blockType: BLOCK_TYPE,
                 replyToModelId: replyToModelConfig?.modelId,
+                autoCollapse,
             });
         },
     });

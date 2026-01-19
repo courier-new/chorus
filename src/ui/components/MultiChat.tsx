@@ -135,7 +135,10 @@ import {
     requestPermission,
 } from "@tauri-apps/plugin-notification";
 import { useShortcutDisplay } from "@core/utilities/ShortcutsAPI";
-import { useSettings } from "./hooks/useSettings";
+import {
+    useSettings,
+    useAutoCollapse,
+} from "./hooks/useSettings";
 
 // ----------------------------------
 // Sub-components
@@ -518,12 +521,14 @@ export function UserMessageView({
     const { chatId } = useParams();
     const [isEditing, setIsEditing] = useState(false);
     const editMessage = MessageAPI.useEditMessage(chatId!, isQuickChatWindow);
+    const autoCollapse = useAutoCollapse();
 
     const saveEdit = (newText: string) => {
         editMessage.mutate({
             messageId: message.id,
             messageSetId: message.messageSetId,
             newText,
+            autoCollapse,
         });
         setIsEditing(false);
     };
@@ -1805,6 +1810,7 @@ function ToolsBlockView({
         MessageAPI.useSelectSynthesis();
 
     const synthesisShortcutDisplay = useShortcutDisplay("synthesize");
+    const autoCollapse = useAutoCollapse();
 
     const synthesisMessage = toolsBlock.synthesis;
     const canSynthesize =
@@ -1881,6 +1887,7 @@ function ToolsBlockView({
                 messageSetId,
                 modelId: modelConfigId,
                 instanceId,
+                autoCollapse,
             });
 
             dialogActions.closeDialog();
@@ -1890,6 +1897,7 @@ function ToolsBlockView({
             addMessageToToolsBlock,
             messageSetId,
             clearActiveGroup,
+            autoCollapse,
         ],
     );
 
