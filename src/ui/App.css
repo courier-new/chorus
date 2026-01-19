@@ -9,6 +9,25 @@
     inherits: false;
 }
 
+/* CSS custom properties for synthesis wrapper animations */
+@property --synthesis-message-width {
+    syntax: "<length>";
+    initial-value: 450px;
+    inherits: true;
+}
+
+@property --synthesis-message-min-width {
+    syntax: "<length>";
+    initial-value: 0px;
+    inherits: true;
+}
+
+@property --synthesis-message-margin-right {
+    syntax: "<length>";
+    initial-value: 0px;
+    inherits: true;
+}
+
 @keyframes rotateBorder {
     from {
         --border-angle: 0deg;
@@ -262,67 +281,98 @@ body {
     }
 }
 
-/* Synthesis wrapper animation - wraps both Merge button and synthesis message */
+.synthesis-wrapper {
+    --synthesis-message-min-width: 3.5rem; /* w-14 = 3.5rem (button only) */
+    --synthesis-message-margin-right: 0;
+    --synthesis-message-width: 450px;
+}
+
+.synthesis-wrapper-auto {
+    --synthesis-message-min-width: 0; /* no merge button, so no min width */
+    --synthesis-message-margin-right: -0.5rem; /* compensate for parent's gap-2 */
+    --synthesis-message-width: 450px;
+}
+
+.synthesis-wrapper-auto-full {
+    --synthesis-message-min-width: 0; /* no merge button, so no min width */
+    --synthesis-message-margin-right: -0.5rem; /* compensate for parent's gap-2 */
+    --synthesis-message-width: 600px;
+}
+
 .synthesis-wrapper-collapsed {
-    width: 3.5rem; /* w-14 = 3.5rem (button only) */
+    width: var(--synthesis-message-min-width);
 }
 
 .synthesis-wrapper-expanded {
-    width: 450px; /* synthesis message width */
+    width: var(--synthesis-message-width);
 }
 
 /* Expand animation (synthesis appearing) - fast start, slow finish */
 @keyframes synthesisWrapperExpand {
     0% {
-        width: 3.5rem;
+        width: var(--synthesis-message-min-width);
         opacity: 0;
     }
-    /* Reach ~90% of width (405px) and full opacity by 50% of time */
+    /* Reach ~90% of width and full opacity by 50% of time */
     50% {
-        width: 405px;
+        width: calc(0.9 * var(--synthesis-message-width));
         opacity: 1;
     }
     /* Slow exponential ease for final 10% of width */
     75% {
-        width: 435px;
+        width: calc(0.97 * var(--synthesis-message-width));
         opacity: 1;
     }
     90% {
-        width: 445px;
+        width: calc(0.99 * var(--synthesis-message-width));
         opacity: 1;
     }
     100% {
-        width: 450px;
+        width: var(--synthesis-message-width);
         opacity: 1;
     }
 }
 
 .synthesis-wrapper-expand {
-    animation: synthesisWrapperExpand 400ms linear forwards;
+    animation: synthesisWrapperExpand 500ms linear forwards;
 }
 
 /* Collapse animation (synthesis disappearing) - fast start, slow finish */
 @keyframes synthesisWrapperCollapse {
     0% {
-        width: 450px;
+        width: var(--synthesis-message-width);
+        margin-right: var(--synthesis-message-margin-right);
         opacity: 1;
     }
-    /* Reach ~90% of collapse (to ~101px) by 50% of time */
+    /* Reach ~90% of collapse (to ~10% of width + min) by 50% of time */
     50% {
-        width: 101px;
+        width: calc(
+            0.1 * var(--synthesis-message-width) +
+                var(--synthesis-message-min-width)
+        );
+        margin-right: calc(0.5 * var(--synthesis-message-margin-right));
         opacity: 0.5;
     }
     /* Slow exponential ease for final stretch */
     75% {
-        width: 71px;
+        width: calc(
+            0.03 * var(--synthesis-message-width) +
+                var(--synthesis-message-min-width)
+        );
+        margin-right: calc(0.25 * var(--synthesis-message-margin-right));
         opacity: 0.25;
     }
     90% {
-        width: 61px;
+        width: calc(
+            0.01 * var(--synthesis-message-width) +
+                var(--synthesis-message-min-width)
+        );
+        margin-right: calc(0.125 * var(--synthesis-message-margin-right));
         opacity: 0.1;
     }
     100% {
-        width: 3.5rem;
+        width: var(--synthesis-message-min-width);
+        margin-right: var(--synthesis-message-margin-right);
         opacity: 0;
     }
 }

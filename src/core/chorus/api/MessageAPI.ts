@@ -1439,7 +1439,7 @@ function useStopMessageStreaming() {
         },
         onSuccess: async (_data, variables, _context) => {
             await queryClient.invalidateQueries({
-                queryKey: messageKeys.messageSets(variables.messageId),
+                queryKey: messageKeys.messageSets(variables.chatId),
             });
             // invalidate to stop showing loading state
             await queryClient.invalidateQueries(
@@ -1621,7 +1621,7 @@ export function useStreamSynthesis() {
                     "Skipping synthesis because it already exists",
                     messageSetId,
                 );
-                return;
+                return { messageId: messageSet?.toolsBlock?.synthesis?.id };
             }
 
             // Get the base model config
@@ -1674,6 +1674,8 @@ export function useStreamSynthesis() {
                 synthesisModelConfigId,
                 synthesisPrompt,
             });
+
+            return { messageId };
         },
         onSuccess: async (_data, variables, _context) => {
             await queryClient.invalidateQueries({
@@ -1696,22 +1698,20 @@ export function useSelectSynthesis() {
 
     return useMutation({
         mutationKey: ["selectSynthesis"] as const,
-        mutationFn: async (_variables: {
+        mutationFn: async ({
+            chatId,
+            messageSetId,
+        }: {
             chatId: string;
             messageSetId: string;
         }) => {
-            // This is a no-op but triggers the onSuccess which will invoke synthesis
+            // invoke synthesis
+            return await streamSynthesis.mutateAsync({ chatId, messageSetId });
         },
         onSuccess: async (_data, variables, _context) => {
             // invalidate to trigger re-fetch
             await queryClient.invalidateQueries({
                 queryKey: messageKeys.messageSets(variables.chatId),
-            });
-
-            // invoke synthesis
-            await streamSynthesis.mutateAsync({
-                chatId: variables.chatId,
-                messageSetId: variables.messageSetId,
             });
         },
     });
